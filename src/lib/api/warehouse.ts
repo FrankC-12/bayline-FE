@@ -55,9 +55,22 @@ export async function createStockIn(
 
 export interface BulkLotItem {
   part_code: string;
+  part_name: string;
+  category?: string | null;
   quantity: number;
   unit_cost: number;
   location?: string | null;
+}
+
+export interface BulkLotReviewItem extends BulkLotItem { catalog_name: string | null }
+export interface BulkLotReview {
+  existing: BulkLotReviewItem[];
+  new: BulkLotReviewItem[];
+  conflicts: BulkLotReviewItem[];
+}
+
+export async function reviewBulkLots(filialId: string, warehouseId: string, items: BulkLotItem[]): Promise<BulkLotReview> {
+  return apiFetch<BulkLotReview>("/almacen/stock-in/bulk/review", { method: "POST", body: JSON.stringify({ filial_id: filialId, warehouse_id: warehouseId, items }) });
 }
 
 export interface BulkLotResult {

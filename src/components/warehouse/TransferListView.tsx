@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Plus, ArrowRight } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useWarehouses } from "@/hooks/useWarehouses";
+import { useWarehouseScope } from "@/contexts/WarehouseContext";
 import { useTransfers } from "@/hooks/useTransfers";
 import CreateTransferModal from "./CreateTransferModal";
 import { formatElapsed } from "@/lib/time";
@@ -41,13 +40,18 @@ function ElapsedLabel({ transfer }: { transfer: Transfer }) {
 }
 
 export default function TransfersListView() {
-  const { currentUser } = useAuth();
-  const filialId = currentUser?.filialId ?? null;
-
-  const { warehouses, addWarehouse } = useWarehouses(filialId);
+  const { filialId, warehouses, activeWarehouse, activeWarehouseId, createWarehouse } =
+    useWarehouseScope();
   const { transfers, loading, addTransfer, setStatus } = useTransfers(filialId);
   const [createOpen, setCreateOpen] = useState(false);
   const warehouseName = (id: string) => warehouses.find((w) => w.id === id)?.name ?? "—";
+  const visibleTransfers = activeWarehouseId
+    ? transfers.filter(
+        (transfer) =>
+          transfer.origin_warehouse_id === activeWarehouseId ||
+          transfer.destination_warehouse_id === activeWarehouseId
+      )
+    : [];
 
   return (
     <div>
@@ -64,17 +68,19 @@ export default function TransfersListView() {
         </button>
       </div>
       <p className="mb-6 text-sm text-steel">
-        Movimiento de repuestos entre almacenes · pedidos del Asesor aún pendientes no se muestran aquí
+        {activeWarehouse
+          ? `Movimientos con origen o destino en ${activeWarehouse.name}`
+          : "Selecciona o crea un almacén en la barra izquierda"}
       </p>
 
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando transferencias...</div>
-        ) : transfers.length === 0 ? (
+        ) : visibleTransfers.length === 0 ? (
           <div className="p-12 text-center text-sm text-steel">No hay órdenes de transferencia todavía.</div>
         ) : (
           <div className="divide-y divide-navy/5">
-            {transfers.map((t) => {
+            {visibleTransfers.map((t) => {
               const next = NEXT_STATUS[t.status];
               return (
                 <div key={t.id} className="flex items-center justify-between gap-4 px-6 py-4">
@@ -127,8 +133,9 @@ export default function TransfersListView() {
         onClose={() => setCreateOpen(false)}
         filialId={filialId ?? ""}
         warehouses={warehouses}
+        initialOriginId={activeWarehouseId ?? undefined}
         onSubmit={(originId, destinationId, lines) => addTransfer(originId, destinationId, lines).then(() => undefined)}
-        onCreateWarehouse={addWarehouse}
+        onCreateWarehouse={createWarehouse}
       />
     </div>
   );

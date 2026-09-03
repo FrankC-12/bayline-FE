@@ -2,23 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { Plus, Minus, Upload, Search, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useWarehouses } from "@/hooks/useWarehouses";
+import { useWarehouseScope } from "@/contexts/WarehouseContext";
 import { useInventory } from "@/hooks/useInventory";
 import { listLots } from "@/lib/api/warehouse";
 import StockInModal from "./StockInModal";
 import StockOutModal from "./StockOutModal";
 import BulkStockInModal from "./BulkStockInModal";
-import WarehousePicker from "./WarehousePicker";
 import type { PartLot } from "@/types/warehouse";
 
 export default function InventoryDashboardView() {
-  const { currentUser } = useAuth();
-  const filialId = currentUser?.filialId ?? null;
-
-  const { warehouses, addWarehouse } = useWarehouses(filialId);
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
-  const activeWarehouseId = selectedWarehouseId ?? warehouses[0]?.id ?? null;
+  const { filialId, activeWarehouse, activeWarehouseId, createWarehouse } =
+    useWarehouseScope();
 
   const [search, setSearch] = useState("");
   // Fetch the full, unfiltered inventory once so every warehouse card can show
@@ -46,16 +40,7 @@ export default function InventoryDashboardView() {
   const [expandedPartId, setExpandedPartId] = useState<string | null>(null);
   const [lotBreakdown, setLotBreakdown] = useState<PartLot[]>([]);
 
-  const warehouseSummaries = useMemo(() => {
-    return warehouses.map((w) => {
-      const rows = allInventory.filter((r) => r.warehouse_id === w.id);
-      const low = rows.filter((r) => r.quantity <= r.min_stock);
-      return { warehouse: w, itemCount: rows.length, lowCount: low.length };
-    });
-  }, [warehouses, allInventory]);
-
   const lowStockRows = tableRows.filter((row) => row.quantity <= row.min_stock);
-  const activeWarehouse = warehouses.find((w) => w.id === activeWarehouseId);
 
   async function toggleBreakdown(partId: string) {
     if (expandedPartId === partId) {
@@ -112,42 +97,7 @@ export default function InventoryDashboardView() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-        <div className="space-y-3">
-          {warehouseSummaries.map(({ warehouse, itemCount, lowCount }) => {
-            const isActive = warehouse.id === activeWarehouseId;
-            return (
-              <button
-                key={warehouse.id}
-                onClick={() => setSelectedWarehouseId(warehouse.id)}
-                className={`w-full rounded-2xl border p-5 text-left transition ${
-                  isActive ? "border-blue bg-blue-light/40" : "border-navy/10 bg-white hover:border-navy/30"
-                }`}
-              >
-                <p className="font-display text-lg font-bold text-navy">{warehouse.name}</p>
-                <p className="mt-1">
-                  <span className="font-display text-2xl font-bold text-navy">{itemCount}</span>{" "}
-                  <span className="text-sm text-steel">ítems</span>
-                </p>
-                {lowCount > 0 && (
-                  <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-amber-600">
-                    <AlertTriangle className="h-3 w-3" />
-                    {lowCount} con stock bajo
-                  </p>
-                )}
-              </button>
-            );
-          })}
-          <div className="rounded-2xl border border-dashed border-navy/20 p-4">
-            <WarehousePicker
-              warehouses={[]}
-              value=""
-              onChange={setSelectedWarehouseId}
-              onCreate={addWarehouse}
-            />
-          </div>
-        </div>
-
+      {activeWarehouse ? (
         <div>
           <div className="mb-4 flex items-center gap-3">
             <div className="relative flex-1">
@@ -230,34 +180,41 @@ export default function InventoryDashboardView() {
             )}
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-navy/20 bg-white p-12 text-center">
+          <p className="font-display text-lg font-bold text-navy">Crea tu primer almacén</p>
+          <p className="mt-1 text-sm text-steel">
+            Usa el botón de la barra izquierda para comenzar a registrar inventario.
+          </p>
+        </div>
+      )}
 
       <StockInModal
         open={stockInOpen}
         onClose={() => setStockInOpen(false)}
         filialId={filialId}
-        warehouses={warehouses}
+        warehouses={activeWarehouse ? [activeWarehouse] : []}
         defaultWarehouseId={activeWarehouseId ?? undefined}
         onSaved={refresh}
-        onCreateWarehouse={addWarehouse}
+        onCreateWarehouse={createWarehouse}
       />
       <StockOutModal
         open={stockOutOpen}
         onClose={() => setStockOutOpen(false)}
         filialId={filialId}
-        warehouses={warehouses}
+        warehouses={activeWarehouse ? [activeWarehouse] : []}
         defaultWarehouseId={activeWarehouseId ?? undefined}
         onSaved={refresh}
-        onCreateWarehouse={addWarehouse}
+        onCreateWarehouse={createWarehouse}
       />
       <BulkStockInModal
         open={bulkOpen}
         onClose={() => setBulkOpen(false)}
         filialId={filialId}
-        warehouses={warehouses}
+        warehouses={activeWarehouse ? [activeWarehouse] : []}
         defaultWarehouseId={activeWarehouseId ?? undefined}
         onSaved={refresh}
-        onCreateWarehouse={addWarehouse}
+        onCreateWarehouse={createWarehouse}
       />
     </div>
   );

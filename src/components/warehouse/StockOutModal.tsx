@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Loader2, Search } from "lucide-react";
 import { useParts } from "@/hooks/useParts";
 import { createStockOut } from "@/lib/api/warehouse";
@@ -42,6 +42,10 @@ export default function StockOutModal({
   const [reference, setReference] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) setWarehouseId(defaultWarehouseId ?? warehouses[0]?.id ?? "");
+  }, [defaultWarehouseId, open, warehouses]);
 
   const results = search && !partId
     ? parts.filter((p) => p.code.toLowerCase().includes(search.toLowerCase()) || p.name.toLowerCase().includes(search.toLowerCase())).slice(0, 6)

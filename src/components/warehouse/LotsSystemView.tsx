@@ -2,15 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useWarehouseScope } from "@/contexts/WarehouseContext";
 import { useParts } from "@/hooks/useParts";
 import { listLots } from "@/lib/api/warehouse";
 import type { PartLot } from "@/types/warehouse";
 import type { Part } from "@/types/parts";
 
 export default function LotsSystemView() {
-  const { currentUser } = useAuth();
-  const filialId = currentUser?.filialId ?? null;
+  const { filialId, activeWarehouse, activeWarehouseId } = useWarehouseScope();
 
   const { parts } = useParts(filialId);
   const [search, setSearch] = useState("");
@@ -28,16 +27,20 @@ export default function LotsSystemView() {
       return;
     }
     setLoading(true);
-    listLots(filialId, selectedPart.id).then((data) => {
+    listLots(filialId, selectedPart.id, activeWarehouseId ?? undefined).then((data) => {
       setLots(data);
       setLoading(false);
     });
-  }, [filialId, selectedPart]);
+  }, [activeWarehouseId, filialId, selectedPart]);
 
   return (
     <div>
       <h1 className="font-display text-3xl font-bold text-navy">Sistema de Lotes</h1>
-      <p className="mt-1 text-sm text-steel">Consulta de lotes FIFO por repuesto · el lote de menor número se consume primero</p>
+      <p className="mt-1 text-sm text-steel">
+        {activeWarehouse
+          ? `Lotes FIFO de ${activeWarehouse.name} · el lote de menor número se consume primero`
+          : "Selecciona o crea un almacén en la barra izquierda"}
+      </p>
 
       <div className="mt-6 flex items-center gap-3">
         <span className="whitespace-nowrap text-sm font-medium text-navy">Repuesto:</span>

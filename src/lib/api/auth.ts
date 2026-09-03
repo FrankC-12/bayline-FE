@@ -1,4 +1,4 @@
-import { apiFetch, setToken, clearToken } from "./client";
+import { apiFetch, setTokens, clearToken } from "./client";
 
 export interface LoginInput {
   email: string;
@@ -7,8 +7,10 @@ export interface LoginInput {
 
 export interface TokenResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
   expires_in: number;
+  refresh_expires_in: number;
 }
 
 export async function login(input: LoginInput): Promise<TokenResponse> {
@@ -17,7 +19,7 @@ export async function login(input: LoginInput): Promise<TokenResponse> {
     body: JSON.stringify(input),
     auth: false,
   });
-  setToken(response.access_token);
+  setTokens(response.access_token, response.refresh_token);
   return response;
 }
 

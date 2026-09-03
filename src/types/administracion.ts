@@ -30,6 +30,29 @@ export interface Supplier {
   created_at: string;
 }
 
+export type SupplierPaymentMethod = "transferencia" | "pago_movil" | "zelle" | "efectivo" | "otro";
+
+export interface SupplierPaymentAccount {
+  id?: string;
+  payment_method: SupplierPaymentMethod;
+  bank_name: string | null;
+  account_holder: string;
+  document: string | null;
+  account_number: string | null;
+  account_type: string | null;
+  currency: "usd" | "bs" | "eur";
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  is_active: boolean;
+  created_at?: string;
+}
+
+export interface SupplierDetail extends Supplier {
+  payment_accounts: SupplierPaymentAccount[];
+  purchase_history: PurchaseRequest[];
+}
+
 export interface PurchaseRequestLine {
   id: string;
   part_id: string;

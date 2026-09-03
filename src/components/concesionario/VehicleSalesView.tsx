@@ -6,6 +6,7 @@ import { useVehicles } from "@/hooks/useVehicles";
 import { useUsers } from "@/hooks/useUser";
 import { listVehicleSales } from "@/lib/api/concesionario";
 import type { VehicleSale } from "@/types/concesionario";
+import VehicleSaleDetailDrawer from "./VehicleSaleDetailDrawer";
 
 export default function VehicleSalesView() {
   const { currentUser } = useAuth();
@@ -15,6 +16,7 @@ export default function VehicleSalesView() {
   const { users } = useUsers({ filialId });
   const [sales, setSales] = useState<VehicleSale[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSale, setSelectedSale] = useState<VehicleSale | null>(null);
 
   useEffect(() => {
     if (!filialId) return;
@@ -35,7 +37,7 @@ export default function VehicleSalesView() {
     <div>
       <h1 className="font-display text-3xl font-bold text-navy">Ventas de Vehículos</h1>
       <p className="mt-1 text-sm text-steel">
-        Se generan automáticamente al marcar un vehículo como &quot;Vendido&quot; en el Dashboard
+        Se generan automáticamente al marcar un vehículo como &quot;Vendido&quot; en el catálogo
       </p>
 
       <div className="mt-6 overflow-hidden rounded-2xl border border-navy/10 bg-white">
@@ -57,7 +59,7 @@ export default function VehicleSalesView() {
             </thead>
             <tbody className="divide-y divide-navy/5">
               {sales.map((s) => (
-                <tr key={s.id} className="transition hover:bg-ash/60">
+                <tr key={s.id} onClick={() => setSelectedSale(s)} className="cursor-pointer transition hover:bg-ash/60">
                   <td className="px-6 py-4 text-steel">{new Date(s.created_at).toLocaleDateString("es-VE")}</td>
                   <td className="px-6 py-4 font-semibold text-navy">{s.client_name}</td>
                   <td className="px-6 py-4 text-navy">{vehicleLabel(s.vehicle_id)}</td>
@@ -70,6 +72,7 @@ export default function VehicleSalesView() {
           </table>
         )}
       </div>
+      <VehicleSaleDetailDrawer sale={selectedSale} vehicle={selectedSale ? vehicles.find((vehicle) => vehicle.id === selectedSale.vehicle_id) ?? null : null} advisorName={selectedSale ? advisorName(selectedSale.advisor_user_id) : "—"} onClose={() => setSelectedSale(null)} />
     </div>
   );
 }

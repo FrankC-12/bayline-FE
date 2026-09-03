@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, LayoutGrid, Gauge, TrendingUp } from "lucide-react";
+import { ChevronLeft, LayoutGrid, TrendingUp } from "lucide-react";
+import ExchangeRateCard from "./ExchangeRateCard";
 
 const NAV_ITEMS = [
   { href: "/dashboard/concesionario", label: "Catálogo de Vehículos", icon: LayoutGrid },
-  { href: "/dashboard/concesionario/dashboard", label: "Dashboard de Vehículos", icon: Gauge },
   { href: "/dashboard/concesionario/ventas", label: "Ventas de Vehículos", icon: TrendingUp },
 ];
 
@@ -39,6 +39,7 @@ export default function ConcesionarioLayout({ children }: { children: React.Reac
             );
           })}
         </nav>
+        <ExchangeRateCard />
       </aside>
 
       <div className="min-w-0 flex-1">{children}</div>

@@ -27,7 +27,6 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
 
   const [advisorId, setAdvisorId] = useState("");
   const [saleType, setSaleType] = useState("contado");
-  const [finalPrice, setFinalPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,8 +37,8 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
   }
 
   async function handleConfirm() {
-    if (!selectedClient || !finalPrice) {
-      setError("Selecciona un cliente e ingresa el precio final.");
+    if (!selectedClient || !vehicle) {
+      setError("Selecciona un cliente.");
       return;
     }
     setSubmitting(true);
@@ -50,13 +49,12 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
         client_document: `${selectedClient.document_type}-${selectedClient.document_number}`,
         advisor_user_id: advisorId || null,
         sale_type: saleType,
-        final_price: Number(finalPrice),
+        final_price: saleType === "contado" ? vehicle.cash_total : vehicle.price_financed,
       });
       setSelectedClient(null);
       setClientSearch("");
       setAdvisorId("");
       setSaleType("contado");
-      setFinalPrice("");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo registrar la venta.");
@@ -103,14 +101,16 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
                 </button>
               </div>
             ) : (
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
-                <input
-                  value={clientSearch}
-                  onChange={(e) => setClientSearch(e.target.value)}
-                  placeholder="Buscar por nombre o cédula/RIF..."
-                  className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue"
-                />
+              <div>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
+                  <input
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    placeholder="Buscar por nombre o cédula/RIF..."
+                    className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue"
+                  />
+                </div>
                 {clientSearch && (
                   <div className="mt-2 divide-y divide-navy/5 rounded-xl border border-navy/10">
                     {clients.length > 0 ? (
@@ -175,15 +175,10 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Precio final (USD)</label>
-              <input
-                type="number"
-                min="0"
-                value={finalPrice}
-                onChange={(e) => setFinalPrice(e.target.value)}
-                placeholder={String(saleType === "contado" ? vehicle.price_cash : vehicle.price_financed)}
-                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-              />
+              <label className="mb-1.5 block text-sm font-medium text-navy">Precio final ({vehicle.price_currency === "VES" ? "Bs." : "USD"})</label>
+              <div className="rounded-xl border border-navy/10 bg-ash px-4 py-2.5 text-sm font-semibold text-navy">
+                {vehicle.price_currency === "VES" ? "Bs." : "$"} {(saleType === "contado" ? vehicle.cash_total : vehicle.price_financed).toFixed(2)}
+              </div>
             </div>
           </div>
 

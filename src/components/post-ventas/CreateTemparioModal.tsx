@@ -448,14 +448,16 @@ export default function CreateTemparioModal({
                                 updatePart(i, {
                                   partId: cp.id,
                                   search: `${cp.code} · ${cp.name}`,
-                                  unitCost: String(cp.price),
+                                  unitCost: String(cp.reference_price ?? 0),
                                 })
                               }
                               className="block w-full px-3 py-1.5 text-left text-xs hover:bg-ash"
                             >
                               <span className="font-mono text-blue">{cp.code}</span>{" "}
                               <span className="text-navy">{cp.name}</span>{" "}
-                              <span className="text-steel">· ${cp.price.toFixed(2)}</span>
+                              <span className="text-steel">
+                                · ${cp.reference_price?.toFixed(2) ?? "Sin costo"}
+                              </span>
                             </button>
                           ))}
                         </div>

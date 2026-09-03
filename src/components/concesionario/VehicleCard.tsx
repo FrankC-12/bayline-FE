@@ -1,4 +1,4 @@
-import { ImageIcon, Trash2 } from "lucide-react";
+import { ChevronRight, ImageIcon, Trash2 } from "lucide-react";
 import { STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
 import type { DealershipVehicle } from "@/types/concesionario";
 
@@ -7,11 +7,12 @@ interface VehicleCardProps {
   editable?: boolean;
   onDelete?: () => void;
   onStatusChange?: (status: string) => void;
+  onClick?: () => void;
 }
 
-export default function VehicleCard({ vehicle, editable, onDelete, onStatusChange }: VehicleCardProps) {
+export default function VehicleCard({ vehicle, editable, onDelete, onStatusChange, onClick }: VehicleCardProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
+    <div onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={(event) => { if (onClick && (event.key === "Enter" || event.key === " ")) onClick(); }} className={`overflow-hidden rounded-2xl border border-navy/10 bg-white ${onClick ? "cursor-pointer transition hover:-translate-y-0.5 hover:border-blue/30 hover:shadow-md" : ""}`}>
       <div className="flex h-40 flex-col items-center justify-center gap-1.5 border-b border-dashed border-navy/15 bg-ash/60 text-steel">
         <ImageIcon className="h-6 w-6" />
         <span className="text-sm">Foto del vehículo</span>
@@ -24,7 +25,7 @@ export default function VehicleCard({ vehicle, editable, onDelete, onStatusChang
           </h3>
           {editable && onDelete && (
             <button
-              onClick={onDelete}
+              onClick={(event) => { event.stopPropagation(); onDelete(); }}
               aria-label="Eliminar vehículo"
               className="shrink-0 rounded-lg border border-navy/15 p-1.5 text-red-500 transition hover:bg-red-50"
             >
@@ -40,6 +41,7 @@ export default function VehicleCard({ vehicle, editable, onDelete, onStatusChang
           {editable && onStatusChange ? (
             <select
               value={vehicle.status}
+              onClick={(event) => event.stopPropagation()}
               onChange={(e) => onStatusChange(e.target.value)}
               className={`rounded-full border px-2.5 py-1 text-xs font-semibold outline-none ${STATUS_STYLES[vehicle.status]}`}
             >
@@ -95,6 +97,7 @@ export default function VehicleCard({ vehicle, editable, onDelete, onStatusChang
             <p className="font-display font-bold text-navy">${vehicle.price_financed.toLocaleString()}</p>
           </div>
         </div>
+        {onClick && <div className="mt-3 flex items-center justify-end gap-1 text-xs font-semibold text-blue">Ver detalle <ChevronRight className="h-3.5 w-3.5" /></div>}
       </div>
     </div>
   );

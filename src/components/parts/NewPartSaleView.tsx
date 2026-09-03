@@ -39,10 +39,10 @@ export default function NewPartSaleView() {
 
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [createClientOpen, setCreateClientOpen] = useState(false);
-  const { clients, addClient } = useClients(filialId, clientSearch || undefined);
+  const { clients, loading: clientsLoading, addClient } = useClients(filialId);
 
-  const [requestReason, setRequestReason] = useState("Venta de Repuestos");
   const [discountLabel, setDiscountLabel] = useState(DISCOUNT_OPTIONS[0]);
   const [lines, setLines] = useState<LineDraft[]>([emptyLine()]);
   const [submitting, setSubmitting] = useState(false);
@@ -52,9 +52,25 @@ export default function NewPartSaleView() {
     return lines.reduce((sum, line) => {
       const part = parts.find((p) => p.id === line.partId);
       const qty = Number(line.quantity) || 0;
-      return sum + (part ? part.price * qty : 0);
+      return sum + (part?.reference_price ?? 0) * qty;
     }, 0);
   }, [lines, parts]);
+
+  const clientResults = useMemo(() => {
+    const term = clientSearch.toLowerCase().replace(/[\s.-]/g, "");
+    if (!term) return clients.slice(0, 6);
+    return clients
+      .filter((client) => {
+        const document = `${client.document_type}${client.document_number}`.toLowerCase();
+        return (
+          client.full_name.toLowerCase().replace(/[\s.-]/g, "").includes(term) ||
+          document.replace(/[\s.-]/g, "").includes(term) ||
+          client.document_number.toLowerCase().includes(term) ||
+          client.phone_primary.replace(/\D/g, "").includes(term)
+        );
+      })
+      .slice(0, 6);
+  }, [clientSearch, clients]);
 
   function updateLine(index: number, patch: Partial<LineDraft>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
@@ -78,6 +94,7 @@ export default function NewPartSaleView() {
     const created = await addClient(input);
     setSelectedClient(created);
     setClientSearch("");
+    setClientPickerOpen(false);
   }
 
   async function handleSubmit() {
@@ -94,7 +111,6 @@ export default function NewPartSaleView() {
         filial_id: filialId,
         client_name: selectedClient.full_name,
         client_document: `${selectedClient.document_type}-${selectedClient.document_number}`,
-        request_reason: requestReason,
         discount_label: discountLabel,
         lines: validLines.map((l) => ({ part_id: l.partId, quantity: Number(l.quantity) })),
       });
@@ -145,21 +161,28 @@ export default function NewPartSaleView() {
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
                   <input
                     value={clientSearch}
-                    onChange={(e) => setClientSearch(e.target.value)}
+                    onFocus={() => setClientPickerOpen(true)}
+                    onChange={(e) => {
+                      setClientSearch(e.target.value);
+                      setClientPickerOpen(true);
+                    }}
                     placeholder="Buscar por nombre o cédula/RIF..."
                     className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
                   />
                 </div>
-                {clientSearch && (
+                {clientPickerOpen && (
                   <div className="mt-2 divide-y divide-navy/5 rounded-xl border border-navy/10">
-                    {clients.length > 0 ? (
-                      clients.slice(0, 6).map((c) => (
+                    {clientsLoading ? (
+                      <div className="px-4 py-3 text-sm text-steel">Buscando clientes...</div>
+                    ) : clientResults.length > 0 ? (
+                      clientResults.map((c) => (
                         <button
                           key={c.id}
                           type="button"
                           onClick={() => {
                             setSelectedClient(c);
                             setClientSearch("");
+                            setClientPickerOpen(false);
                           }}
                           className="block w-full px-4 py-2.5 text-left text-sm hover:bg-ash"
                         >
@@ -190,11 +213,9 @@ export default function NewPartSaleView() {
             <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">
               Motivo de solicitud
             </p>
-            <input
-              value={requestReason}
-              onChange={(e) => setRequestReason(e.target.value)}
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-            />
+            <p className="w-full rounded-xl border border-navy/10 bg-ash px-4 py-2.5 text-sm font-medium text-navy">
+              Venta de Repuestos
+            </p>
           </div>
 
           <div className="rounded-2xl border border-navy/10 bg-white p-6">
@@ -222,7 +243,7 @@ export default function NewPartSaleView() {
                           >
                             <p className="font-medium text-navy">{p.name}</p>
                             <p className="text-xs text-steel">
-                              {p.code} · ${p.price.toFixed(2)}
+                              {p.code} · ${p.reference_price?.toFixed(2) ?? "Sin costo"}
                             </p>
                           </button>
                         ))}

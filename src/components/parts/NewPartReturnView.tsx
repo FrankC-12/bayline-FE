@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParts } from "@/hooks/useParts";
 import { usePartReturns } from "@/hooks/usePartReturns";
+import { useWarehouses } from "@/hooks/useWarehouses";
 
 const CONDITIONS = [
   { value: "nuevo", label: "Nuevo/sin usar" },
@@ -21,8 +22,6 @@ const REASONS = [
   { value: "otro", label: "Otro" },
 ];
 
-const WAREHOUSE_OPTIONS = ["Almacén 1", "Almacén P2P", "Baja (merma)"];
-
 export default function NewPartReturnView() {
   const router = useRouter();
   const { currentUser } = useAuth();
@@ -30,12 +29,14 @@ export default function NewPartReturnView() {
 
   const { parts } = useParts(filialId);
   const { addReturn } = usePartReturns(filialId);
+  const { warehouses, loading: warehousesLoading } = useWarehouses(filialId);
+  const activeWarehouses = useMemo(() => warehouses.filter((warehouse) => warehouse.is_active), [warehouses]);
 
   const [search, setSearch] = useState("");
   const [partId, setPartId] = useState("");
   const [condition, setCondition] = useState("nuevo");
-  const [destination, setDestination] = useState(WAREHOUSE_OPTIONS[0]);
-  const [origin, setOrigin] = useState(WAREHOUSE_OPTIONS[0]);
+  const [destination, setDestination] = useState("");
+  const [origin, setOrigin] = useState("");
   const [quantity, setQuantity] = useState("0");
   const [reason, setReason] = useState("pedido_en_exceso");
   const [notes, setNotes] = useState("");
@@ -48,9 +49,19 @@ export default function NewPartReturnView() {
     return parts.filter((p) => p.code.toLowerCase().includes(t) || p.name.toLowerCase().includes(t)).slice(0, 6);
   }, [search, parts, partId]);
 
+  useEffect(() => {
+    if (activeWarehouses.length === 0) {
+      setOrigin("");
+      setDestination("");
+      return;
+    }
+    setOrigin((current) => current || activeWarehouses[0].name);
+    setDestination((current) => current || activeWarehouses[0].name);
+  }, [activeWarehouses]);
+
   async function handleSubmit() {
-    if (!filialId || !partId || Number(quantity) <= 0) {
-      setError("Selecciona un repuesto y una cantidad mayor a 0.");
+    if (!filialId || !partId || !origin || !destination || Number(quantity) <= 0) {
+      setError("Selecciona un repuesto, los almacenes y una cantidad mayor a 0.");
       return;
     }
     setSubmitting(true);
@@ -147,11 +158,15 @@ export default function NewPartReturnView() {
               onChange={(e) => setDestination(e.target.value)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
             >
-              {WAREHOUSE_OPTIONS.map((w) => (
-                <option key={w} value={w}>
-                  {w}
+              <option value="" disabled>
+                {warehousesLoading ? "Cargando almacenes..." : "Selecciona un almacén"}
+              </option>
+              {activeWarehouses.map((warehouse) => (
+                <option key={warehouse.id} value={warehouse.name}>
+                  {warehouse.name}
                 </option>
               ))}
+              <option value="Baja (merma)">Baja (merma)</option>
             </select>
           </div>
           <div>
@@ -161,9 +176,12 @@ export default function NewPartReturnView() {
               onChange={(e) => setOrigin(e.target.value)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
             >
-              {WAREHOUSE_OPTIONS.map((w) => (
-                <option key={w} value={w}>
-                  {w}
+              <option value="" disabled>
+                {warehousesLoading ? "Cargando almacenes..." : "Selecciona un almacén"}
+              </option>
+              {activeWarehouses.map((warehouse) => (
+                <option key={warehouse.id} value={warehouse.name}>
+                  {warehouse.name}
                 </option>
               ))}
             </select>
@@ -194,6 +212,13 @@ export default function NewPartReturnView() {
           </div>
         </div>
 
+        {!warehousesLoading && activeWarehouses.length === 0 && (
+          <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            No existen almacenes activos en esta filial. Debes crear uno antes de registrar una
+            devolución.
+          </p>
+        )}
+
         <div>
           <label className="mb-1.5 block text-sm font-medium text-navy">Especifica el motivo</label>
           <textarea
@@ -214,7 +239,7 @@ export default function NewPartReturnView() {
 
         <button
           onClick={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || warehousesLoading || activeWarehouses.length === 0}
           className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
         >
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

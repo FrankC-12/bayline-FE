@@ -21,11 +21,15 @@ function parseTextRows(text: string): BulkPartItem[] {
       return {
         code: cols[0] ?? "",
         name: cols[1] ?? "",
-        price: Number(cols[2]) || 0,
-        stock_quantity: cols[3] !== undefined ? Number(cols[3]) || 0 : 0,
+        category: cols[2] ?? "",
+        brand: cols[3] ?? "",
+        application: cols[4] ?? "",
+        unit: cols[5] ?? "",
       };
     })
-    .filter((item) => item.code && item.name);
+    .filter(
+      (item) => item.code && item.name && item.category && item.brand && item.application && item.unit
+    );
 }
 
 export default function BulkImportPartsModal({ open, onClose, onImport }: BulkImportPartsModalProps) {
@@ -58,10 +62,15 @@ export default function BulkImportPartsModal({ open, onClose, onImport }: BulkIm
         .map((row) => ({
           code: String(row[0] ?? "").trim(),
           name: String(row[1] ?? "").trim(),
-          price: Number(row[2]) || 0,
-          stock_quantity: row[3] !== undefined ? Number(row[3]) || 0 : 0,
+          category: String(row[2] ?? "").trim(),
+          brand: String(row[3] ?? "").trim(),
+          application: String(row[4] ?? "").trim(),
+          unit: String(row[5] ?? "").trim(),
         }))
-        .filter((item) => item.code && item.name);
+        .filter(
+          (item) =>
+            item.code && item.name && item.category && item.brand && item.application && item.unit
+        );
       setItems(parsed);
     } catch {
       setError("No se pudo leer el archivo. Verifica que sea un Excel (.xlsx) o CSV válido.");
@@ -152,14 +161,16 @@ export default function BulkImportPartsModal({ open, onClose, onImport }: BulkIm
               <div>
                 <p className="mb-2 text-xs text-steel">
                   Una línea por repuesto:{" "}
-                  <span className="font-mono">código, nombre, precio, cantidad (opcional)</span>
+                  <span className="font-mono">
+                    código, nombre, categoría, marca, aplicación, unidad
+                  </span>
                 </p>
                 <textarea
                   value={textValue}
                   onChange={(e) => handleTextChange(e.target.value)}
                   rows={8}
                   placeholder={
-                    "08880-83840, Aceite motor 5W-30 (L), 9.50, 40\n90915-YZZD4, Filtro de aceite, 7.20, 22"
+                    "08880-83840, Aceite 5W-30, Lubricantes, Toyota, Hilux 2018-2025, Litro\n90915-YZZD4, Filtro de aceite, Filtros, Toyota, Universal, Unidad"
                   }
                   className="w-full rounded-xl border border-navy/15 px-4 py-2.5 font-mono text-xs outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
                 />
@@ -167,8 +178,8 @@ export default function BulkImportPartsModal({ open, onClose, onImport }: BulkIm
             ) : (
               <div>
                 <p className="mb-2 text-xs text-steel">
-                  Archivo .xlsx o .csv con columnas: Código, Nombre, PVP, Cantidad (opcional) — la
-                  primera fila se asume encabezado.
+                  Archivo .xlsx o .csv con columnas: Código, Nombre, Categoría, Marca, Aplicación y
+                  Unidad. La primera fila se asume encabezado.
                 </p>
                 <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-navy/20 px-4 py-8 text-center transition hover:border-blue/40 hover:bg-blue-light">
                   <Upload className="h-6 w-6 text-steel" />
@@ -192,8 +203,9 @@ export default function BulkImportPartsModal({ open, onClose, onImport }: BulkIm
                       <tr>
                         <th className="px-3 py-2 font-mono uppercase text-steel">Código</th>
                         <th className="px-3 py-2 font-mono uppercase text-steel">Nombre</th>
-                        <th className="px-3 py-2 font-mono uppercase text-steel">PVP</th>
-                        <th className="px-3 py-2 font-mono uppercase text-steel">Cant.</th>
+                        <th className="px-3 py-2 font-mono uppercase text-steel">Categoría</th>
+                        <th className="px-3 py-2 font-mono uppercase text-steel">Marca</th>
+                        <th className="px-3 py-2 font-mono uppercase text-steel">Unidad</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-navy/5">
@@ -201,8 +213,9 @@ export default function BulkImportPartsModal({ open, onClose, onImport }: BulkIm
                         <tr key={i}>
                           <td className="px-3 py-1.5 font-mono text-blue">{item.code}</td>
                           <td className="px-3 py-1.5 text-navy">{item.name}</td>
-                          <td className="px-3 py-1.5 text-navy">${item.price.toFixed(2)}</td>
-                          <td className="px-3 py-1.5 text-navy">{item.stock_quantity ?? 0}</td>
+                          <td className="px-3 py-1.5 text-navy">{item.category}</td>
+                          <td className="px-3 py-1.5 text-navy">{item.brand}</td>
+                          <td className="px-3 py-1.5 text-navy">{item.unit}</td>
                         </tr>
                       ))}
                     </tbody>

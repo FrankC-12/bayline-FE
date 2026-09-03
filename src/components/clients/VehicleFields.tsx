@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { formatThousands, stripThousands } from "@/lib/format";
 import type { VehicleFormValue } from "@/types/client-form";
+import { normalizeVenezuelaPlate, validateVenezuelaPlate } from "@/lib/venezuela-plate";
 
 const BODY_TYPES = ["Sedán", "Pick-up", "SUV", "Camión", "Van", "Moto", "Otro"];
 const FUEL_TYPES = [
@@ -37,8 +38,8 @@ interface VehicleFieldsProps {
 export default function VehicleFields({ index, value, onChange, onRemove, canRemove }: VehicleFieldsProps) {
   const vinLength = value.vin.length;
   const vinInvalid = vinLength > 0 && vinLength !== 17;
-  const plateLength = value.plate.length;
-  const plateInvalid = plateLength > 0 && plateLength !== 8;
+  const normalizedPlate = normalizeVenezuelaPlate(value.plate);
+  const plateInvalid = normalizedPlate.length > 0 && !validateVenezuelaPlate(value.plate).valid;
 
   return (
     <div className="rounded-2xl border border-dashed border-navy/20 bg-ash/50 p-6">
@@ -142,12 +143,14 @@ export default function VehicleFields({ index, value, onChange, onRemove, canRem
         <div>
           <label className="mb-1 flex items-center justify-between text-xs font-medium text-navy">
             Placa
-            <span className={plateInvalid ? "text-red-600" : "text-steel"}>{plateLength}/8</span>
+            <span className={plateInvalid ? "text-red-600" : "text-steel"}>
+              {plateInvalid ? "Formato no válido" : "Venezuela"}
+            </span>
           </label>
           <input
             value={value.plate}
-            onChange={(e) => onChange(index, { plate: e.target.value.toUpperCase().slice(0, 8) })}
-            placeholder="ABC-1234"
+            onChange={(e) => onChange(index, { plate: e.target.value.toUpperCase().replace(/[^A-Z0-9 .-]/g, "").slice(0, 10) })}
+            placeholder="AB123CD"
             className={`w-full rounded-lg border px-3 py-2 font-mono text-sm uppercase outline-none focus:ring-2 ${
               plateInvalid
                 ? "border-red-400 focus:border-red-500 focus:ring-red-100"

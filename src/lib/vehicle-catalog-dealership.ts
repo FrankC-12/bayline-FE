@@ -7,6 +7,10 @@ export const BRAND_MODELS: Record<string, string[]> = {
   Chevrolet: ["Aveo", "Spark", "Captiva", "Silverado"],
 };
 
+export const VEHICLE_COLORS = [
+  "Blanco", "Negro", "Gris", "Plata", "Azul", "Rojo", "Verde", "Beige", "Marrón", "Amarillo", "Naranja",
+];
+
 export const STATUS_OPTIONS: { value: VehicleStatus; label: string }[] = [
   { value: "en_transito", label: "En tránsito" },
   { value: "disponible", label: "Entrega Inmediata" },

@@ -34,24 +34,24 @@ export function useParts(filialId: string | null, search?: string) {
 
   const addPart = useCallback(async (input: CreatePartInput) => {
     const created = await createPart(input);
-    setParts((prev) => [...prev, created]);
+    await load();
     return created;
-  }, []);
+  }, [load]);
 
   const editPart = useCallback(async (id: string, input: UpdatePartInput) => {
     const updated = await updatePart(id, input);
-    setParts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    await load();
     return updated;
-  }, []);
+  }, [load]);
 
   const bulkAddParts = useCallback(
     async (items: BulkPartItem[]) => {
       if (!filialId) throw new Error("No filial selected.");
       const result = await bulkCreateParts(filialId, items);
-      setParts((prev) => [...prev, ...result.created]);
+      await load();
       return result;
     },
-    [filialId]
+    [filialId, load]
   );
 
   return { parts, loading, addPart, editPart, bulkAddParts, refresh: load };

@@ -7,7 +7,10 @@ import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { usePurchaseRequests } from "@/hooks/usePurchaseRequests";
+import { formatVenezuelanPhone } from "@/lib/format";
 import CreateSupplierModal from "./CreateSuppliermodal";
+import SupplierDetailDrawer from "./SupplierDetailDrawer";
+import type { Supplier } from "@/types/administracion";
 import type { PurchaseRequestStatus } from "@/types/administracion";
 
 const REQUEST_STATUS_LABELS: Record<PurchaseRequestStatus, string> = {
@@ -48,10 +51,11 @@ export default function ComprasProveedoresView() {
 
   const [search, setSearch] = useState("");
   const { requests, loading: loadingRequests } = usePurchaseRequests(filialId, search || undefined);
-  const { suppliers, loading: loadingSuppliers, addSupplier } = useSuppliers(filialId, tab === "proveedores" ? search || undefined : undefined);
+  const { suppliers, loading: loadingSuppliers, addSupplier, refresh: refreshSuppliers } = useSuppliers(filialId, tab === "proveedores" ? search || undefined : undefined);
   const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.business_name ?? "—";
 
   const [createSupplierOpen, setCreateSupplierOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
 
   return (
     <div>
@@ -177,7 +181,7 @@ export default function ComprasProveedoresView() {
                 </thead>
                 <tbody className="divide-y divide-navy/5">
                   {suppliers.map((s) => (
-                    <tr key={s.id} className="transition hover:bg-ash/60">
+                    <tr key={s.id} onClick={() => setSelectedSupplier(s)} className="cursor-pointer transition hover:bg-ash/60">
                       <td className="px-6 py-4 font-semibold text-navy">{s.business_name}</td>
                       <td className="px-6 py-4 font-mono text-steel">{s.rif}</td>
                       <td className="px-6 py-4">
@@ -186,7 +190,9 @@ export default function ComprasProveedoresView() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-steel">{s.contact_person ?? "—"}</td>
-                      <td className="px-6 py-4 text-steel">{s.phone ?? "—"}</td>
+                      <td className="px-6 py-4 text-steel">
+                        {s.phone ? formatVenezuelanPhone(s.phone) : "—"}
+                      </td>
                       <td className="px-6 py-4">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${s.status === "activo" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                           {s.status === "activo" ? "Activo" : "Inactivo"}
@@ -209,6 +215,7 @@ export default function ComprasProveedoresView() {
           onSubmit={addSupplier}
         />
       )}
+      <SupplierDetailDrawer supplier={selectedSupplier} onClose={() => setSelectedSupplier(null)} onUpdated={(updated) => { void refreshSuppliers(); setSelectedSupplier(updated); }} />
     </div>
   );
 }

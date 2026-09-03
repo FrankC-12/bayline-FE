@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Loader2, Plus, Search } from "lucide-react";
 import { useParts } from "@/hooks/useParts";
 import { createStockIn } from "@/lib/api/warehouse";
 import WarehousePicker from "./WarehousePicker";
 import type { Warehouse } from "@/types/warehouse";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
-const REASONS = ["Compra directa", "Ajuste de inventario", "Devolución de cliente", "Otro"];
+const DEFAULT_REASONS = ["Ajuste de inventario", "Devolución de cliente", "Otro"];
 
 interface LineDraft {
   partId: string;
@@ -40,12 +41,29 @@ export default function StockInModal({
   onSaved,
   onCreateWarehouse,
 }: StockInModalProps) {
+  const { canEdit } = useModuleAccess("almacen");
   const { parts } = useParts(filialId);
   const [warehouseId, setWarehouseId] = useState(defaultWarehouseId ?? warehouses[0]?.id ?? "");
-  const [reason, setReason] = useState(REASONS[0]);
+  const [reasons, setReasons] = useState(DEFAULT_REASONS);
+  const [reason, setReason] = useState(DEFAULT_REASONS[0]);
+  const [otherReason, setOtherReason] = useState("");
+  const [editingReasons, setEditingReasons] = useState(false);
+  const [newReason, setNewReason] = useState("");
   const [lines, setLines] = useState<LineDraft[]>([emptyLine()]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setWarehouseId(defaultWarehouseId ?? warehouses[0]?.id ?? "");
+      try {
+        const saved = localStorage.getItem("bayline.stockInReasons");
+        if (saved) setReasons(JSON.parse(saved) as string[]);
+      } catch {
+        // Keep default reasons.
+      }
+    }
+  }, [defaultWarehouseId, open, warehouses]);
 
   function updateLine(index: number, patch: Partial<LineDraft>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
@@ -60,8 +78,8 @@ export default function StockInModal({
   async function handleSubmit() {
     const wh = warehouseId || warehouses[0]?.id;
     const validLines = lines.filter((l) => l.partId && Number(l.quantity) > 0);
-    if (!wh || validLines.length === 0) {
-      setError("Selecciona un almacén y al menos un repuesto con cantidad.");
+    if (!wh || validLines.length === 0 || (reason === "Otro" && !otherReason.trim())) {
+      setError("Selecciona almacén, motivo y al menos un repuesto con cantidad.");
       return;
     }
     setSubmitting(true);
@@ -70,7 +88,7 @@ export default function StockInModal({
       await createStockIn(
         filialId,
         wh,
-        reason,
+        reason === "Otro" ? otherReason.trim() : reason,
         validLines.map((l) => ({
           part_id: l.partId,
           quantity: Number(l.quantity),
@@ -116,18 +134,20 @@ export default function StockInModal({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Motivo</label>
+              <div className="mb-1.5 flex items-center justify-between"><label className="block text-sm font-medium text-navy">Motivo</label>{canEdit && <button type="button" onClick={() => setEditingReasons((value) => !value)} className="rounded-full border border-blue/25 px-2 py-0.5 text-sm font-semibold text-blue">+</button>}</div>
               <select
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
               >
-                {REASONS.map((r) => (
+                {reasons.map((r) => (
                   <option key={r} value={r}>
                     {r}
                   </option>
                 ))}
               </select>
+              {reason === "Otro" && <input value={otherReason} onChange={(event) => setOtherReason(event.target.value)} placeholder="Escribe el motivo de entrada" className="mt-2 w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue" />}
+              {editingReasons && <div className="mt-2 rounded-xl border border-navy/10 bg-ash p-3"><div className="flex gap-2"><input value={newReason} onChange={(event) => setNewReason(event.target.value)} placeholder="Nuevo motivo" className="min-w-0 flex-1 rounded-lg border border-navy/15 bg-white px-3 py-2 text-xs" /><button type="button" onClick={() => { const value = newReason.trim(); if (!value || reasons.some((item) => item.toLowerCase() === value.toLowerCase())) return; const next = [...reasons.filter((item) => item !== "Otro"), value, "Otro"]; setReasons(next); setReason(value); setNewReason(""); localStorage.setItem("bayline.stockInReasons", JSON.stringify(next)); }} className="rounded-lg bg-blue px-3 text-xs font-semibold text-white">Agregar</button></div><div className="mt-2 flex flex-wrap gap-1">{reasons.filter((item) => !DEFAULT_REASONS.includes(item)).map((item) => <button type="button" key={item} onClick={() => { const next = reasons.filter((reasonItem) => reasonItem !== item); setReasons(next); if (reason === item) setReason(next[0]); localStorage.setItem("bayline.stockInReasons", JSON.stringify(next)); }} className="rounded-full bg-white px-2 py-1 text-[10px] text-red-600">{item} ×</button>)}</div></div>}
             </div>
           </div>
 

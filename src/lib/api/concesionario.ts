@@ -17,6 +17,24 @@ export interface CreateVehicleInput {
   price_cash: number;
   price_financed: number;
   cost_price?: number | null;
+  price_currency?: "USD" | "VES";
+  iva_percentage?: number;
+  igtf_percentage?: number;
+  luxury_tax_percentage?: number;
+  financing_provider?: string | null;
+}
+
+export interface ExchangeRate {
+  currency: "USD" | "EUR";
+  rate_ves: number;
+  value_date: string;
+  source: string;
+  fetched_at: string;
+}
+
+export async function getLatestExchangeRates(): Promise<ExchangeRate[]> {
+  const response = await apiFetch<{ rates: ExchangeRate[] }>("/exchange-rates/latest");
+  return response.rates;
 }
 
 export interface VehicleSaleInput {

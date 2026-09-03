@@ -10,6 +10,14 @@ export function stripThousands(value: string): string {
   return value.replace(/\D/g, "");
 }
 
+/** Keeps a monetary value editable with up to two decimals, accepting comma or dot. */
+export function formatMoneyInput(value: string): string {
+  const normalized = value.replace(/,/g, ".").replace(/[^\d.]/g, "");
+  const [integer = "", ...decimalParts] = normalized.split(".");
+  const decimal = decimalParts.join("").slice(0, 2);
+  return decimalParts.length ? `${integer}.${decimal}` : integer;
+}
+
 /** Formats digits as a Venezuelan phone: "04141234567" -> "(0414) 123-4567" */
 export function formatVenezuelanPhone(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 11);

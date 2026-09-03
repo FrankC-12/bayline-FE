@@ -7,6 +7,8 @@ import type {
   ProfitabilityReport,
   PurchaseRequest,
   Supplier,
+  SupplierDetail,
+  SupplierPaymentAccount,
   SupplierClaim,
 } from "@/types/administracion";
 
@@ -28,6 +30,11 @@ export interface CreateSupplierInput {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
+  payment_accounts?: Omit<SupplierPaymentAccount, "id" | "created_at">[];
+}
+
+export async function getSupplier(id: string): Promise<SupplierDetail> {
+  return apiFetch<SupplierDetail>(`/suppliers/${id}`);
 }
 
 export async function createSupplier(input: CreateSupplierInput): Promise<Supplier> {

@@ -1,4 +1,3 @@
-export type PartAvailability = "disponible" | "agotado";
 export type PartSaleStatus = "pendiente" | "pedido" | "completado" | "cancelado";
 export type ReturnCondition = "nuevo" | "usado" | "defectuoso";
 export type ReturnReason = "pedido_en_exceso" | "defectuoso" | "repuesto_incorrecto" | "otro";
@@ -8,10 +7,12 @@ export interface Part {
   filial_id: string;
   code: string;
   name: string;
-  price: number;
-  stock_quantity: number;
-  min_stock: number;
-  availability: PartAvailability;
+  category: string;
+  brand: string;
+  application: string;
+  unit: string;
+  stock_total: number;
+  reference_price: number | null;
   created_at: string;
   updated_at: string;
 }

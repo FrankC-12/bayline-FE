@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useWarehouses } from "@/hooks/useWarehouses";
+import { useWarehouseScope } from "@/contexts/WarehouseContext";
 import { useParts } from "@/hooks/useParts";
 import { useUsers } from "@/hooks/useUser";
 import { listMovements } from "@/lib/api/warehouse";
@@ -39,10 +38,7 @@ function signedQuantity(movement: StockMovement): string {
 }
 
 export default function MovementsHistoryView() {
-  const { currentUser } = useAuth();
-  const filialId = currentUser?.filialId ?? null;
-
-  const { warehouses } = useWarehouses(filialId);
+  const { filialId, warehouses, activeWarehouse, activeWarehouseId } = useWarehouseScope();
   const { parts } = useParts(filialId);
   const { users } = useUsers({ filialId });
 
@@ -54,11 +50,11 @@ export default function MovementsHistoryView() {
   useEffect(() => {
     if (!filialId) return;
     setLoading(true);
-    listMovements(filialId).then((data) => {
+    listMovements(filialId, undefined, activeWarehouseId ?? undefined).then((data) => {
       setMovements(data);
       setLoading(false);
     });
-  }, [filialId]);
+  }, [activeWarehouseId, filialId]);
 
   const partById = (id: string) => parts.find((p) => p.id === id);
   const warehouseName = (id: string) => warehouses.find((w) => w.id === id)?.name ?? "—";
@@ -87,7 +83,11 @@ export default function MovementsHistoryView() {
   return (
     <div>
       <h1 className="font-display text-3xl font-bold text-navy">Historial de Movimientos</h1>
-      <p className="mt-1 text-sm text-steel">Entradas, salidas, transferencias y devoluciones de inventario</p>
+      <p className="mt-1 text-sm text-steel">
+        {activeWarehouse
+          ? `Entradas, salidas, transferencias y devoluciones de ${activeWarehouse.name}`
+          : "Selecciona o crea un almacén en la barra izquierda"}
+      </p>
 
       <div className="mt-6 mb-4 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[240px]">

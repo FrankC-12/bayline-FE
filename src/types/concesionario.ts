@@ -21,6 +21,16 @@ export interface DealershipVehicle {
   price_cash: number;
   price_financed: number;
   cost_price: number | null;
+  price_currency: "USD" | "VES";
+  iva_percentage: number;
+  igtf_percentage: number;
+  luxury_tax_percentage: number;
+  iva_amount: number;
+  igtf_amount: number;
+  luxury_tax_amount: number;
+  cash_total: number;
+  financing_provider: string | null;
+  financing_external_id: string | null;
   images: string[];
   created_at: string;
   updated_at: string;
@@ -28,6 +38,7 @@ export interface DealershipVehicle {
 
 export interface VehicleSale {
   id: string;
+  code: string;
   vehicle_id: string;
   client_name: string;
   client_document: string | null;

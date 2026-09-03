@@ -2,7 +2,12 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { decodeJwtPayload, isTokenExpired, type DecodedToken } from "@/lib/auth/jwt";
-import { getToken, clearToken } from "@/lib/api/client";
+import {
+  AUTH_SESSION_EXPIRED_EVENT,
+  clearToken,
+  getToken,
+  refreshAccessToken,
+} from "@/lib/api/client";
 import { login as loginRequest, logout as logoutRequest } from "@/lib/api/auth";
 import type { CurrentUser, RoleScope } from "@/types/auth";
 
@@ -32,25 +37,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
-    try {
-      const decoded = decodeJwtPayload(token);
-      if (isTokenExpired(decoded)) {
+    let active = true;
+
+    const restoreSession = async () => {
+      try {
+        let token = getToken();
+        if (!token) throw new Error("No access token available.");
+
+        let decoded = decodeJwtPayload(token);
+        if (isTokenExpired(decoded)) {
+          token = await refreshAccessToken();
+          decoded = decodeJwtPayload(token);
+        }
+        if (active) setCurrentUser(mapDecodedToCurrentUser(decoded));
+      } catch {
         clearToken();
-        setCurrentUser(null);
-      } else {
-        setCurrentUser(mapDecodedToCurrentUser(decoded));
+        if (active) setCurrentUser(null);
+      } finally {
+        if (active) setIsLoading(false);
       }
-    } catch {
-      clearToken();
+    };
+
+    const handleSessionExpired = () => {
       setCurrentUser(null);
-    } finally {
       setIsLoading(false);
-    }
+    };
+
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired);
+    void restoreSession();
+
+    return () => {
+      active = false;
+      window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired);
+    };
   }, []);
 
   async function login(email: string, password: string): Promise<CurrentUser> {

@@ -80,7 +80,7 @@ export default function TransfersCard({
                     <span className="text-navy">{p.name}</span>
                   </span>
                   <span className="text-xs text-steel">
-                    ${p.price.toFixed(2)} · stock {p.stock_quantity}
+                    ${p.reference_price?.toFixed(2) ?? "Sin costo"} · stock {p.stock_total}
                   </span>
                 </button>
               ))}
