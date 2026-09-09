@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePartSales } from "@/hooks/usePartSales";
@@ -29,6 +30,7 @@ const WAREHOUSE_LABELS: Record<string, string> = {
 };
 
 export default function PartSalesListView() {
+  const router = useRouter();
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
@@ -95,7 +97,11 @@ export default function PartSalesListView() {
             </thead>
             <tbody className="divide-y divide-navy/5">
               {sales.map((s) => (
-                <tr key={s.id} className="transition hover:bg-ash/60">
+                <tr
+                  key={s.id}
+                  onClick={() => router.push(`/dashboard/repuestos/ventas/${s.id}`)}
+                  className="cursor-pointer transition hover:bg-ash/60"
+                >
                   <td className="px-6 py-4 font-mono font-semibold text-blue">{s.code}</td>
                   <td className="px-6 py-4 font-medium text-navy">{s.client_name}</td>
                   <td className="px-6 py-4 text-steel">

@@ -70,12 +70,31 @@ export async function listPartSales(filialId: string, search?: string): Promise<
   return apiFetch<PartSale[]>(`/part-sales?${query.toString()}`);
 }
 
+export async function getPartSale(id: string): Promise<PartSale> {
+  return apiFetch<PartSale>(`/part-sales/${id}`);
+}
+
 export async function createPartSale(input: CreatePartSaleInput): Promise<PartSale> {
   return apiFetch<PartSale>("/part-sales", { method: "POST", body: JSON.stringify(input) });
 }
 
-export async function updatePartSaleStatus(id: string, status: string): Promise<PartSale> {
-  return apiFetch<PartSale>(`/part-sales/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+export interface DispatchLineInput {
+  line_id: string;
+  dispatched_quantity: number;
+}
+
+export async function updatePartSaleStatus(
+  id: string,
+  status: string,
+  dispatchedLines?: DispatchLineInput[]
+): Promise<PartSale> {
+  return apiFetch<PartSale>(`/part-sales/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      status,
+      ...(dispatchedLines ? { dispatched_lines: dispatchedLines } : {}),
+    }),
+  });
 }
 
 export interface CreatePartReturnInput {

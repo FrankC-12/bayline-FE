@@ -25,6 +25,7 @@ export interface PartSaleLine {
   unit_cost: number | null;
   warehouse_id: string | null;
   line_total: number;
+  dispatched_quantity: number | null;
   allocations: { lot_id: string; quantity: number; unit_cost: number }[];
 }
 
