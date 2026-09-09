@@ -25,10 +25,6 @@ const STATUS_STYLES: Record<ClaimStatus, string> = {
   resuelto: "bg-emerald-100 text-emerald-700",
 };
 
-function statusLabel(status: ClaimStatus) {
-  return STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
-}
-
 export default function SupplierClaimsView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;

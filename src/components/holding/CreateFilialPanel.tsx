@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { slugify } from "@/lib/slug";
 import type { Filial } from "@/types/filial";
-import type { CreateFilialInput } from "@/lib/api/filiales";
 
 interface CreateFilialPanelProps {
   open: boolean;

@@ -34,7 +34,8 @@ export default function ClientsView() {
 
   async function handleSubmit(input: CreateClientInput) {
     if (editingClient) {
-      const { filial_id: _filialId, ...rest } = input;
+      const { filial_id: _omitFilialId, ...rest } = input;
+      void _omitFilialId;
       await editClient(editingClient.id, rest);
     } else {
       await addClient(input);

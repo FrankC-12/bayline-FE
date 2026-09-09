@@ -35,7 +35,9 @@ export default function TemparioListView() {
 
   async function handleSubmit(input: Parameters<typeof addTempario>[0]) {
     if (editingTempario) {
-      const { category: _category, filial_id: _filialId, ...rest } = input;
+      const { category: _omitCategory, filial_id: _omitFilialId, ...rest } = input;
+      void _omitCategory;
+      void _omitFilialId;
       await editTempario(editingTempario.id, rest);
     } else {
       await addTempario(input);
