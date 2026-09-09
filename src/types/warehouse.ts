@@ -64,7 +64,7 @@ export interface InventoryRow {
   warehouse_id: string;
   warehouse_name: string;
   quantity: number;
-  average_cost: number | null;
+  fifo_unit_cost: number | null;
   location: string | null;
   min_stock: number;
 }

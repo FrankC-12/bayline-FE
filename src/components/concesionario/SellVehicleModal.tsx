@@ -9,6 +9,7 @@ import type { Client } from "@/types/client";
 import type { CreateClientInput } from "@/lib/api/clients";
 import type { VehicleSaleInput } from "@/lib/api/concesionario";
 import type { DealershipVehicle } from "@/types/concesionario";
+import { formatDocumentId } from "@/lib/format";
 
 interface SellVehicleModalProps {
   open: boolean;
@@ -89,7 +90,7 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
                 <div>
                   <p className="font-medium text-navy">{selectedClient.full_name}</p>
                   <p className="font-mono text-xs text-steel">
-                    {selectedClient.document_type}-{selectedClient.document_number}
+                    {formatDocumentId(selectedClient.document_type, selectedClient.document_number)}
                   </p>
                 </div>
                 <button
@@ -126,7 +127,7 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
                         >
                           <p className="font-medium text-navy">{c.full_name}</p>
                           <p className="font-mono text-xs text-steel">
-                            {c.document_type}-{c.document_number}
+                            {formatDocumentId(c.document_type, c.document_number)}
                           </p>
                         </button>
                       ))

@@ -22,6 +22,10 @@ export interface PartSaleLine {
   part_id: string;
   quantity: number;
   unit_price: number;
+  unit_cost: number | null;
+  warehouse_id: string | null;
+  line_total: number;
+  allocations: { lot_id: string; quantity: number; unit_cost: number }[];
 }
 
 export interface PartSale {
@@ -50,5 +54,6 @@ export interface PartReturn {
   reason: ReturnReason;
   reason_notes: string | null;
   responsible_user_id: string;
+  photo_urls: string[];
   created_at: string;
 }

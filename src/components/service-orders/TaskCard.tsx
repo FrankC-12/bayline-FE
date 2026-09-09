@@ -7,13 +7,14 @@ import type { ServiceOrderTask } from "@/types/serviceOrder";
 
 interface TasksCardProps {
   filialId: string;
+  readOnly?: boolean;
   tasks: ServiceOrderTask[];
   onAdd: (temparioId: string) => Promise<void>;
   onToggleStatus: (taskId: string, status: "pendiente" | "completada") => Promise<void>;
   onRemove: (taskId: string) => Promise<void>;
 }
 
-export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRemove }: TasksCardProps) {
+export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRemove, readOnly = false }: TasksCardProps) {
   const [search, setSearch] = useState("");
   const { temparios } = useTemparios(filialId, search || undefined);
   const [adding, setAdding] = useState(false);
@@ -21,6 +22,7 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRe
   const results = search ? temparios.slice(0, 6) : [];
 
   async function handleAdd(temparioId: string) {
+    if (readOnly) return;
     setAdding(true);
     try {
       await onAdd(temparioId);
@@ -42,16 +44,17 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRe
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          disabled={adding}
+          disabled={adding || readOnly}
           placeholder="Agregar tarea — código (MP-501) o nombre..."
           className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 disabled:opacity-60"
         />
-        {results.length > 0 && (
+        {!readOnly && results.length > 0 && (
           <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">
             {results.map((t) => (
               <button
                 key={t.id}
                 type="button"
+                    disabled={readOnly || adding}
                 onClick={() => handleAdd(t.id)}
                 className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-ash"
               >
@@ -90,6 +93,7 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRe
                 <td className="py-2.5">
                   <button
                     type="button"
+                    disabled={readOnly || adding}
                     onClick={() =>
                       onToggleStatus(
                         task.id,
@@ -111,6 +115,7 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRe
                 <td className="py-2.5 text-right">
                   <button
                     type="button"
+                    disabled={readOnly || adding}
                     onClick={() => onRemove(task.id)}
                     aria-label="Quitar tarea"
                     className="rounded-lg p-1.5 text-steel hover:bg-red-50 hover:text-red-500"

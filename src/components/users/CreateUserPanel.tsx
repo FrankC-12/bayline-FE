@@ -205,9 +205,8 @@ export default function CreateUserPanel({
                 onChange={handlePermissionChange}
               />
               <p className="mt-2 text-xs text-steel">
-                Nota: hoy un permiso individual solo puede <span className="font-medium">otorgar</span>{" "}
-                ver/editar por encima del rol — todavía no se puede quitar acceso a un módulo que el rol
-                ya habilita para todos.
+                Un permiso individual puede tanto <span className="font-medium">otorgar</span> como{" "}
+                <span className="font-medium">revocar</span> acceso a un módulo respecto de lo que trae el rol.
               </p>
             </div>
 

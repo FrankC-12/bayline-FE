@@ -7,12 +7,20 @@ import type { ServiceOrder } from "@/types/serviceOrder";
 export function useServiceOrder(id: string) {
   const [order, setOrder] = useState<ServiceOrder | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const data = await getServiceOrder(id);
-    setOrder(data);
-    setLoading(false);
+    setError(null);
+    try {
+      const data = await getServiceOrder(id);
+      setOrder(data);
+    } catch (err) {
+      setOrder(null);
+      setError(err instanceof Error ? err.message : "No se pudo cargar la orden.");
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
   useEffect(() => {
@@ -28,5 +36,5 @@ export function useServiceOrder(id: string) {
     [id]
   );
 
-  return { order, loading, update, refresh: load };
+  return { order, loading, error, update, refresh: load };
 }

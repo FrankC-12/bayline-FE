@@ -7,6 +7,7 @@ import { useVehicles } from "@/hooks/useVehicles";
 import VehicleCard from "./VehicleCard";
 import AddVehicleModal from "./AddVehicleModal";
 import SellVehicleModal from "./SellVehicleModal";
+import EmptyState from "@/components/common/EmptyState";
 import type { DealershipVehicle } from "@/types/concesionario";
 import type { VehicleSaleInput } from "@/lib/api/concesionario";
 
@@ -92,9 +93,10 @@ export default function VehicleDashboardView() {
           Cargando inventario...
         </div>
       ) : vehicles.length === 0 ? (
-        <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center text-sm text-steel">
-          No hay vehículos en el catálogo.
-        </div>
+        <EmptyState
+          compact
+          title={search ? `Sin resultados para "${search}"` : "No hay vehículos en el catálogo."}
+        />
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {vehicles.map((v) => (

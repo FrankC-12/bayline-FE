@@ -1,9 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { X } from "lucide-react";
 import { formatThousands, stripThousands } from "@/lib/format";
 import type { VehicleFormValue } from "@/types/client-form";
 import { normalizeVenezuelaPlate, validateVenezuelaPlate } from "@/lib/venezuela-plate";
+
+function formatVisitDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-VE", { day: "numeric", month: "long", year: "numeric" });
+}
 
 const BODY_TYPES = ["Sedán", "Pick-up", "SUV", "Camión", "Van", "Moto", "Otro"];
 const FUEL_TYPES = [
@@ -106,7 +111,7 @@ export default function VehicleFields({ index, value, onChange, onRemove, canRem
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-navy">Último kilometraje</label>
+          <label className="mb-1 block text-xs font-medium text-navy">Kilometraje de registro</label>
           <input
             inputMode="numeric"
             value={formatThousands(value.mileage)}
@@ -114,6 +119,26 @@ export default function VehicleFields({ index, value, onChange, onRemove, canRem
             placeholder="0"
             className="w-full rounded-lg border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
           />
+          {value.currentMileage != null && (
+            <p className="mt-1 text-[11px] text-steel">
+              Actual: {value.currentMileage.toLocaleString()} km
+              {value.currentMileageVisitDate && (
+                <>
+                  {" · "}
+                  {value.currentMileageServiceOrderId ? (
+                    <Link
+                      href={`/dashboard/servicios/${value.currentMileageServiceOrderId}`}
+                      className="text-blue hover:underline"
+                    >
+                      actualizado en visita del {formatVisitDate(value.currentMileageVisitDate)}
+                    </Link>
+                  ) : (
+                    <>actualizado en visita del {formatVisitDate(value.currentMileageVisitDate)}</>
+                  )}
+                </>
+              )}
+            </p>
+          )}
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-navy">Fecha de compra</label>

@@ -1,21 +1,46 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Search } from "lucide-react";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
+import { useInspections } from "@/hooks/useInspections";
+import { useUsers } from "@/hooks/useUser";
+import { useRoles } from "@/hooks/useRoles";
+
+export interface CreateOrderExtra {
+  intake_mileage: number;
+  customer_reason: string;
+  advisor_user_id: string;
+  promised_at: string;
+}
 
 interface CreateOrderPanelProps {
   open: boolean;
   onClose: () => void;
   filialId: string;
-  onSubmit: (vehicleId: string, orderType: "regular" | "mpt") => Promise<void>;
+  onSubmit: (
+    vehicleId: string,
+    orderType: "regular" | "mpt",
+    extra: CreateOrderExtra,
+    inspectionId?: string
+  ) => Promise<void>;
 }
 
 export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: CreateOrderPanelProps) {
   const { clients } = useVehicleLookup(filialId);
+  const { inspections: unlinkedInspections } = useInspections(filialId, true);
+  const { users } = useUsers({ filialId });
+  const { roles } = useRoles("filial");
+  const advisorRoleId = roles.find((r) => r.slug === "asesor")?.id;
+  const advisors = users.filter((u) => u.role_id === advisorRoleId);
+
   const [search, setSearch] = useState("");
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [orderType, setOrderType] = useState<"regular" | "mpt">("regular");
+  const [mileage, setMileage] = useState("");
+  const [customerReason, setCustomerReason] = useState("");
+  const [advisorUserId, setAdvisorUserId] = useState("");
+  const [promisedAt, setPromisedAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,14 +66,70 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
     return entries.slice(0, 8);
   }, [search, clients, selectedVehicleId]);
 
+  const matchedInspection = useMemo(() => {
+    if (!selectedVehicleId) return null;
+    const candidates = unlinkedInspections
+      .filter((i) => i.vehicle_id === selectedVehicleId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return candidates[0] ?? null;
+  }, [unlinkedInspections, selectedVehicleId]);
+
+  useEffect(() => {
+    if (matchedInspection) {
+      setMileage(matchedInspection.mileage != null ? String(matchedInspection.mileage) : "");
+      setCustomerReason(matchedInspection.notes ?? "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchedInspection?.id]);
+
+  function selectVehicle(vehicleId: string, label: string) {
+    setSelectedVehicleId(vehicleId);
+    setSearch(label);
+    setMileage("");
+    setCustomerReason("");
+  }
+
   async function handleSubmit() {
-    if (!selectedVehicleId) return;
+    if (!selectedVehicleId) {
+      setError("Selecciona un vehículo.");
+      return;
+    }
+    if (mileage === "" || Number(mileage) < 0) {
+      setError("Ingresa el kilometraje de ingreso.");
+      return;
+    }
+    if (!customerReason.trim()) {
+      setError("Ingresa el motivo o síntoma reportado por el cliente.");
+      return;
+    }
+    if (!advisorUserId) {
+      setError("Selecciona el asesor responsable.");
+      return;
+    }
+    if (!promisedAt) {
+      setError("Selecciona la fecha prometida de entrega.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit(selectedVehicleId, orderType);
+      await onSubmit(
+        selectedVehicleId,
+        orderType,
+        {
+          intake_mileage: Number(mileage),
+          customer_reason: customerReason.trim(),
+          advisor_user_id: advisorUserId,
+          promised_at: promisedAt,
+        },
+        matchedInspection?.id
+      );
       setSearch("");
       setSelectedVehicleId(null);
+      setMileage("");
+      setCustomerReason("");
+      setAdvisorUserId("");
+      setPromisedAt("");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear la ODS.");
@@ -103,10 +184,7 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
                   <button
                     key={r.vehicleId}
                     type="button"
-                    onClick={() => {
-                      setSelectedVehicleId(r.vehicleId);
-                      setSearch(r.label);
-                    }}
+                    onClick={() => selectVehicle(r.vehicleId, r.label)}
                     className="block w-full px-4 py-2.5 text-left text-sm transition hover:bg-ash"
                   >
                     <p className="font-medium text-navy">{r.label}</p>
@@ -119,14 +197,80 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Tipo de orden</label>
+            {/* "mpt" (Garantías) stays hidden here on purpose — there is no
+                Garantías/MPT module or screen behind it yet (/dashboard/mpt
+                and /dashboard/garantias both 404). Re-add the option once
+                that module exists; existing orders can still hold "mpt" via
+                the API/DB, this only stops new ones from being created with
+                no workflow behind them. */}
             <select
               value={orderType}
               onChange={(e) => setOrderType(e.target.value as "regular" | "mpt")}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
             >
               <option value="regular">Regular</option>
-              <option value="mpt">MPT</option>
             </select>
+          </div>
+
+          {matchedInspection && (
+            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+              Kilometraje y motivo heredados de la Inspección Preliminar del{" "}
+              {new Date(matchedInspection.created_at).toLocaleDateString("es-VE")} — puedes editarlos.
+            </p>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-navy">Kilometraje de ingreso</label>
+              <input
+                type="number"
+                min="0"
+                value={mileage}
+                onChange={(e) => setMileage(e.target.value)}
+                placeholder="0"
+                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-navy">Fecha prometida de entrega</label>
+              <input
+                type="date"
+                value={promisedAt}
+                onChange={(e) => setPromisedAt(e.target.value)}
+                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">Asesor responsable</label>
+            <select
+              value={advisorUserId}
+              onChange={(e) => setAdvisorUserId(e.target.value)}
+              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+            >
+              <option value="" disabled>
+                Selecciona un asesor
+              </option>
+              {advisors.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Motivo o síntoma reportado por el cliente
+            </label>
+            <textarea
+              value={customerReason}
+              onChange={(e) => setCustomerReason(e.target.value)}
+              rows={3}
+              placeholder="Ej: Ruido en frenos delanteros al frenar..."
+              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+            />
           </div>
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}

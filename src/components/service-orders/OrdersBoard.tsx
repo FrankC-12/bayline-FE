@@ -11,7 +11,7 @@ import { useUsers } from "@/hooks/useUser";
 import { updateInspection } from "@/lib/api/inspections";
 import type { ServiceOrder, ServiceOrderStatus } from "@/types/serviceOrder";
 import OrderCard from "./OrderCard";
-import CreateOrderPanel from "./CreateOrderPanel";
+import CreateOrderPanel, { type CreateOrderExtra } from "./CreateOrderPanel";
 
 const COLUMNS: { status: ServiceOrderStatus; label: string; dot: string }[] = [
   { status: "pendiente", label: "Pendiente", dot: "bg-amber-500" },
@@ -39,9 +39,19 @@ export default function OrdersBoard() {
     return grouped;
   }, [orders]);
 
-  async function handleCreate(vehicleId: string, orderType: "regular" | "mpt", inspectionId?: string) {
+  async function handleCreate(
+    vehicleId: string,
+    orderType: "regular" | "mpt",
+    extra: CreateOrderExtra,
+    inspectionId?: string
+  ) {
     if (!filialId) return;
-    const created = await addOrder({ filial_id: filialId, vehicle_id: vehicleId, order_type: orderType });
+    const created = await addOrder({
+      filial_id: filialId,
+      vehicle_id: vehicleId,
+      order_type: orderType,
+      ...extra,
+    });
     if (inspectionId) {
       await updateInspection(inspectionId, { service_order_id: created.id });
     }

@@ -19,6 +19,10 @@ export interface Vehicle {
   upholstery: string | null;
   fuel_type: FuelType | null;
   transmission: TransmissionType | null;
+  current_mileage: number | null;
+  current_mileage_visit_date: string | null;
+  current_mileage_service_order_id: string | null;
+  current_mileage_service_order_code: string | null;
 }
 
 export interface Client {

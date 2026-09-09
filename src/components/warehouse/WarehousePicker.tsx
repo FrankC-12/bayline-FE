@@ -34,7 +34,7 @@ export default function WarehousePicker({ warehouses, value, onChange, onCreate,
     <div>
       {label && <label className="mb-1.5 block text-sm font-medium text-navy">{label}</label>}
       {warehouses.length === 0 && !adding && (
-        <p className="mb-2 text-xs text-steel">Todavía no tenés almacenes creados.</p>
+        <p className="mb-2 text-xs text-steel">Todavía no tienes almacenes creados.</p>
       )}
       <div className="flex flex-wrap items-center gap-2">
         {warehouses.map((w) => (

@@ -8,6 +8,7 @@ import { useVehicleSales } from "@/hooks/useVehicleSales";
 import { useParts } from "@/hooks/useParts";
 import { useVehicles } from "@/hooks/useVehicles";
 import { useUsers } from "@/hooks/useUser";
+import EmptyState from "@/components/common/EmptyState";
 
 export default function VentasView() {
   const { currentUser } = useAuth();
@@ -31,6 +32,7 @@ export default function VentasView() {
     return v ? `${v.brand} ${v.model} ${v.year}` : "—";
   };
   const advisorName = (id: string | null) => (id ? users.find((u) => u.id === id)?.full_name ?? "—" : "—");
+  const isFiltered = !!(search || dateFrom || dateTo);
 
   function inRange(isoDate: string) {
     const d = isoDate.slice(0, 10);
@@ -121,7 +123,10 @@ export default function VentasView() {
           {loadingPartSales ? (
             <div className="p-12 text-center text-sm text-steel">Cargando ventas...</div>
           ) : filteredPartSales.length === 0 ? (
-            <div className="p-12 text-center text-sm text-steel">No hay ventas que coincidan.</div>
+            <EmptyState
+              compact
+              title={isFiltered ? "Sin resultados para este filtro." : "No hay ventas de repuestos registradas."}
+            />
           ) : (
             <table className="w-full text-left text-sm">
               <thead className="border-b border-navy/10 bg-ash">
@@ -169,7 +174,10 @@ export default function VentasView() {
           {loadingVehicleSales ? (
             <div className="p-12 text-center text-sm text-steel">Cargando ventas...</div>
           ) : filteredVehicleSales.length === 0 ? (
-            <div className="p-12 text-center text-sm text-steel">No hay ventas que coincidan.</div>
+            <EmptyState
+              compact
+              title={isFiltered ? "Sin resultados para este filtro." : "No hay ventas de vehículos registradas."}
+            />
           ) : (
             <table className="w-full text-left text-sm">
               <thead className="border-b border-navy/10 bg-ash">

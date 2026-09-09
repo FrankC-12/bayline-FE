@@ -12,6 +12,11 @@ export interface VehicleFormValue {
   upholstery: string;
   fuelType: string;
   transmission: string;
+  /** Read-only, informational — sourced from the latest visit, not submitted. */
+  currentMileage?: number | null;
+  currentMileageVisitDate?: string | null;
+  currentMileageServiceOrderId?: string | null;
+  currentMileageServiceOrderCode?: string | null;
 }
 
 export function emptyVehicle(): VehicleFormValue {

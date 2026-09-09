@@ -8,6 +8,7 @@ import { useServiceOrders } from "@/hooks/useServiceOrders";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUsers } from "@/hooks/useUser";
 import type { Upsell } from "@/types/upsells";
+import EmptyState from "@/components/common/EmptyState";
 
 const STATUS_LABELS: Record<string, string> = {
   pospuesto: "Pospuesto",
@@ -60,6 +61,7 @@ export default function UpsellsView() {
   }, [resolved, search, orders, vehicleMap, users]);
 
   async function handleAction(upsell: Upsell, status: string) {
+    if (!orderById(upsell.service_order_id) || (!!orderById(upsell.service_order_id)!.invoiced_at || ["orden_cerrada", "cancelado"].includes(orderById(upsell.service_order_id)!.status))) return;
     setActingId(upsell.id);
     try {
       await setStatus(upsell.id, status);
@@ -127,21 +129,21 @@ export default function UpsellsView() {
                     <div className="flex shrink-0 items-center gap-2">
                       <button
                         onClick={() => handleAction(u, "rechazado")}
-                        disabled={actingId === u.id}
+                        disabled={actingId === u.id || !orderById(u.service_order_id) || (!!orderById(u.service_order_id)!.invoiced_at || ["orden_cerrada", "cancelado"].includes(orderById(u.service_order_id)!.status))}
                         className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                       >
                         Rechazar
                       </button>
                       <button
                         onClick={() => handleAction(u, "pospuesto")}
-                        disabled={actingId === u.id}
+                        disabled={actingId === u.id || !orderById(u.service_order_id) || (!!orderById(u.service_order_id)!.invoiced_at || ["orden_cerrada", "cancelado"].includes(orderById(u.service_order_id)!.status))}
                         className="rounded-full border border-navy/15 px-4 py-2 text-sm font-semibold text-navy transition hover:bg-ash disabled:opacity-50"
                       >
                         Posponer
                       </button>
                       <button
                         onClick={() => handleAction(u, "aprobado")}
-                        disabled={actingId === u.id}
+                        disabled={actingId === u.id || !orderById(u.service_order_id) || (!!orderById(u.service_order_id)!.invoiced_at || ["orden_cerrada", "cancelado"].includes(orderById(u.service_order_id)!.status))}
                         className="flex items-center gap-1.5 rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-50"
                       >
                         {actingId === u.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
@@ -169,7 +171,10 @@ export default function UpsellsView() {
             </div>
 
             {filteredResolved.length === 0 ? (
-              <div className="p-8 text-center text-sm text-steel">No hay upsells en el histórico.</div>
+              <EmptyState
+                compact
+                title={search ? `Sin resultados para "${search}"` : "No hay upsells en el histórico."}
+              />
             ) : (
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-navy/10">
@@ -214,7 +219,7 @@ export default function UpsellsView() {
         <CreateUpsellModal
           open={createOpen}
           onClose={() => setCreateOpen(false)}
-          orders={orders}
+          orders={orders.filter((order) => !order.invoiced_at && !["orden_cerrada", "cancelado"].includes(order.status))}
           currentUserId={currentUser?.userId ?? null}
           onSubmit={addUpsell}
         />

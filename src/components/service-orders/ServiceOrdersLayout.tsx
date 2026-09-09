@@ -2,25 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
-import { ChevronLeft, FileText, CheckSquare, ClipboardList, Calendar } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUpsells } from "@/hooks/useUpsells";
-
-interface NavItem {
-  href: string;
-  label: string;
-  icon: LucideIcon | null;
-  indent?: boolean;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard/servicios", label: "Órdenes de Servicio", icon: FileText },
-  { href: "/dashboard/servicios/historial", label: "Historial de Órdenes", icon: null, indent: true },
-  { href: "/dashboard/servicios/upsells", label: "Upsells", icon: CheckSquare },
-  { href: "/dashboard/servicios/inspecciones", label: "Inspecciones Prelim.", icon: ClipboardList },
-  { href: "/dashboard/servicios/calendario", label: "Calendario del Taller", icon: Calendar },
-];
+import { NAV_ITEMS } from "./nav-items";
 
 export default function ServiceOrdersLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

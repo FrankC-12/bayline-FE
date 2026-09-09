@@ -7,6 +7,7 @@ import type { LaborSettings } from "@/types/tempario";
 export function useLaborSettings(filialId: string | null) {
   const [settings, setSettings] = useState<LaborSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!filialId) {
@@ -15,9 +16,16 @@ export function useLaborSettings(filialId: string | null) {
       return;
     }
     setLoading(true);
-    const data = await getLaborSettings(filialId);
-    setSettings(data);
-    setLoading(false);
+    setError(null);
+    try {
+      const data = await getLaborSettings(filialId);
+      setSettings(data);
+    } catch (err) {
+      setSettings(null);
+      setError(err instanceof Error ? err.message : "No se pudo cargar Ajustes.");
+    } finally {
+      setLoading(false);
+    }
   }, [filialId]);
 
   useEffect(() => {
@@ -34,5 +42,5 @@ export function useLaborSettings(filialId: string | null) {
     [filialId]
   );
 
-  return { settings, loading, save, refresh: load };
+  return { settings, loading, error, save, refresh: load };
 }

@@ -29,11 +29,10 @@ export function buildPermissionMap(
 /**
  * Returns only the modules where the current map differs from the role's default.
  *
- * NOTE: the backend's UserModulePermission can only store "ver" or "editar" — there's
- * no "sin_acceso" value in that table. So a per-user override can only GRANT access
- * above the role's default; it can't yet REVOKE access the role already grants.
- * If the person picks "Sin acceso" for a module the role already allows, we silently
- * drop that from what gets sent (the UI copy explains this in CreateUserPanel).
+ * A per-user override can both GRANT access above the role's default and
+ * REVOKE access the role already grants — "sin_acceso" is a real value the
+ * backend's UserModulePermission can store, it just always means "explicit
+ * override that denies this module," never a valid RoleModulePermission.
  */
 export function diffFromRole(
   permissionMap: Record<string, UIAccessLevel>,
@@ -44,7 +43,6 @@ export function diffFromRole(
 
   for (const [moduleId, access] of Object.entries(permissionMap)) {
     if (access === roleMap[moduleId]) continue;
-    if (access === "sin_acceso") continue; // not representable by the backend yet
     diffs.push({ module_id: moduleId, access });
   }
 

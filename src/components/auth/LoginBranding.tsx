@@ -14,7 +14,7 @@ export default function LoginBranding() {
       <div className="relative">
         <span className="font-display text-2xl font-bold text-white">Bayline</span>
         <h1 className="mt-10 max-w-md font-display text-3xl font-bold leading-tight text-white">
-          Entrá al tablero de control de tu operación
+          Entra al tablero de control de tu operación
         </h1>
         <ul className="mt-8 space-y-3">
           {highlights.map((h) => (

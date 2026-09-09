@@ -15,6 +15,7 @@ interface ScheduleOrderModalProps {
   hours: number[];
   bays: Bay[];
   technicians: AppUser[];
+  advisors: AppUser[];
   onSubmit: (input: CreateServiceOrderInput) => Promise<void>;
 }
 
@@ -26,6 +27,7 @@ export default function ScheduleOrderModal({
   hours,
   bays,
   technicians,
+  advisors,
   onSubmit,
 }: ScheduleOrderModalProps) {
   const { clients } = useVehicleLookup(filialId);
@@ -36,6 +38,10 @@ export default function ScheduleOrderModal({
   const [bayId, setBayId] = useState("");
   const [technicianId, setTechnicianId] = useState("");
   const [notes, setNotes] = useState("");
+  const [mileage, setMileage] = useState("");
+  const [customerReason, setCustomerReason] = useState("");
+  const [advisorId, setAdvisorId] = useState("");
+  const [promisedAt, setPromisedAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,6 +69,22 @@ export default function ScheduleOrderModal({
 
   async function handleSubmit() {
     if (!selectedVehicleId || !date || !time) return;
+    if (mileage === "" || Number(mileage) < 0) {
+      setError("Ingresa el kilometraje de ingreso.");
+      return;
+    }
+    if (!customerReason.trim()) {
+      setError("Ingresa el motivo o síntoma reportado por el cliente.");
+      return;
+    }
+    if (!advisorId) {
+      setError("Selecciona el asesor responsable.");
+      return;
+    }
+    if (!promisedAt) {
+      setError("Selecciona la fecha prometida de entrega.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -73,6 +95,10 @@ export default function ScheduleOrderModal({
         bay_id: bayId || null,
         technician_user_id: technicianId || null,
         notes: notes || null,
+        intake_mileage: Number(mileage),
+        customer_reason: customerReason.trim(),
+        advisor_user_id: advisorId,
+        promised_at: promisedAt,
       });
       setSearch("");
       setSelectedVehicleId(null);
@@ -80,6 +106,10 @@ export default function ScheduleOrderModal({
       setBayId("");
       setTechnicianId("");
       setNotes("");
+      setMileage("");
+      setCustomerReason("");
+      setAdvisorId("");
+      setPromisedAt("");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo agendar la orden.");
@@ -200,6 +230,60 @@ export default function ScheduleOrderModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">Asesor responsable</label>
+            <select
+              value={advisorId}
+              onChange={(e) => setAdvisorId(e.target.value)}
+              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+            >
+              <option value="" disabled>
+                Selecciona un asesor
+              </option>
+              {advisors.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-navy">Kilometraje de ingreso</label>
+              <input
+                type="number"
+                min="0"
+                value={mileage}
+                onChange={(e) => setMileage(e.target.value)}
+                placeholder="0"
+                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-navy">Fecha prometida de entrega</label>
+              <input
+                type="date"
+                value={promisedAt}
+                onChange={(e) => setPromisedAt(e.target.value)}
+                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Motivo o síntoma reportado por el cliente
+            </label>
+            <textarea
+              value={customerReason}
+              onChange={(e) => setCustomerReason(e.target.value)}
+              rows={2}
+              placeholder="Ej: Ruido en frenos delanteros al frenar..."
+              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+            />
           </div>
 
           <div>

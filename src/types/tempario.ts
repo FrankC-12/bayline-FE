@@ -51,5 +51,7 @@ export interface LaborSettings {
   igtf_percentage: number;
   iva_percentage: number;
   bcv_rate: number;
+  bcv_rate_date: string | null;
+  bcv_rate_is_stale: boolean;
   updated_at: string;
 }

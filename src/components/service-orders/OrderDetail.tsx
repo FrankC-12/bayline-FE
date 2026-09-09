@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Clock } from "lucide-react";
+import { AlertTriangle, ChevronLeft, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useServiceOrder } from "@/hooks/useServiceOrder";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
@@ -15,6 +16,8 @@ import { useOrderSummary } from "@/hooks/useOrderSummary";
 import TasksCard from "./TaskCard";
 import TransfersCard from "./TransferCard";
 import PriceSummaryCard from "./PriceSummaryCard";
+import BillingModal from "./BillingModal";
+import { closeServiceOrder } from "@/lib/api/serviceOrderBilling";
 import { formatElapsed } from "@/lib/time";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -44,36 +47,80 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
-  const { order, loading, update } = useServiceOrder(orderId);
+  const { order, loading, error, update, refresh: refreshOrder } = useServiceOrder(orderId);
   const { vehicleMap } = useVehicleLookup(filialId);
   const { users } = useUsers({ filialId });
   const { roles } = useRoles("filial");
   const { bays } = useBays(filialId);
   const { inspection, link } = useInspectionForOrder(order?.id ?? null);
   const { inspections: unlinkedInspections } = useInspections(filialId, true);
-  const { summary, addTask, toggleTaskStatus, removeTask, addTransferLine, markOrdered } =
+  const { summary, refresh: refreshSummary, addTask, toggleTaskStatus, removeTask, addTransferLine, markOrdered } =
     useOrderSummary(order?.id ?? null);
   const [saving, setSaving] = useState(false);
+  const [billingOpen, setBillingOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const technicianRoleId = roles.find((r) => r.slug === "tecnico")?.id;
   const technicians = users.filter((u) => u.role_id === technicianRoleId);
 
-  if (loading || !order) {
+  if (loading) {
     return <div className="p-12 text-center text-sm text-steel">Cargando orden...</div>;
   }
 
+  if (error || !order) {
+    return (
+      <div className="mx-auto max-w-lg px-6 py-20 text-center">
+        <AlertTriangle className="mx-auto h-10 w-10 text-amber-500" />
+        <h1 className="mt-4 font-display text-xl font-bold text-navy">No se pudo cargar la orden</h1>
+        <p className="mt-2 text-sm text-steel">
+          La orden de servicio no existe, fue eliminada, o el enlace es inválido.
+        </p>
+        <Link
+          href="/dashboard/servicios"
+          className="mt-6 inline-flex items-center gap-1.5 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Volver a Órdenes de Servicio
+        </Link>
+      </div>
+    );
+  }
+
   const info = vehicleMap.get(order.vehicle_id);
+  const readOnly = !!order.invoiced_at || order.status === "orden_cerrada" || order.status === "cancelado";
+
+  async function finishOrder() {
+    if (!order?.invoiced_at || order.status !== "completado") return;
+    setSaving(true); setActionError(null);
+    try { await closeServiceOrder(orderId); await refreshOrder(); await refreshSummary(); }
+    catch (err) { setActionError(err instanceof Error ? err.message : "No se pudo cerrar la orden."); }
+    finally { setSaving(false); }
+  }
 
   async function transition(status: string) {
+    if (readOnly) return;
     setSaving(true);
     try {
       await update({ status });
+      await refreshSummary();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function changeDiscount(discount_label: import("@/lib/partsPricing").DiscountLabel) {
+    if (readOnly) return;
+    setSaving(true);
+    try {
+      await update({ discount_label });
+      await refreshSummary();
     } finally {
       setSaving(false);
     }
   }
 
   async function assignTechnician(value: string) {
+    if (readOnly) return;
     setSaving(true);
     try {
       await update(value === "" ? { clear_technician: true } : { technician_user_id: value });
@@ -83,6 +130,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   }
 
   async function assignBay(value: string) {
+    if (readOnly) return;
     setSaving(true);
     try {
       await update(value === "" ? { clear_bay: true } : { bay_id: value });
@@ -129,7 +177,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           {order.status === "pendiente" && (
             <button
               onClick={() => transition("en_progreso")}
-              disabled={saving}
+              disabled={saving || readOnly}
               className="rounded-full bg-blue px-5 py-2 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-60"
             >
               Iniciar
@@ -138,30 +186,63 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           {order.status === "en_progreso" && (
             <button
               onClick={() => transition("completado")}
-              disabled={saving}
+              disabled={saving || readOnly}
               className="rounded-full bg-blue px-5 py-2 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-60"
             >
               Marcar como completado
             </button>
           )}
-          {order.status === "completado" && (
-            <button
-              onClick={() => transition("orden_cerrada")}
-              disabled={saving}
-              className="rounded-full bg-navy px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue disabled:opacity-60"
-            >
-              Facturar
+          {order.status === "completado" && <>
+            <button onClick={() => setBillingOpen(true)} disabled={saving}
+              className="rounded-full bg-blue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">
+              {order.invoiced_at ? "Ver factura y cobro" : "Facturar"}
             </button>
-          )}
+            <button onClick={finishOrder} disabled={saving || !order.invoiced_at}
+              title={!order.invoiced_at ? "Primero debes facturar y registrar el cobro" : undefined}
+              className="rounded-full bg-navy px-5 py-2 text-sm font-semibold text-white disabled:opacity-40">
+              Cerrar orden
+            </button>
+          </>}
+          {order.status === "orden_cerrada" && order.invoiced_at && <button onClick={() => setBillingOpen(true)}
+            className="rounded-full border border-blue px-5 py-2 text-sm font-semibold text-blue">Ver factura y cobro</button>}
+          {actionError && <p role="alert" className="w-full text-sm text-red-600">{actionError}</p>}
           {(order.status === "pendiente" || order.status === "en_progreso") && (
             <button
               onClick={() => transition("cancelado")}
-              disabled={saving}
+              disabled={saving || readOnly}
               className="rounded-full border border-red-200 px-5 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
             >
               Cancelar orden
             </button>
           )}
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-navy/10 bg-white p-6">
+        <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">Datos de recepción</p>
+        <div className="grid gap-4 sm:grid-cols-4">
+          <div>
+            <p className="text-xs text-steel">Kilometraje de ingreso</p>
+            <p className="mt-0.5 text-sm font-semibold text-navy">
+              {order.intake_mileage != null ? `${order.intake_mileage.toLocaleString("es-VE")} km` : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-steel">Asesor responsable</p>
+            <p className="mt-0.5 text-sm font-semibold text-navy">
+              {users.find((u) => u.id === order.advisor_user_id)?.full_name ?? "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-steel">Fecha prometida de entrega</p>
+            <p className="mt-0.5 text-sm font-semibold text-navy">
+              {order.promised_at ? new Date(`${order.promised_at}T12:00:00`).toLocaleDateString("es-VE") : "—"}
+            </p>
+          </div>
+          <div className="sm:col-span-1">
+            <p className="text-xs text-steel">Motivo del cliente</p>
+            <p className="mt-0.5 text-sm font-semibold text-navy">{order.customer_reason ?? "—"}</p>
+          </div>
         </div>
       </div>
 
@@ -171,6 +252,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             Técnico asignado
           </p>
           <select
+            disabled={readOnly || saving}
             value={order.technician_user_id ?? ""}
             onChange={(e) => assignTechnician(e.target.value)}
             className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
@@ -187,6 +269,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             Bahía a utilizar
           </p>
           <select
+            disabled={readOnly || saving}
             value={order.bay_id ?? ""}
             onChange={(e) => assignBay(e.target.value)}
             className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
@@ -246,7 +329,8 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
                   {candidates.map((c) => (
                     <button
                       key={c.id}
-                      onClick={() => link(c.id)}
+                      disabled={readOnly || saving}
+                      onClick={() => { if (!readOnly) void link(c.id); }}
                       className="flex w-full items-center justify-between rounded-xl border border-navy/10 px-3 py-2 text-left text-sm transition hover:bg-ash"
                     >
                       <span className="text-steel">
@@ -266,9 +350,13 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         </div>
       </div>
 
+      {readOnly && <p role="status" className="mt-6 rounded-xl bg-ash px-4 py-3 text-sm text-steel">
+        Esta orden es de solo lectura.{(order.invoiced_at || order.status === "orden_cerrada") ? " El precio quedó congelado al facturar." : ""}
+      </p>}
       {filialId && (
         <div className="mt-6">
           <TasksCard
+            readOnly={readOnly || saving}
             filialId={filialId}
             tasks={summary?.tasks ?? []}
             onAdd={addTask}
@@ -281,14 +369,17 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
       {filialId && (
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
           <TransfersCard
+            readOnly={readOnly || saving}
             filialId={filialId}
             transfers={summary?.transfers ?? []}
             onAddLine={addTransferLine}
             onMarkOrdered={markOrdered}
           />
-          {summary && <PriceSummaryCard summary={summary} totalAmount={order.total_amount} />}
+          {summary && <PriceSummaryCard summary={summary} totalAmount={order.total_amount} onDiscountChange={changeDiscount} saving={saving} readOnly={readOnly} />}
         </div>
       )}
+      {billingOpen && <BillingModal orderId={orderId} orderCode={order.code} invoiced={!!order.invoiced_at}
+        onClose={() => setBillingOpen(false)} onInvoiced={async () => { await refreshOrder(); await refreshSummary(); }} />}
     </div>
   );
 }

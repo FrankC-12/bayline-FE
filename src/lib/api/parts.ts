@@ -57,6 +57,7 @@ export async function bulkCreateParts(filialId: string, items: BulkPartItem[]): 
 
 export interface CreatePartSaleInput {
   filial_id: string;
+  warehouse_id: string;
   client_name: string;
   client_document?: string | null;
   discount_label?: string;
@@ -86,6 +87,7 @@ export interface CreatePartReturnInput {
   quantity: number;
   reason: string;
   reason_notes?: string | null;
+  photos: File[];
 }
 
 export async function listPartReturns(filialId: string): Promise<PartReturn[]> {
@@ -93,5 +95,24 @@ export async function listPartReturns(filialId: string): Promise<PartReturn[]> {
 }
 
 export async function createPartReturn(input: CreatePartReturnInput): Promise<PartReturn> {
-  return apiFetch<PartReturn>("/part-returns", { method: "POST", body: JSON.stringify(input) });
+  const { photos, ...fields } = input;
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== null && value !== undefined) form.append(key, String(value));
+  }
+  for (const photo of photos) form.append("photos", photo);
+  return apiFetch<PartReturn>("/part-returns", { method: "POST", body: form });
+}
+
+export interface PartSaleQuote {
+  total: number;
+  lines: { part_id: string; warehouse_id: string; quantity: number; unit_price: number;
+    unit_cost: number; line_total: number;
+    allocations: { lot_id: string; quantity: number; unit_cost: number }[] }[];
+}
+
+export async function quotePartSale(input: Omit<CreatePartSaleInput, "client_name" | "client_document">) {
+  return apiFetch<PartSaleQuote>("/part-sales/quote", {
+    method: "POST", body: JSON.stringify(input),
+  });
 }

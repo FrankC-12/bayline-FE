@@ -1,28 +1,26 @@
-import { apiFetch, setTokens, clearToken } from "./client";
+import { apiFetch, removeLegacyTokens, settleSessionRefresh } from "./client";
+import type { CurrentUser, RoleScope } from "@/types/auth";
 
-export interface LoginInput {
-  email: string;
-  password: string;
+interface SessionUser {
+  user_id: string; email: string; role_id: string; role_slug: string;
+  scope: RoleScope; holding_id: string | null; filial_id: string | null;
 }
 
-export interface TokenResponse {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
-  expires_in: number;
-  refresh_expires_in: number;
+export async function getSessionUser(): Promise<CurrentUser> {
+  const user = await apiFetch<SessionUser>("/auth/me");
+  return { userId: user.user_id, email: user.email, roleId: user.role_id,
+    roleSlug: user.role_slug, scope: user.scope, holdingId: user.holding_id, filialId: user.filial_id };
 }
 
-export async function login(input: LoginInput): Promise<TokenResponse> {
-  const response = await apiFetch<TokenResponse>("/auth/login", {
-    method: "POST",
-    body: JSON.stringify(input),
-    auth: false,
-  });
-  setTokens(response.access_token, response.refresh_token);
-  return response;
+export async function login(input: { email: string; password: string }): Promise<CurrentUser> {
+  await settleSessionRefresh();
+  removeLegacyTokens();
+  await apiFetch("/auth/login", { method: "POST", body: JSON.stringify(input), auth: false });
+  return getSessionUser();
 }
 
-export function logout(): void {
-  clearToken();
+export async function logout(): Promise<void> {
+  await settleSessionRefresh();
+  await apiFetch("/auth/logout", { method: "POST", auth: false });
+  removeLegacyTokens();
 }

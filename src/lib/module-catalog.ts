@@ -10,6 +10,7 @@ import {
   Package,
   Car,
   TrendingUp,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,4 +32,5 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
   { id: "almacen", label: "Almacén", icon: Package },
   { id: "concesionario", label: "Concesionario", icon: Car },
   { id: "ventas", label: "Ventas", icon: TrendingUp },
+  { id: "ajustes", label: "Ajustes", icon: Settings },
 ];

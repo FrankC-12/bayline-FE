@@ -10,8 +10,22 @@ import {
   Package,
   Car,
   TrendingUp,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
+import { NAV_ITEMS as SERVICE_ORDERS_ITEMS } from "@/components/service-orders/nav-items";
+import { ADMIN_ITEMS, FINANCE_ITEMS } from "@/components/administracion/nav-items";
+import { NAV_ITEMS as POST_VENTAS_ITEMS } from "@/components/post-ventas/nav-items";
+import { NAV_ITEMS as KPIS_ITEMS } from "@/components/kpis/nav-items";
+import { NAV_ITEMS as PARTS_ITEMS } from "@/components/parts/nav-items";
+import { NAV_ITEMS as WAREHOUSE_ITEMS } from "@/components/warehouse/nav-items";
+import { NAV_ITEMS as CONCESIONARIO_ITEMS } from "@/components/concesionario/nav-items";
+import { NAV_ITEMS as VENTAS_ITEMS } from "@/components/ventas/nav-items";
+
+/** "3 MÓDULOS" / "1 MÓDULO" — derived from a module's own nav-item count, never hand-typed. */
+function moduleBadge(count: number): string {
+  return `${count} MÓDULO${count === 1 ? "" : "S"}`;
+}
 
 export interface ModuleCardData {
   icon: LucideIcon;
@@ -27,7 +41,7 @@ export const modules: ModuleCardData[] = [
     icon: FileText,
     title: "Asesor de Servicios",
     description: "Inspecciones, órdenes de servicio, tareas y facturación del taller.",
-    badge: "3 MÓDULOS",
+    badge: moduleBadge(SERVICE_ORDERS_ITEMS.length),
     tint: "bg-indigo-100 text-indigo-600",
     href: "/dashboard/servicios",
   },
@@ -42,7 +56,7 @@ export const modules: ModuleCardData[] = [
     icon: ClipboardList,
     title: "Administración",
     description: "Compras a proveedores, reclamos y finanzas del taller.",
-    badge: "5 MÓDULOS",
+    badge: moduleBadge(ADMIN_ITEMS.length + FINANCE_ITEMS.length),
     tint: "bg-emerald-100 text-emerald-700",
     href: "/dashboard/administracion",
   },
@@ -60,7 +74,7 @@ export const modules: ModuleCardData[] = [
     title: "Post Ventas",
     description:
       "Catálogo oficial de tempario: tiempos estándar, repuestos y precio calculado por servicio.",
-    badge: "1 MÓDULO",
+    badge: moduleBadge(POST_VENTAS_ITEMS.length),
     tint: "bg-rose-100 text-rose-600",
     href: "/dashboard/post-ventas",
   },
@@ -68,7 +82,7 @@ export const modules: ModuleCardData[] = [
     icon: BarChart3,
     title: "KPIs",
     description: "Métricas de tiempos operativos del taller: técnicos, asesores y almacenistas.",
-    badge: "1 MÓDULO",
+    badge: moduleBadge(KPIS_ITEMS.length),
     tint: "bg-violet-100 text-violet-700",
     href: "/dashboard/kpis",
   },
@@ -85,7 +99,7 @@ export const modules: ModuleCardData[] = [
     icon: ShoppingCart,
     title: "Repuestos",
     description: "Venta de repuestos al público: catálogo con precios, ventas y devoluciones.",
-    badge: "3 MÓDULOS",
+    badge: moduleBadge(PARTS_ITEMS.length),
     tint: "bg-slate-100 text-slate-600",
     href: "/dashboard/repuestos",
   },
@@ -94,7 +108,7 @@ export const modules: ModuleCardData[] = [
     title: "Almacén",
     description:
       "Operación interna del almacenista: inventario por almacén, movimientos, transferencias y lotes FIFO.",
-    badge: "4 MÓDULOS",
+    badge: moduleBadge(WAREHOUSE_ITEMS.length),
     tint: "bg-blue-light text-blue",
     href: "/dashboard/almacen",
   },
@@ -102,7 +116,7 @@ export const modules: ModuleCardData[] = [
     icon: Car,
     title: "Concesionario",
     description: "Catálogo de vehículos, inventario y ventas del concesionario.",
-    badge: "3 MÓDULOS",
+    badge: moduleBadge(CONCESIONARIO_ITEMS.length),
     tint: "bg-orange-100 text-orange-700",
     href: "/dashboard/concesionario",
   },
@@ -110,8 +124,16 @@ export const modules: ModuleCardData[] = [
     icon: TrendingUp,
     title: "Ventas",
     description: "Cotizaciones, pedidos y seguimiento comercial del concesionario y venta de repuestos.",
-    badge: "2 MÓDULOS",
+    badge: moduleBadge(VENTAS_ITEMS.length),
     tint: "bg-emerald-100 text-emerald-700",
     href: "/dashboard/ventas",
+  },
+  {
+    icon: Settings,
+    title: "Ajustes",
+    description: "Parámetros financieros y operativos del negocio: IVA, IGTF, tasa BCV, comisión y mano de obra.",
+    badge: "1 MÓDULO",
+    tint: "bg-slate-100 text-slate-600",
+    href: "/dashboard/ajustes",
   },
 ];

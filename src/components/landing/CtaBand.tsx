@@ -6,10 +6,10 @@ export default function CtaBand() {
     <section className="bg-navy py-20">
       <div className="mx-auto max-w-4xl px-6 text-center">
         <h2 className="font-display text-3xl font-bold text-white sm:text-4xl">
-          Poné en marcha tu operación con Bayline
+          Pon en marcha tu operación con Bayline
         </h2>
         <p className="mt-4 text-slate-300">
-          Iniciá sesión y accedé al panel completo de módulos de tu holding.
+          Inicia sesión y accede al panel completo de módulos de tu holding.
         </p>
         <Link
           href="/login"

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePartSales } from "@/hooks/usePartSales";
+import EmptyState from "@/components/common/EmptyState";
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Pendiente",
@@ -64,7 +65,10 @@ export default function PartSalesListView() {
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando ventas...</div>
         ) : sales.length === 0 ? (
-          <div className="p-12 text-center text-sm text-steel">Aún no hay ventas registradas.</div>
+          <EmptyState
+            compact
+            title={search ? `Sin resultados para "${search}"` : "Aún no hay ventas registradas."}
+          />
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-navy/10 bg-ash">

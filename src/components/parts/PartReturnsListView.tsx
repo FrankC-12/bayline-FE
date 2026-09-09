@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePartReturns } from "@/hooks/usePartReturns";
 import { useParts } from "@/hooks/useParts";
 import { useUsers } from "@/hooks/useUser";
+import EmptyState from "@/components/common/EmptyState";
 
 const REASON_LABELS: Record<string, string> = {
   pedido_en_exceso: "Pedido en exceso",
@@ -63,7 +64,10 @@ export default function PartReturnsListView() {
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando devoluciones...</div>
         ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-sm text-steel">No hay devoluciones registradas.</div>
+          <EmptyState
+            compact
+            title={search ? `Sin resultados para "${search}"` : "No hay devoluciones registradas."}
+          />
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-navy/10 bg-ash">
@@ -89,6 +93,9 @@ export default function PartReturnsListView() {
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
                   Responsable
                 </th>
+                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                  Fotos
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-navy/5">
@@ -103,6 +110,21 @@ export default function PartReturnsListView() {
                   <td className="px-6 py-4 text-steel">{r.destination_warehouse}</td>
                   <td className="px-6 py-4 text-steel">{REASON_LABELS[r.reason]}</td>
                   <td className="px-6 py-4 text-steel">{responsibleName(r.responsible_user_id)}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex gap-1.5">
+                      {r.photo_urls.slice(0, 3).map((url, i) => (
+                        <a key={i} href={url} target="_blank" rel="noreferrer" className="block h-9 w-9 overflow-hidden rounded-lg border border-navy/10">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={url} alt="Evidencia" className="h-full w-full object-cover" />
+                        </a>
+                      ))}
+                      {r.photo_urls.length > 3 && (
+                        <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-navy/10 bg-ash text-xs font-semibold text-steel">
+                          +{r.photo_urls.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

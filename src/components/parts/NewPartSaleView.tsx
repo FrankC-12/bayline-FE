@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, X, Plus, Loader2, Search } from "lucide-react";
@@ -12,21 +12,21 @@ import ClientFormPanel from "@/components/clients/ClientFormPanel";
 import type { Client } from "@/types/client";
 import type { CreateClientInput } from "@/lib/api/clients";
 
+import { listWarehouses } from "@/lib/api/warehouse";
+import { quotePartSale, type PartSaleQuote } from "@/lib/api/parts";
+import type { Warehouse } from "@/types/warehouse";
+
+import { DISCOUNT_OPTIONS, type DiscountLabel } from "@/lib/partsPricing";
+import { formatDocumentId } from "@/lib/format";
+
 interface LineDraft {
   partId: string;
   search: string;
   quantity: string;
 }
 
-const DISCOUNT_OPTIONS = [
-  "Costo + 30% (Sin Descuento)",
-  "Costo + 20% (Descuento 10%)",
-  "Costo + 10% (Descuento 20%)",
-  "Precio de costo",
-];
-
 function emptyLine(): LineDraft {
-  return { partId: "", search: "", quantity: "0" };
+  return { partId: "", search: "", quantity: "1" };
 }
 
 export default function NewPartSaleView() {
@@ -43,18 +43,49 @@ export default function NewPartSaleView() {
   const [createClientOpen, setCreateClientOpen] = useState(false);
   const { clients, loading: clientsLoading, addClient } = useClients(filialId);
 
-  const [discountLabel, setDiscountLabel] = useState(DISCOUNT_OPTIONS[0]);
+  const [discountLabel, setDiscountLabel] = useState<DiscountLabel>(DISCOUNT_OPTIONS[0]);
   const [lines, setLines] = useState<LineDraft[]>([emptyLine()]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const total = useMemo(() => {
-    return lines.reduce((sum, line) => {
-      const part = parts.find((p) => p.id === line.partId);
-      const qty = Number(line.quantity) || 0;
-      return sum + (part?.reference_price ?? 0) * qty;
-    }, 0);
-  }, [lines, parts]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [warehouseId, setWarehouseId] = useState("");
+  const [quote, setQuote] = useState<{ key: string; value: PartSaleQuote } | null>(null);
+  const [quoteError, setQuoteError] = useState<{ key: string; message: string } | null>(null);
+  const quoteKey = JSON.stringify({ filialId, warehouseId, lines, discountLabel });
+  const currentQuote = quote?.key === quoteKey ? quote.value : null;
+  const validDraft = lines.length > 0 && lines.every(
+    (line) => line.partId && Number.isInteger(Number(line.quantity)) && Number(line.quantity) > 0
+  );
+
+  useEffect(() => {
+    let active = true;
+    setWarehouses([]);
+    setWarehouseId("");
+    if (filialId) listWarehouses(filialId).then((items) => {
+      if (!active) return;
+      const available = items.filter((item) => item.is_active);
+      setWarehouses(available);
+      if (available.length === 1) setWarehouseId(available[0].id);
+    }).catch((err) => { if (active) setError(err instanceof Error ? err.message : "No se pudieron cargar los almacenes."); });
+    return () => { active = false; };
+  }, [filialId]);
+
+  useEffect(() => {
+    let active = true;
+    if (!filialId || !warehouseId || !validDraft) return;
+    const timer = setTimeout(() => {
+      quotePartSale({
+        filial_id: filialId, warehouse_id: warehouseId, discount_label: discountLabel,
+        lines: lines.map((line) => ({ part_id: line.partId, quantity: Number(line.quantity) })),
+      }).then((value) => {
+        if (active) { setQuote({ key: quoteKey, value }); setQuoteError(null); }
+      }).catch((err) => {
+        if (active) setQuoteError({ key: quoteKey, message: err instanceof Error ? err.message : "No se pudo cotizar." });
+      });
+    }, 250);
+    return () => { active = false; clearTimeout(timer); };
+  }, [filialId, warehouseId, validDraft, lines, discountLabel, quoteKey]);
 
   const clientResults = useMemo(() => {
     const term = clientSearch.toLowerCase().replace(/[\s.-]/g, "");
@@ -87,7 +118,7 @@ export default function NewPartSaleView() {
   function resultsFor(term: string) {
     if (!term) return [];
     const t = term.toLowerCase();
-    return parts.filter((p) => p.code.toLowerCase().includes(t) || p.name.toLowerCase().includes(t)).slice(0, 6);
+    return parts.filter((p) => !lines.some((line) => line.partId === p.id) && (p.code.toLowerCase().includes(t) || p.name.toLowerCase().includes(t))).slice(0, 6);
   }
 
   async function handleCreateClient(input: CreateClientInput) {
@@ -98,7 +129,7 @@ export default function NewPartSaleView() {
   }
 
   async function handleSubmit() {
-    if (!filialId || !selectedClient) return;
+    if (!filialId || !selectedClient || !warehouseId || !currentQuote || !validDraft) return;
     const validLines = lines.filter((l) => l.partId && Number(l.quantity) > 0);
     if (validLines.length === 0) {
       setError("Agrega al menos una línea de repuesto con cantidad mayor a 0.");
@@ -109,6 +140,7 @@ export default function NewPartSaleView() {
     try {
       await addSale({
         filial_id: filialId,
+        warehouse_id: warehouseId,
         client_name: selectedClient.full_name,
         client_document: `${selectedClient.document_type}-${selectedClient.document_number}`,
         discount_label: discountLabel,
@@ -144,7 +176,7 @@ export default function NewPartSaleView() {
                 <div>
                   <p className="font-medium text-navy">{selectedClient.full_name}</p>
                   <p className="font-mono text-xs text-steel">
-                    {selectedClient.document_type}-{selectedClient.document_number}
+                    {formatDocumentId(selectedClient.document_type, selectedClient.document_number)}
                   </p>
                 </div>
                 <button
@@ -188,7 +220,7 @@ export default function NewPartSaleView() {
                         >
                           <p className="font-medium text-navy">{c.full_name}</p>
                           <p className="font-mono text-xs text-steel">
-                            {c.document_type}-{c.document_number}
+                            {formatDocumentId(c.document_type, c.document_number)}
                           </p>
                         </button>
                       ))
@@ -243,7 +275,7 @@ export default function NewPartSaleView() {
                           >
                             <p className="font-medium text-navy">{p.name}</p>
                             <p className="text-xs text-steel">
-                              {p.code} · ${p.reference_price?.toFixed(2) ?? "Sin costo"}
+                              {p.code}
                             </p>
                           </button>
                         ))}
@@ -252,7 +284,8 @@ export default function NewPartSaleView() {
                   </div>
                   <input
                     type="number"
-                    min="0"
+                    min="1"
+                    step="1"
                     value={line.quantity}
                     onChange={(e) => updateLine(i, { quantity: e.target.value })}
                     className="w-24 rounded-xl border border-navy/15 px-3 py-2.5 text-center text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
@@ -277,6 +310,7 @@ export default function NewPartSaleView() {
             </button>
           </div>
 
+          {quoteError?.key === quoteKey && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{quoteError.message}</p>}
           {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
         </div>
 
@@ -285,7 +319,7 @@ export default function NewPartSaleView() {
             <p className="mb-2 font-display text-sm font-bold text-navy">Descuento Global</p>
             <select
               value={discountLabel}
-              onChange={(e) => setDiscountLabel(e.target.value)}
+              onChange={(e) => setDiscountLabel(e.target.value as DiscountLabel)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
             >
               {DISCOUNT_OPTIONS.map((o) => (
@@ -298,18 +332,29 @@ export default function NewPartSaleView() {
             <div className="mt-4 rounded-xl bg-blue-light px-4 py-3">
               <div className="flex items-center justify-between">
                 <span className="font-medium text-navy">Total</span>
-                <span className="font-display text-lg font-bold text-blue">${total.toFixed(2)}</span>
+                <span className="font-display text-lg font-bold text-blue">{currentQuote ? `$${currentQuote.total.toFixed(2)}` : "—"}</span>
               </div>
             </div>
           </div>
 
-          <p className="rounded-xl bg-ash px-4 py-3 text-xs text-steel">
-            Esta venta se despacha desde tu filial.
-          </p>
+          <label className="block rounded-xl bg-ash px-4 py-3 text-sm text-navy">
+            Almacén de despacho
+            <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}
+              className="mt-2 w-full rounded-xl border border-navy/15 px-3 py-2">
+              <option value="">Selecciona un almacén</option>
+              {warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>)}
+            </select>
+          </label>
+          {currentQuote?.lines.map((line) => (
+            <div key={line.part_id} className="rounded-xl border border-navy/10 px-4 py-3 text-sm">
+              <p>{parts.find((part) => part.id === line.part_id)?.name}</p>
+              <p>{line.quantity} × ${line.unit_price.toFixed(6)} = ${line.line_total.toFixed(2)}</p>
+            </div>
+          ))}
 
           <button
             onClick={handleSubmit}
-            disabled={submitting || !selectedClient}
+            disabled={submitting || !selectedClient || !currentQuote || !validDraft}
             className="flex w-full items-center justify-center gap-2 rounded-full bg-blue px-6 py-3 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

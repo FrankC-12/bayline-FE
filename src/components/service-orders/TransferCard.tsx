@@ -8,6 +8,7 @@ import type { Part } from "@/types/parts";
 
 interface TransfersCardProps {
   filialId: string;
+  readOnly?: boolean;
   transfers: ServiceOrderTransfer[];
   onAddLine: (partId: string, quantity: number) => Promise<void>;
   onMarkOrdered: (transferId: string) => Promise<void>;
@@ -18,6 +19,7 @@ export default function TransfersCard({
   transfers,
   onAddLine,
   onMarkOrdered,
+  readOnly = false,
 }: TransfersCardProps) {
   const { parts } = useParts(filialId);
   const partById = (id: string): Part | undefined => parts.find((p) => p.id === id);
@@ -37,6 +39,7 @@ export default function TransfersCard({
     : [];
 
   async function handleAdd(partId: string) {
+    if (readOnly) return;
     setAdding(true);
     try {
       await onAddLine(partId, Number(quantity) || 1);
@@ -62,16 +65,17 @@ export default function TransfersCard({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            disabled={adding}
+            disabled={adding || readOnly}
             placeholder="Agregar repuesto — código o nombre..."
             className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 disabled:opacity-60"
           />
-          {results.length > 0 && (
+          {!readOnly && results.length > 0 && (
             <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">
               {results.map((p) => (
                 <button
                   key={p.id}
                   type="button"
+                    disabled={readOnly || adding}
                   onClick={() => handleAdd(p.id)}
                   className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-ash"
                 >
@@ -89,6 +93,7 @@ export default function TransfersCard({
         </div>
         <input
           type="number"
+          disabled={readOnly || adding}
           min="1"
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
@@ -121,6 +126,7 @@ export default function TransfersCard({
                 {transfer.status === "pendiente" && (
                   <button
                     type="button"
+                    disabled={readOnly || adding}
                     onClick={() => onMarkOrdered(transfer.id)}
                     className="rounded-full bg-blue px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-navy"
                   >
@@ -149,9 +155,9 @@ export default function TransfersCard({
                       <tr key={line.id}>
                         <td className="py-1.5 text-navy">{part?.name ?? "—"}</td>
                         <td className="py-1.5 text-navy">{line.quantity}</td>
-                        <td className="py-1.5 text-right text-navy">${line.unit_price.toFixed(2)}</td>
+                        <td className="py-1.5 text-right text-navy">{line.unit_price == null ? "—" : `$${line.unit_price.toFixed(2)}`}</td>
                         <td className="py-1.5 text-right font-medium text-navy">
-                          ${line.subtotal.toFixed(2)}
+                          {line.subtotal == null ? "—" : `$${line.subtotal.toFixed(2)}`}
                         </td>
                       </tr>
                     );
@@ -159,14 +165,14 @@ export default function TransfersCard({
                 </tbody>
               </table>
               <div className="mt-2 flex justify-end text-sm font-semibold text-navy">
-                Subtotal: ${transfer.subtotal.toFixed(2)}
+                Subtotal: {transfer.subtotal == null ? "—" : `$${transfer.subtotal.toFixed(2)}`}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {pendingCount === 0 && transfers.length > 0 && (
+      {!readOnly && pendingCount === 0 && transfers.length > 0 && (
         <p className="mt-3 text-xs text-steel">
           Todas las ODT de esta orden ya fueron pedidas. Al agregar otro repuesto se abre una nueva.
         </p>

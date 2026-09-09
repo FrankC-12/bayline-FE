@@ -5,6 +5,7 @@ import { Plus, Search, X, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIncomeEntries } from "@/hooks/useIncomeEntries";
 import { useAccounts } from "@/hooks/useAccounts";
+import EmptyState from "@/components/common/EmptyState";
 
 export default function IncomeView() {
   const { currentUser } = useAuth();
@@ -57,7 +58,10 @@ export default function IncomeView() {
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando ingresos...</div>
         ) : entries.length === 0 ? (
-          <div className="p-12 text-center text-sm text-steel">No hay ingresos registrados.</div>
+          <EmptyState
+            compact
+            title={search ? `Sin resultados para "${search}"` : "No hay ingresos registrados."}
+          />
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-navy/10 bg-ash">

@@ -4,24 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
-  ArrowLeftRight,
-  Boxes,
   ChevronLeft,
-  Clock,
-  LayoutGrid,
   Loader2,
   Plus,
   Warehouse as WarehouseIcon,
   X,
 } from "lucide-react";
 import { WarehouseProvider, useWarehouseScope } from "@/contexts/WarehouseContext";
-
-const NAV_ITEMS = [
-  { href: "/dashboard/almacen", label: "Dashboard de Inventario", icon: LayoutGrid },
-  { href: "/dashboard/almacen/movimientos", label: "Historial de Movimientos", icon: Clock },
-  { href: "/dashboard/almacen/transferencias", label: "Órdenes de Transferencia", icon: ArrowLeftRight },
-  { href: "/dashboard/almacen/lotes", label: "Sistema de Lotes", icon: Boxes },
-];
+import { NAV_ITEMS } from "./nav-items";
 
 function WarehouseLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

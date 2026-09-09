@@ -5,6 +5,7 @@ import { Plus, Search, X, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useExpenseEntries } from "@/hooks/useExpenseEntries";
 import { useAccounts } from "@/hooks/useAccounts";
+import EmptyState from "@/components/common/EmptyState";
 import type { ExpenseCategory } from "@/types/administracion";
 
 const CATEGORY_OPTIONS: { value: ExpenseCategory; label: string }[] = [
@@ -84,7 +85,10 @@ export default function ExpenseView() {
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando egresos...</div>
         ) : entries.length === 0 ? (
-          <div className="p-12 text-center text-sm text-steel">No hay egresos registrados.</div>
+          <EmptyState
+            compact
+            title={search ? `Sin resultados para "${search}"` : "No hay egresos registrados."}
+          />
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-navy/10 bg-ash">

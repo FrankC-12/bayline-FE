@@ -79,6 +79,10 @@ export default function ClientFormPanel({
               upholstery: v.upholstery ?? "",
               fuelType: v.fuel_type ?? "",
               transmission: v.transmission ?? "",
+              currentMileage: v.current_mileage,
+              currentMileageVisitDate: v.current_mileage_visit_date,
+              currentMileageServiceOrderId: v.current_mileage_service_order_id,
+              currentMileageServiceOrderCode: v.current_mileage_service_order_code,
             }))
           : [emptyVehicle()]
       );

@@ -47,7 +47,8 @@ export interface UpdateLaborSettingsInput {
   commission_percentage: number;
   igtf_percentage: number;
   iva_percentage: number;
-  bcv_rate: number;
+  /** Omit to keep the value auto-synced from the BCV scraper; send it only for a manual override. */
+  bcv_rate?: number;
 }
 
 export async function updateLaborSettings(

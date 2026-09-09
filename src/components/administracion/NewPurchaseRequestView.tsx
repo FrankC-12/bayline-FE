@@ -3,11 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Plus, Search, X, Loader2 } from "lucide-react";
+import { ChevronLeft, Plus, Search, X, Loader2, Download } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useParts } from "@/hooks/useParts";
 import { usePurchaseRequests } from "@/hooks/usePurchaseRequests";
+import { downloadPurchaseRequestExcel, downloadPurchaseRequestTxt } from "@/lib/purchaseExport";
 
 interface LineDraft {
   partId: string;
@@ -41,6 +42,22 @@ export default function NewPurchaseRequestView() {
     if (!term) return [];
     const t = term.toLowerCase();
     return parts.filter((p) => p.code.toLowerCase().includes(t) || p.name.toLowerCase().includes(t)).slice(0, 6);
+  }
+
+  function draftExportData() {
+    const supplier = suppliers.find((s) => s.id === supplierId);
+    const validLines = lines
+      .map((l) => ({ part: parts.find((p) => p.id === l.partId), quantity: Number(l.quantity) }))
+      .filter((l): l is { part: NonNullable<typeof l.part>; quantity: number } => !!l.part && l.quantity > 0);
+    if (!supplier || validLines.length === 0) {
+      setError("Selecciona un proveedor y al menos un repuesto con cantidad para exportar.");
+      return null;
+    }
+    return {
+      supplierName: supplier.business_name,
+      date: new Date().toLocaleDateString("es-VE"),
+      lines: validLines.map((l) => ({ code: l.part.code, name: l.part.name, quantity: l.quantity })),
+    };
   }
 
   async function handleSubmit() {
@@ -151,9 +168,33 @@ export default function NewPurchaseRequestView() {
           </button>
         </div>
 
-        <p className="rounded-xl bg-ash px-4 py-3 text-xs text-steel">
-          La descarga de TXT/Excel para enviar al proveedor todavía no está disponible.
-        </p>
+        <div className="rounded-xl bg-ash px-4 py-3">
+          <p className="mb-2 text-xs text-steel">Descarga esta solicitud para enviarla al proveedor:</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const data = draftExportData();
+                if (data) downloadPurchaseRequestTxt(data);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-navy/15 bg-white px-4 py-1.5 text-xs font-semibold text-navy transition hover:border-navy/40"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Descargar TXT
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const data = draftExportData();
+                if (data) downloadPurchaseRequestExcel(data);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-navy/15 bg-white px-4 py-1.5 text-xs font-semibold text-navy transition hover:border-navy/40"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Descargar Excel
+            </button>
+          </div>
+        </div>
 
         {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 

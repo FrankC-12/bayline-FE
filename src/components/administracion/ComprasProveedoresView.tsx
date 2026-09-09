@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { usePurchaseRequests } from "@/hooks/usePurchaseRequests";
 import { formatVenezuelanPhone } from "@/lib/format";
+import EmptyState from "@/components/common/EmptyState";
 import CreateSupplierModal from "./CreateSuppliermodal";
 import SupplierDetailDrawer from "./SupplierDetailDrawer";
 import type { Supplier } from "@/types/administracion";
@@ -102,7 +103,10 @@ export default function ComprasProveedoresView() {
             {loadingRequests ? (
               <div className="p-12 text-center text-sm text-steel">Cargando compras...</div>
             ) : requests.length === 0 ? (
-              <div className="p-12 text-center text-sm text-steel">No hay solicitudes de compra todavía.</div>
+              <EmptyState
+                compact
+                title={search ? `Sin resultados para "${search}"` : "No hay solicitudes de compra todavía."}
+              />
             ) : (
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-navy/10 bg-ash">
@@ -166,7 +170,10 @@ export default function ComprasProveedoresView() {
             {loadingSuppliers ? (
               <div className="p-12 text-center text-sm text-steel">Cargando proveedores...</div>
             ) : suppliers.length === 0 ? (
-              <div className="p-12 text-center text-sm text-steel">No hay proveedores registrados.</div>
+              <EmptyState
+                compact
+                title={search ? `Sin resultados para "${search}"` : "No hay proveedores registrados."}
+              />
             ) : (
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-navy/10 bg-ash">

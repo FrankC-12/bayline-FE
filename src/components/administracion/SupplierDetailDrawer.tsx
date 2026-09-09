@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { getSupplier, updateSupplier } from "@/lib/api/administracion";
-import { formatVenezuelanPhone } from "@/lib/format";
+import { capitalizeFirst, formatVenezuelanPhone } from "@/lib/format";
 import type { Supplier, SupplierDetail } from "@/types/administracion";
 
 interface Props {
@@ -54,7 +54,7 @@ export default function SupplierDetailDrawer({ supplier, onClose, onUpdated }: P
             <div className="sm:col-span-2"><dt className="text-steel">Ubicación / dirección</dt><dd className="font-medium text-navy">{detail.address ?? "—"}</dd></div>
           </dl>
         </section>
-        <section><h3 className="mb-3 font-semibold text-navy">Cuentas y métodos de pago</h3>{detail.payment_accounts.length === 0 ? <p className="rounded-xl bg-ash p-4 text-sm text-steel">No hay cuentas registradas.</p> : <div className="grid gap-3">{detail.payment_accounts.map((account, index) => <div key={account.id ?? index} className="rounded-xl border border-navy/10 p-4 text-sm"><div className="flex justify-between"><strong className="capitalize text-navy">{account.payment_method.replace("_", " ")}</strong><span className="uppercase text-steel">{account.currency}</span></div><p className="mt-2 text-steel">{account.bank_name ?? "Sin banco"} · {account.account_holder}</p><p className="font-mono text-navy">{account.account_number ?? account.email ?? account.phone ?? "Sin identificador"}</p></div>)}</div>}</section>
+        <section><h3 className="mb-3 font-semibold text-navy">Cuentas y métodos de pago</h3>{detail.payment_accounts.length === 0 ? <p className="rounded-xl bg-ash p-4 text-sm text-steel">No hay cuentas registradas.</p> : <div className="grid gap-3">{detail.payment_accounts.map((account, index) => <div key={account.id ?? index} className="rounded-xl border border-navy/10 p-4 text-sm"><div className="flex justify-between"><strong className="text-navy">{capitalizeFirst(account.payment_method.replace("_", " "))}</strong><span className="uppercase text-steel">{account.currency}</span></div><p className="mt-2 text-steel">{account.bank_name ?? "Sin banco"} · {account.account_holder}</p><p className="font-mono text-navy">{account.account_number ?? account.email ?? account.phone ?? "Sin identificador"}</p></div>)}</div>}</section>
         <section><h3 className="mb-3 font-semibold text-navy">Historial de compras</h3>{detail.purchase_history.length === 0 ? <p className="rounded-xl bg-ash p-4 text-sm text-steel">Todavía no hay compras a este proveedor.</p> : <div className="overflow-hidden rounded-xl border border-navy/10"><table className="w-full text-left text-sm"><thead className="bg-ash text-steel"><tr><th className="px-4 py-3">Solicitud</th><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Estado</th><th className="px-4 py-3 text-right">Total</th></tr></thead><tbody className="divide-y divide-navy/5">{detail.purchase_history.map((purchase) => <tr key={purchase.id}><td className="px-4 py-3 font-mono text-blue">{purchase.code}</td><td className="px-4 py-3">{new Date(purchase.created_at).toLocaleDateString("es-VE")}</td><td className="px-4 py-3 capitalize">{purchase.status}</td><td className="px-4 py-3 text-right">{purchase.total_quoted == null ? "—" : `$${purchase.total_quoted.toFixed(2)}`}</td></tr>)}</tbody></table></div>}</section>
       </div>}
     </aside>

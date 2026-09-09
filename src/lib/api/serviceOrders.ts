@@ -1,10 +1,16 @@
+import type { DiscountLabel } from "@/lib/partsPricing";
 import { apiFetch } from "./client";
 import type { ServiceOrder, Bay, OrderSummary } from "@/types/serviceOrder";
 
 export interface CreateServiceOrderInput {
+  discount_label?: DiscountLabel;
   filial_id: string;
   vehicle_id: string;
   order_type?: string;
+  intake_mileage: number;
+  customer_reason: string;
+  advisor_user_id: string;
+  promised_at: string;
   notes?: string | null;
   scheduled_at?: string | null;
   technician_user_id?: string | null;
@@ -12,6 +18,7 @@ export interface CreateServiceOrderInput {
 }
 
 export interface UpdateServiceOrderInput {
+  discount_label?: DiscountLabel;
   status?: string;
   order_type?: string;
   technician_user_id?: string | null;

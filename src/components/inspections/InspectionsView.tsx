@@ -8,6 +8,7 @@ import { useInspections } from "@/hooks/useInspections";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUsers } from "@/hooks/useUser";
 import CreateInspectionPanel from "./CreateInspectionPanel";
+import EmptyState from "@/components/common/EmptyState";
 
 const STATUS_LABELS: Record<string, string> = { en_proceso: "En proceso", completada: "Completada" };
 const STATUS_STYLES: Record<string, string> = {
@@ -86,7 +87,16 @@ export default function InspectionsView() {
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando inspecciones...</div>
         ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-sm text-steel">No hay inspecciones que coincidan.</div>
+          <EmptyState
+            compact
+            title={
+              search
+                ? `Sin resultados para "${search}"`
+                : onlyToday
+                  ? "No hay inspecciones registradas hoy."
+                  : "No hay inspecciones registradas."
+            }
+          />
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-navy/10 bg-ash">

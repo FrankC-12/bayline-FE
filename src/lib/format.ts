@@ -10,12 +10,24 @@ export function stripThousands(value: string): string {
   return value.replace(/\D/g, "");
 }
 
+/** Formats a stored document type + number for display: ("V", "12345678") -> "V-12.345.678" */
+export function formatDocumentId(documentType: string, documentNumber: string): string {
+  return `${documentType}-${formatThousands(documentNumber)}`;
+}
+
 /** Keeps a monetary value editable with up to two decimals, accepting comma or dot. */
 export function formatMoneyInput(value: string): string {
   const normalized = value.replace(/,/g, ".").replace(/[^\d.]/g, "");
   const [integer = "", ...decimalParts] = normalized.split(".");
   const decimal = decimalParts.join("").slice(0, 2);
   return decimalParts.length ? `${integer}.${decimal}` : integer;
+}
+
+/** Capitalizes only the first letter — safe for Spanish, unlike CSS
+ * text-transform:capitalize, which title-cases every word (breaking
+ * articles/prepositions like "del"/"de", e.g. "pago movil" -> "Pago movil"). */
+export function capitalizeFirst(value: string): string {
+  return value.length ? value.charAt(0).toUpperCase() + value.slice(1) : value;
 }
 
 /** Formats digits as a Venezuelan phone: "04141234567" -> "(0414) 123-4567" */

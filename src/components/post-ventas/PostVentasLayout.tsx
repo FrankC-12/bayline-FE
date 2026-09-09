@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, FileText } from "lucide-react";
-
-const NAV_ITEMS = [{ href: "/dashboard/post-ventas", label: "Temparios", icon: FileText }];
+import { ChevronLeft } from "lucide-react";
+import { NAV_ITEMS } from "./nav-items";
 
 export default function PostVentasLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

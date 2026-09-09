@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useClients } from "@/hooks/useClients";
 import type { Client } from "@/types/client";
 import type { CreateClientInput } from "@/lib/api/clients";
+import EmptyState from "@/components/common/EmptyState";
 import ClientsToolbar from "./ClientToolbar";
 import ClientCard from "./ClientCard";
 import ClientFormPanel from "./ClientFormPanel";
@@ -74,10 +75,10 @@ export default function ClientsView() {
           Cargando clientes...
         </div>
       ) : clients.length === 0 ? (
-        <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center">
-          <p className="font-display text-lg font-bold text-navy">No hay clientes todavía</p>
-          <p className="mt-1 text-sm text-steel">Registra el primer cliente de tu filial.</p>
-        </div>
+        <EmptyState
+          title={search ? `Sin resultados para "${search}"` : "No hay clientes todavía"}
+          description={search ? "Prueba con otro término de búsqueda." : "Registra el primer cliente de tu filial."}
+        />
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {clients.map((c) => (

@@ -10,6 +10,7 @@ import { useScheduledOrders } from "@/hooks/useScheduledOrders";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUsers } from "@/hooks/useUser";
 import { useRoles } from "@/hooks/useRoles";
+import { capitalizeFirst } from "@/lib/format";
 import ConfigureBaysModal from "./ConfigureBaysModal";
 import ScheduleOrderModal from "./ScheduledOrderModal";
 
@@ -33,6 +34,8 @@ export default function CalendarView() {
 
   const technicianRoleId = roles.find((r) => r.slug === "tecnico")?.id;
   const technicians = users.filter((u) => u.role_id === technicianRoleId);
+  const advisorRoleId = roles.find((r) => r.slug === "asesor")?.id;
+  const advisors = users.filter((u) => u.role_id === advisorRoleId);
 
   const [configureOpen, setConfigureOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -55,11 +58,15 @@ export default function CalendarView() {
     return map;
   }, [orders]);
 
-  const dateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString("es-VE", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  // Capitalize only the first letter — Spanish weekday/month names stay
+  // lowercase mid-string ("viernes, 4 de septiembre", not "... De ...").
+  const dateLabel = capitalizeFirst(
+    new Date(`${selectedDate}T00:00:00`).toLocaleDateString("es-VE", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    })
+  );
 
   function shiftDate(days: number) {
     const d = new Date(`${selectedDate}T00:00:00`);
@@ -68,6 +75,10 @@ export default function CalendarView() {
   }
 
   function handleDragStart(e: React.DragEvent, orderId: string) {
+    if (orders.some((order) => order.id === orderId && (!!order.invoiced_at || ["orden_cerrada", "cancelado"].includes(order.status)))) {
+      e.preventDefault();
+      return;
+    }
     draggingRef.current = true;
     e.dataTransfer.setData("text/plain", orderId);
     e.dataTransfer.effectAllowed = "move";
@@ -91,6 +102,7 @@ export default function CalendarView() {
     e.preventDefault();
     setHoveredCell(null);
     const orderId = e.dataTransfer.getData("text/plain");
+    if (orders.some((order) => order.id === orderId && (!!order.invoiced_at || ["orden_cerrada", "cancelado"].includes(order.status)))) return;
     if (!orderId) return;
 
     const order = orders.find((o) => o.id === orderId);
@@ -116,8 +128,8 @@ export default function CalendarView() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold capitalize text-navy">Calendario del Taller</h1>
-          <p className="mt-1 text-sm capitalize text-steel">{dateLabel}</p>
+          <h1 className="font-display text-3xl font-bold text-navy">Calendario del Taller</h1>
+          <p className="mt-1 text-sm text-steel">{dateLabel}</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -166,7 +178,7 @@ export default function CalendarView() {
 
       <p className="mb-6 flex items-center gap-1.5 text-xs text-steel">
         <GripVertical className="h-3.5 w-3.5" />
-        Arrastrá una cita a otra hora o bahía para reagendarla.
+        Arrastra una cita a otra hora o bahía para reagendarla.
       </p>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
@@ -216,7 +228,7 @@ export default function CalendarView() {
                               return (
                                 <div
                                   key={o.id}
-                                  draggable
+                                  draggable={!o.invoiced_at && !["orden_cerrada", "cancelado"].includes(o.status)}
                                   onDragStart={(e) => handleDragStart(e, o.id)}
                                   onClick={() => handleCardClick(o.id)}
                                   className={`mb-1 cursor-grab rounded-lg bg-blue-light px-2 py-1.5 text-xs text-blue transition last:mb-0 hover:bg-blue hover:text-white active:cursor-grabbing ${
@@ -295,6 +307,7 @@ export default function CalendarView() {
         hours={HOURS}
         bays={activeBays}
         technicians={technicians}
+        advisors={advisors}
         onSubmit={async (input) => {
           await addOrder(input);
         }}

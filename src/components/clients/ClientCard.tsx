@@ -1,5 +1,44 @@
+import Link from "next/link";
 import { Car } from "lucide-react";
-import type { Client } from "@/types/client";
+import type { Client, Vehicle } from "@/types/client";
+import { formatDocumentId } from "@/lib/format";
+
+function formatVisitDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-VE", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function MileageInfo({ vehicle }: { vehicle: Vehicle }) {
+  if (vehicle.current_mileage == null) {
+    return vehicle.mileage != null ? (
+      <p className="text-xs text-steel">{vehicle.mileage.toLocaleString()} km (registro)</p>
+    ) : null;
+  }
+
+  const visitLabel = vehicle.current_mileage_visit_date
+    ? `actualizado en visita del ${formatVisitDate(vehicle.current_mileage_visit_date)}`
+    : null;
+
+  return (
+    <p className="text-xs text-steel">
+      {vehicle.current_mileage.toLocaleString()} km
+      {visitLabel &&
+        (vehicle.current_mileage_service_order_id ? (
+          <>
+            {" · "}
+            <Link
+              href={`/dashboard/servicios/${vehicle.current_mileage_service_order_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-blue hover:underline"
+            >
+              {visitLabel}
+            </Link>
+          </>
+        ) : (
+          <> {" · " + visitLabel}</>
+        ))}
+    </p>
+  );
+}
 
 interface ClientCardProps {
   client: Client;
@@ -12,8 +51,13 @@ export default function ClientCard({ client, onClick }: ClientCardProps) {
   const tint = BORDER_TINTS[client.full_name.length % BORDER_TINTS.length];
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onClick();
+      }}
       className={`flex flex-col rounded-2xl border border-l-4 border-navy/10 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${tint}`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -30,7 +74,7 @@ export default function ClientCard({ client, onClick }: ClientCardProps) {
       </div>
 
       <p className="mt-1 font-mono text-sm text-steel">
-        {client.document_type}-{client.document_number}
+        {formatDocumentId(client.document_type, client.document_number)}
       </p>
 
       <div className="mt-4 space-y-2 border-t border-navy/10 pt-4">
@@ -38,19 +82,19 @@ export default function ClientCard({ client, onClick }: ClientCardProps) {
           <p className="text-sm italic text-steel">Sin vehículos registrados</p>
         ) : (
           client.vehicles.map((v) => (
-            <div
-              key={v.id}
-              className="flex items-center gap-2 rounded-xl border border-navy/10 px-3 py-2 text-sm"
-            >
-              <Car className="h-4 w-4 text-steel" />
-              <span className="font-medium text-navy">
-                {v.brand} {v.model}
-              </span>
-              <span className="ml-auto font-mono text-xs text-blue">{v.plate}</span>
+            <div key={v.id} className="rounded-xl border border-navy/10 px-3 py-2 text-sm">
+              <div className="flex items-center gap-2">
+                <Car className="h-4 w-4 text-steel" />
+                <span className="font-medium text-navy">
+                  {v.brand} {v.model}
+                </span>
+                <span className="ml-auto font-mono text-xs text-blue">{v.plate}</span>
+              </div>
+              <MileageInfo vehicle={v} />
             </div>
           ))
         )}
       </div>
-    </button>
+    </div>
   );
 }

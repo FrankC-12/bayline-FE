@@ -2,13 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, LayoutGrid, TrendingUp } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import ExchangeRateCard from "./ExchangeRateCard";
-
-const NAV_ITEMS = [
-  { href: "/dashboard/concesionario", label: "Catálogo de Vehículos", icon: LayoutGrid },
-  { href: "/dashboard/concesionario/ventas", label: "Ventas de Vehículos", icon: TrendingUp },
-];
+import { NAV_ITEMS } from "./nav-items";
 
 export default function ConcesionarioLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

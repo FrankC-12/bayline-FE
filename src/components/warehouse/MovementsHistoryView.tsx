@@ -7,6 +7,7 @@ import { useParts } from "@/hooks/useParts";
 import { useUsers } from "@/hooks/useUser";
 import { listMovements } from "@/lib/api/warehouse";
 import type { MovementType, StockMovement } from "@/types/warehouse";
+import EmptyState from "@/components/common/EmptyState";
 
 const TYPE_TABS: { value: MovementType | "todos"; label: string }[] = [
   { value: "todos", label: "Todos" },
@@ -118,7 +119,14 @@ export default function MovementsHistoryView() {
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando movimientos...</div>
         ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-sm text-steel">No hay movimientos que coincidan.</div>
+          <EmptyState
+            compact
+            title={
+              search || typeFilter !== "todos"
+                ? "Sin movimientos que coincidan con el filtro."
+                : "No hay movimientos registrados."
+            }
+          />
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-navy/10 bg-ash">

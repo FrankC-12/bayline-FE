@@ -9,6 +9,7 @@ import StockInModal from "./StockInModal";
 import StockOutModal from "./StockOutModal";
 import BulkStockInModal from "./BulkStockInModal";
 import type { PartLot } from "@/types/warehouse";
+import EmptyState from "@/components/common/EmptyState";
 
 export default function InventoryDashboardView() {
   const { filialId, activeWarehouse, activeWarehouseId, createWarehouse } =
@@ -116,7 +117,10 @@ export default function InventoryDashboardView() {
             {loading ? (
               <div className="p-12 text-center text-sm text-steel">Cargando inventario...</div>
             ) : tableRows.length === 0 ? (
-              <div className="p-12 text-center text-sm text-steel">No hay existencias en este almacén.</div>
+              <EmptyState
+                compact
+                title={search ? `Sin resultados para "${search}"` : "No hay existencias en este almacén."}
+              />
             ) : (
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-navy/10 bg-ash">
@@ -148,7 +152,7 @@ export default function InventoryDashboardView() {
                             </button>
                           </td>
                           <td className="px-6 py-4 text-navy">
-                            {row.average_cost != null ? `$${row.average_cost.toFixed(2)}` : "—"}
+                            {row.fifo_unit_cost != null ? `$${row.fifo_unit_cost.toFixed(2)}` : "—"}
                           </td>
                           <td className="px-6 py-4 text-steel">{row.location ?? "—"}</td>
                         </tr>

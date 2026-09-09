@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Settings } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTemparios } from "@/hooks/useTemparios";
 import { useLaborSettings } from "@/hooks/useLaborSettings";
+import EmptyState from "@/components/common/EmptyState";
 import TemparioCard from "./TemparioCard";
-import LaborSettingsModal from "./LaborSettingsModal";
 import CreateTemparioModal from "./CreateTemparioModal";
 import type { Tempario } from "@/types/tempario";
 
@@ -16,9 +16,10 @@ export default function TemparioListView() {
 
   const [search, setSearch] = useState("");
   const { temparios, loading, addTempario, editTempario } = useTemparios(filialId, search || undefined);
-  const { settings, save } = useLaborSettings(filialId);
+  // Editing these settings now lives in the standalone Ajustes module — kept
+  // here read-only, just to feed the live price preview below.
+  const { settings } = useLaborSettings(filialId);
 
-  const [laborModalOpen, setLaborModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingTempario, setEditingTempario] = useState<Tempario | null>(null);
 
@@ -54,13 +55,6 @@ export default function TemparioListView() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => setLaborModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
-          >
-            <Settings className="h-4 w-4" />
-            Mano de obra · ${settings?.hourly_rate.toFixed(2) ?? "—"} / h
-          </button>
-          <button
             onClick={openCreate}
             className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
           >
@@ -89,10 +83,10 @@ export default function TemparioListView() {
           Cargando temparios...
         </div>
       ) : temparios.length === 0 ? (
-        <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center">
-          <p className="font-display text-lg font-bold text-navy">No hay temparios todavía</p>
-          <p className="mt-1 text-sm text-steel">Crea el primer servicio del catálogo.</p>
-        </div>
+        <EmptyState
+          title={search ? `Sin resultados para "${search}"` : "No hay temparios todavía"}
+          description={search ? "Prueba con otro término de búsqueda." : "Crea el primer servicio del catálogo."}
+        />
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {temparios.map((t) => (
@@ -100,13 +94,6 @@ export default function TemparioListView() {
           ))}
         </div>
       )}
-
-      <LaborSettingsModal
-        open={laborModalOpen}
-        onClose={() => setLaborModalOpen(false)}
-        settings={settings}
-        onSave={save}
-      />
 
       <CreateTemparioModal
         open={createModalOpen}

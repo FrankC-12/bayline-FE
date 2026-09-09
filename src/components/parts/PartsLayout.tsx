@@ -2,13 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, ShoppingCart, Undo2 } from "lucide-react";
-
-const NAV_ITEMS = [
-  { href: "/dashboard/repuestos", label: "Catálogo de Repuestos", icon: ShoppingCart },
-  { href: "/dashboard/repuestos/ventas", label: "Ventas de Repuestos", icon: ShoppingCart },
-  { href: "/dashboard/repuestos/devoluciones", label: "Devolución de Repuestos", icon: Undo2 },
-];
+import { ChevronLeft } from "lucide-react";
+import { NAV_ITEMS } from "./nav-items";
 
 export default function PartsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

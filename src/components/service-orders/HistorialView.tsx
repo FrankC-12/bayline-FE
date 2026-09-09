@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useServiceOrders } from "@/hooks/useServiceOrders";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUsers } from "@/hooks/useUser";
+import EmptyState from "@/components/common/EmptyState";
 
 const STATUS_LABELS: Record<string, string> = {
   orden_cerrada: "Orden Cerrada",
@@ -34,6 +35,7 @@ export default function HistorialView() {
   const [to, setTo] = useState("");
 
   const technicianName = (id: string | null) => users.find((u) => u.id === id)?.full_name ?? "—";
+  const isFiltered = !!(search || tab !== "todos" || from || to);
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
@@ -109,7 +111,10 @@ export default function HistorialView() {
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando historial...</div>
         ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-sm text-steel">No hay órdenes que coincidan.</div>
+          <EmptyState
+            compact
+            title={isFiltered ? "Sin resultados para este filtro." : "No hay órdenes en el historial."}
+          />
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-navy/10 bg-ash">

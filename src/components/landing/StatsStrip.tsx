@@ -1,5 +1,7 @@
+import { modules } from "@/components/dashboard/modules-data";
+
 const stats = [
-  { value: "10", label: "Módulos" },
+  { value: String(modules.length), label: "Módulos" },
   { value: "1", label: "Plataforma" },
   { value: "Multi-tenant", label: "Arquitectura" },
   { value: "Odoo", label: "Integración ERP" },

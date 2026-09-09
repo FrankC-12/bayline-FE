@@ -1,8 +1,9 @@
 import GaugeDial from "./GaugeDial";
+import { modules } from "@/components/dashboard/modules-data";
 
 const metrics = [
   { value: 98, suffix: "%", label: "Disponibilidad" },
-  { value: 10, suffix: "", label: "Módulos" },
+  { value: modules.length, suffix: "", label: "Módulos" },
   { value: 24, suffix: "/7", label: "Operación" },
 ];
 

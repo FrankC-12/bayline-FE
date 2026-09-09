@@ -7,6 +7,7 @@ import { useSupplierClaims } from "@/hooks/useSupplierClaims";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useParts } from "@/hooks/useParts";
 import type { ClaimStatus } from "@/types/administracion";
+import EmptyState from "@/components/common/EmptyState";
 
 const STATUS_OPTIONS: { value: ClaimStatus; label: string }[] = [
   { value: "pendiente_envio", label: "Pendiente de envío" },
@@ -96,7 +97,14 @@ export default function SupplierClaimsView() {
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando reclamos...</div>
         ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-sm text-steel">No hay reclamos que coincidan.</div>
+          <EmptyState
+            compact
+            title={
+              search || statusFilter !== "todos"
+                ? "Sin reclamos que coincidan con el filtro."
+                : "No hay reclamos registrados."
+            }
+          />
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-navy/10 bg-ash">

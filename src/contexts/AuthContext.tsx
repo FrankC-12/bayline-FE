@@ -1,36 +1,18 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { decodeJwtPayload, isTokenExpired, type DecodedToken } from "@/lib/auth/jwt";
-import {
-  AUTH_SESSION_EXPIRED_EVENT,
-  clearToken,
-  getToken,
-  refreshAccessToken,
-} from "@/lib/api/client";
-import { login as loginRequest, logout as logoutRequest } from "@/lib/api/auth";
-import type { CurrentUser, RoleScope } from "@/types/auth";
+import { AUTH_SESSION_EXPIRED_EVENT, removeLegacyTokens } from "@/lib/api/client";
+import { getSessionUser, login as loginRequest, logout as logoutRequest } from "@/lib/api/auth";
+import type { CurrentUser } from "@/types/auth";
 
 interface AuthContextValue {
   currentUser: CurrentUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<CurrentUser>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-function mapDecodedToCurrentUser(decoded: DecodedToken): CurrentUser {
-  return {
-    userId: decoded.sub,
-    email: decoded.email,
-    roleId: decoded.role_id,
-    roleSlug: decoded.role_slug,
-    scope: decoded.scope as RoleScope,
-    holdingId: decoded.holding_id,
-    filialId: decoded.filial_id,
-  };
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -41,17 +23,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const restoreSession = async () => {
       try {
-        let token = getToken();
-        if (!token) throw new Error("No access token available.");
-
-        let decoded = decodeJwtPayload(token);
-        if (isTokenExpired(decoded)) {
-          token = await refreshAccessToken();
-          decoded = decodeJwtPayload(token);
-        }
-        if (active) setCurrentUser(mapDecodedToCurrentUser(decoded));
+        removeLegacyTokens();
+        const user = await getSessionUser();
+        if (active) setCurrentUser(user);
       } catch {
-        clearToken();
         if (active) setCurrentUser(null);
       } finally {
         if (active) setIsLoading(false);
@@ -73,15 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function login(email: string, password: string): Promise<CurrentUser> {
-    const response = await loginRequest({ email, password });
-    const decoded = decodeJwtPayload(response.access_token);
-    const user = mapDecodedToCurrentUser(decoded);
+    const user = await loginRequest({ email, password });
     setCurrentUser(user);
     return user;
   }
 
-  function logout(): void {
-    logoutRequest();
+  async function logout(): Promise<void> {
+    await logoutRequest();
     setCurrentUser(null);
   }
 

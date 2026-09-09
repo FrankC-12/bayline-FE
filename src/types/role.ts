@@ -1,6 +1,6 @@
 import type { RoleScope } from "./auth";
 
-export type AccessLevel = "ver" | "editar";
+export type AccessLevel = "ver" | "editar" | "sin_acceso";
 
 export interface ModulePermission {
   module_id: string;

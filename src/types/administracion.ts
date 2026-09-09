@@ -137,6 +137,7 @@ export interface FinanceDashboard {
   expense_month: number;
   net_flow: number;
   bcv_rate: number;
+  bcv_rate_is_stale: boolean;
   trend: MonthTrend[];
 }
 

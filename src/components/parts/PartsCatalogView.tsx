@@ -5,6 +5,7 @@ import { Loader2, Pencil, Plus, Search, Upload, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParts } from "@/hooks/useParts";
 import type { Part } from "@/types/parts";
+import EmptyState from "@/components/common/EmptyState";
 import BulkImportPartsModal from "./BulkImportPartsModal";
 
 interface PartForm {
@@ -135,7 +136,10 @@ export default function PartsCatalogView() {
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando catálogo...</div>
         ) : parts.length === 0 ? (
-          <div className="p-12 text-center text-sm text-steel">No hay repuestos en el catálogo.</div>
+          <EmptyState
+            compact
+            title={search ? `Sin resultados para "${search}"` : "No hay repuestos en el catálogo."}
+          />
         ) : (
           <table className="w-full min-w-[1050px] text-left text-sm">
             <thead className="border-b border-navy/10 bg-ash">

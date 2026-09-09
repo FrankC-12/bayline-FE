@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccounts } from "@/hooks/useAccounts";
 import { getFinanceDashboard } from "@/lib/api/administracion";
@@ -32,12 +33,35 @@ export default function FinanceDashboardView() {
   const totalUsd = usdAccounts.reduce((sum, a) => sum + a.balance, 0);
   const totalBsUsd = bsAccounts.reduce((sum, a) => sum + a.balance_usd, 0);
 
+  const hasActivity = dashboard.income_month > 0 || dashboard.expense_month > 0;
+  const netFlowState: "surplus" | "deficit" | "neutral" =
+    dashboard.net_flow > 0 ? "surplus" : dashboard.net_flow < 0 ? "deficit" : "neutral";
+  const netFlowStyles = {
+    surplus: { card: "border-emerald-200 bg-emerald-50", text: "text-emerald-700" },
+    deficit: { card: "border-red-200 bg-red-50", text: "text-red-600" },
+    neutral: { card: "border-navy/10 bg-ash", text: "text-steel" },
+  }[netFlowState];
+  const netFlowMessage =
+    netFlowState === "surplus"
+      ? "El mes cierra con superávit"
+      : netFlowState === "deficit"
+        ? "El mes cierra en déficit"
+        : hasActivity
+          ? "El mes cierra en equilibrio"
+          : "Sin movimientos este mes";
+
   return (
     <div>
       <h1 className="font-display text-3xl font-bold text-navy">Dashboard</h1>
       <p className="mt-1 text-sm text-steel">
         Situación financiera del negocio · Tasa BCV Bs. {dashboard.bcv_rate.toFixed(2)}
       </p>
+      {dashboard.bcv_rate_is_stale && (
+        <p className="mt-2 flex w-fit items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          Tasa BCV vencida — todavía no se ha actualizado hoy.
+        </p>
+      )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-navy/10 bg-white p-6">
@@ -48,14 +72,12 @@ export default function FinanceDashboardView() {
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Egresos del mes</p>
           <p className="mt-1 font-display text-3xl font-bold text-red-500">${dashboard.expense_month.toFixed(2)}</p>
         </div>
-        <div
-          className={`rounded-2xl border p-6 ${dashboard.net_flow >= 0 ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}
-        >
+        <div className={`rounded-2xl border p-6 ${netFlowStyles.card}`}>
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Flujo de caja neto</p>
-          <p className={`mt-1 font-display text-3xl font-bold ${dashboard.net_flow >= 0 ? "text-emerald-700" : "text-red-600"}`}>
-            {dashboard.net_flow >= 0 ? "+" : ""}${dashboard.net_flow.toFixed(2)}
+          <p className={`mt-1 font-display text-3xl font-bold ${netFlowStyles.text}`}>
+            {dashboard.net_flow > 0 ? "+" : ""}${dashboard.net_flow.toFixed(2)}
           </p>
-          <p className="mt-1 text-xs text-steel">{dashboard.net_flow >= 0 ? "El mes cierra con superávit" : "El mes cierra en déficit"}</p>
+          <p className="mt-1 text-xs text-steel">{netFlowMessage}</p>
         </div>
       </div>
 
@@ -86,8 +108,16 @@ export default function FinanceDashboardView() {
                 />
               </div>
               <p className="text-xs font-semibold text-navy">{t.label}</p>
-              <p className={`text-[10px] ${t.income - t.expense >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                {t.income - t.expense >= 0 ? "+" : ""}${(t.income - t.expense).toFixed(0)}
+              <p
+                className={`text-[10px] ${
+                  t.income - t.expense > 0
+                    ? "text-emerald-600"
+                    : t.income - t.expense < 0
+                      ? "text-red-500"
+                      : "text-steel"
+                }`}
+              >
+                {t.income - t.expense > 0 ? "+" : ""}${(t.income - t.expense).toFixed(0)}
               </p>
             </div>
           ))}
