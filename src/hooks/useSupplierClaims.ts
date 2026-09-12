@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { listSupplierClaims, createSupplierClaim, updateSupplierClaim } from "@/lib/api/administracion";
-import type { SupplierClaim } from "@/types/administracion";
+import { listSupplierClaims, createSupplierClaim, updateSupplierClaim, resolveSupplierClaim } from "@/lib/api/administracion";
+import type { SupplierClaim, SupplierClaimResolveInput } from "@/types/administracion";
 
 export function useSupplierClaims(filialId: string | null) {
   const [claims, setClaims] = useState<SupplierClaim[]>([]);
@@ -25,7 +25,15 @@ export function useSupplierClaims(filialId: string | null) {
   }, [load]);
 
   const addClaim = useCallback(
-    async (input: { part_id: string; quantity: number; supplier_id: string; note?: string | null }) => {
+    async (input: {
+      part_id: string;
+      quantity: number;
+      supplier_id: string;
+      note?: string | null;
+      claimed_amount?: number | null;
+      currency?: string | null;
+      client_id?: string | null;
+    }) => {
       if (!filialId) return;
       const created = await createSupplierClaim({ filial_id: filialId, ...input });
       setClaims((prev) => [created, ...prev]);
@@ -34,11 +42,29 @@ export function useSupplierClaims(filialId: string | null) {
     [filialId]
   );
 
-  const editClaim = useCallback(async (id: string, input: { status?: string; return_reference?: string | null }) => {
-    const updated = await updateSupplierClaim(id, input);
+  const editClaim = useCallback(
+    async (
+      id: string,
+      input: {
+        status?: string;
+        return_reference?: string | null;
+        claimed_amount?: number | null;
+        currency?: string | null;
+        client_id?: string | null;
+      }
+    ) => {
+      const updated = await updateSupplierClaim(id, input);
+      setClaims((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      return updated;
+    },
+    []
+  );
+
+  const resolveClaim = useCallback(async (id: string, input: SupplierClaimResolveInput) => {
+    const updated = await resolveSupplierClaim(id, input);
     setClaims((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
     return updated;
   }, []);
 
-  return { claims, loading, addClaim, editClaim, refresh: load };
+  return { claims, loading, addClaim, editClaim, resolveClaim, refresh: load };
 }

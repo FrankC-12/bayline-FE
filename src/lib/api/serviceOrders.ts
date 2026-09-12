@@ -1,13 +1,16 @@
 import type { DiscountLabel } from "@/lib/partsPricing";
 import { apiFetch } from "./client";
-import type { ServiceOrder, Bay, OrderSummary } from "@/types/serviceOrder";
+import type { ServiceOrder, Bay, OrderSummary, ServiceOrderPayer } from "@/types/serviceOrder";
 
 export interface CreateServiceOrderInput {
   discount_label?: DiscountLabel;
   filial_id: string;
   vehicle_id: string;
   order_type?: string;
-  intake_mileage: number;
+  // Optional — a walk-in ODS collects it right away (vehicle present), but
+  // one scheduled ahead of time can't know it yet; it's recorded later via
+  // UpdateServiceOrderInput once the vehicle arrives.
+  intake_mileage?: number | null;
   customer_reason: string;
   advisor_user_id: string;
   promised_at: string;
@@ -26,6 +29,7 @@ export interface UpdateServiceOrderInput {
   bay_id?: string | null;
   scheduled_at?: string | null;
   notes?: string | null;
+  intake_mileage?: number | null;
   clear_technician?: boolean;
   clear_advisor?: boolean;
   clear_bay?: boolean;
@@ -81,10 +85,14 @@ export async function getOrderSummary(orderId: string): Promise<OrderSummary> {
   return apiFetch<OrderSummary>(`/service-orders/${orderId}/summary`);
 }
 
-export async function addTask(orderId: string, temparioId: string): Promise<OrderSummary> {
+export async function addTask(
+  orderId: string,
+  temparioId: string,
+  payer: ServiceOrderPayer = "cliente"
+): Promise<OrderSummary> {
   return apiFetch<OrderSummary>(`/service-orders/${orderId}/tasks`, {
     method: "POST",
-    body: JSON.stringify({ tempario_id: temparioId }),
+    body: JSON.stringify({ tempario_id: temparioId, payer }),
   });
 }
 
@@ -95,6 +103,17 @@ export async function updateTaskStatus(taskId: string, status: string): Promise<
   });
 }
 
+export async function updateTaskPayer(
+  orderId: string,
+  taskId: string,
+  payer: ServiceOrderPayer
+): Promise<OrderSummary> {
+  return apiFetch<OrderSummary>(`/service-orders/${orderId}/tasks/${taskId}/payer`, {
+    method: "PATCH",
+    body: JSON.stringify({ payer }),
+  });
+}
+
 export async function deleteTask(taskId: string): Promise<void> {
   await apiFetch(`/service-order-tasks/${taskId}`, { method: "DELETE" });
 }
@@ -102,11 +121,23 @@ export async function deleteTask(taskId: string): Promise<void> {
 export async function addTransferLine(
   orderId: string,
   partId: string,
-  quantity: number
+  quantity: number,
+  payer: ServiceOrderPayer = "cliente"
 ): Promise<OrderSummary> {
   return apiFetch<OrderSummary>(`/service-orders/${orderId}/transfers/lines`, {
     method: "POST",
-    body: JSON.stringify({ part_id: partId, quantity }),
+    body: JSON.stringify({ part_id: partId, quantity, payer }),
+  });
+}
+
+export async function updateTransferLinePayer(
+  orderId: string,
+  lineId: string,
+  payer: ServiceOrderPayer
+): Promise<OrderSummary> {
+  return apiFetch<OrderSummary>(`/service-orders/${orderId}/transfers/lines/${lineId}/payer`, {
+    method: "PATCH",
+    body: JSON.stringify({ payer }),
   });
 }
 

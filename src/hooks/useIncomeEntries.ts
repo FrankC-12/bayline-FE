@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { listIncomeEntries, createIncomeEntry } from "@/lib/api/administracion";
+import {
+  listIncomeEntries,
+  createIncomeEntry,
+  reverseIncomeEntry,
+  type CreateIncomeEntryInput,
+} from "@/lib/api/administracion";
 import type { IncomeEntry } from "@/types/administracion";
 
 export function useIncomeEntries(filialId: string | null, search?: string) {
@@ -25,7 +30,7 @@ export function useIncomeEntries(filialId: string | null, search?: string) {
   }, [load]);
 
   const addEntry = useCallback(
-    async (input: { entry_date: string; description: string; amount: number; currency: string; account_id: string }) => {
+    async (input: Omit<CreateIncomeEntryInput, "filial_id">) => {
       if (!filialId) return;
       const created = await createIncomeEntry({ filial_id: filialId, ...input });
       setEntries((prev) => [created, ...prev]);
@@ -34,5 +39,11 @@ export function useIncomeEntries(filialId: string | null, search?: string) {
     [filialId]
   );
 
-  return { entries, loading, addEntry, refresh: load };
+  const reverseEntry = useCallback(async (id: string) => {
+    const reversal = await reverseIncomeEntry(id);
+    setEntries((prev) => [reversal, ...prev]);
+    return reversal;
+  }, []);
+
+  return { entries, loading, addEntry, reverseEntry, refresh: load };
 }

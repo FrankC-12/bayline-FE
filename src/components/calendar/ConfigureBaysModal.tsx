@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Pencil, Check } from "lucide-react";
 import type { Bay } from "@/types/serviceOrder";
 
 interface ConfigureBaysModalProps {
@@ -10,11 +10,15 @@ interface ConfigureBaysModalProps {
   bays: Bay[];
   onToggle: (bay: Bay) => void;
   onAdd: (name: string) => Promise<void>;
+  onRename: (bay: Bay, name: string) => Promise<unknown>;
 }
 
-export default function ConfigureBaysModal({ open, onClose, bays, onToggle, onAdd }: ConfigureBaysModalProps) {
+export default function ConfigureBaysModal({ open, onClose, bays, onToggle, onAdd, onRename }: ConfigureBaysModalProps) {
   const [newBayName, setNewBayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [renaming, setRenaming] = useState(false);
 
   async function handleAdd() {
     if (!newBayName.trim()) return;
@@ -24,6 +28,26 @@ export default function ConfigureBaysModal({ open, onClose, bays, onToggle, onAd
       setNewBayName("");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function startEditing(bay: Bay) {
+    setEditingId(bay.id);
+    setEditingName(bay.name);
+  }
+
+  async function handleRename(bay: Bay) {
+    const trimmed = editingName.trim();
+    if (!trimmed || trimmed === bay.name) {
+      setEditingId(null);
+      return;
+    }
+    setRenaming(true);
+    try {
+      await onRename(bay, trimmed);
+      setEditingId(null);
+    } finally {
+      setRenaming(false);
     }
   }
 
@@ -42,11 +66,41 @@ export default function ConfigureBaysModal({ open, onClose, bays, onToggle, onAd
 
         <div className="space-y-3 p-6">
           {bays.map((bay) => (
-            <div key={bay.id} className="flex items-center justify-between rounded-xl border border-navy/10 px-4 py-3">
-              <span className="font-medium text-navy">{bay.name}</span>
+            <div key={bay.id} className="flex items-center justify-between gap-2 rounded-xl border border-navy/10 px-4 py-3">
+              {editingId === bay.id ? (
+                <div className="flex flex-1 items-center gap-2">
+                  <input
+                    autoFocus
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleRename(bay);
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                    disabled={renaming}
+                    className="flex-1 rounded-lg border border-navy/15 px-2 py-1 text-sm outline-none focus:border-blue disabled:opacity-60"
+                  />
+                  <button
+                    onClick={() => handleRename(bay)}
+                    disabled={renaming || !editingName.trim()}
+                    aria-label="Guardar nombre"
+                    className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                  >
+                    <Check className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => startEditing(bay)}
+                  className="flex flex-1 items-center gap-2 text-left font-medium text-navy hover:text-blue"
+                >
+                  {bay.name}
+                  <Pencil className="h-3.5 w-3.5 opacity-40" />
+                </button>
+              )}
               <button
                 onClick={() => onToggle(bay)}
-                className={`relative h-6 w-11 rounded-full transition ${bay.is_active ? "bg-emerald-500" : "bg-navy/15"}`}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition ${bay.is_active ? "bg-emerald-500" : "bg-navy/15"}`}
                 aria-label={bay.is_active ? "Desactivar" : "Activar"}
               >
                 <span

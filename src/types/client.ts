@@ -23,6 +23,13 @@ export interface Vehicle {
   current_mileage_visit_date: string | null;
   current_mileage_service_order_id: string | null;
   current_mileage_service_order_code: string | null;
+  next_maintenance_due_at: string | null;
+  next_maintenance_tempario_id: string | null;
+  next_maintenance_tempario_code: string | null;
+  next_maintenance_tempario_name: string | null;
+  maintenance_plan_id: string | null;
+  maintenance_plan_brand: string | null;
+  maintenance_plan_name: string | null;
 }
 
 export interface Client {
@@ -38,6 +45,7 @@ export interface Client {
   contact_preference: ContactPreference | null;
   address: string;
   address_type: AddressType | null;
+  is_holding_billing: boolean;
   vehicles: Vehicle[];
   created_at: string;
   updated_at: string;

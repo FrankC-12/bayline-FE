@@ -1,4 +1,4 @@
-import { Pencil } from "lucide-react";
+import { Pencil, UserX, UserCheck } from "lucide-react";
 import type { AppUser } from "@/types/user";
 import type { Role } from "@/types/role";
 import UserStatusBadge from "./UserStatusBadge";
@@ -8,7 +8,9 @@ interface UserTableProps {
   roles: Role[];
   loading: boolean;
   canManage: boolean;
+  currentUserId?: string | null;
   onEdit: (user: AppUser) => void;
+  onToggleStatus: (user: AppUser) => void;
 }
 
 function getInitials(name: string) {
@@ -20,7 +22,7 @@ function getInitials(name: string) {
     .join("");
 }
 
-export default function UserTable({ users, roles, loading, canManage, onEdit }: UserTableProps) {
+export default function UserTable({ users, roles, loading, canManage, currentUserId, onEdit, onToggleStatus }: UserTableProps) {
   const roleName = (roleId: string) => roles.find((r) => r.id === roleId)?.name ?? "—";
 
   if (loading) {
@@ -77,13 +79,33 @@ export default function UserTable({ users, roles, loading, canManage, onEdit }: 
               </td>
               {canManage && (
                 <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={() => onEdit(u)}
-                    aria-label={`Editar ${u.full_name}`}
-                    className="rounded-lg p-2 text-steel transition hover:bg-blue-light hover:text-blue"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => onEdit(u)}
+                      aria-label={`Editar ${u.full_name}`}
+                      className="rounded-lg p-2 text-steel transition hover:bg-blue-light hover:text-blue"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    {u.id !== currentUserId && (
+                      <button
+                        onClick={() => onToggleStatus(u)}
+                        aria-label={u.status === "inactivo" ? `Reactivar ${u.full_name}` : `Inactivar ${u.full_name}`}
+                        title={u.status === "inactivo" ? "Reactivar" : "Inactivar"}
+                        className={`rounded-lg p-2 transition ${
+                          u.status === "inactivo"
+                            ? "text-steel hover:bg-emerald-50 hover:text-emerald-600"
+                            : "text-steel hover:bg-red-50 hover:text-red-500"
+                        }`}
+                      >
+                        {u.status === "inactivo" ? (
+                          <UserCheck className="h-4 w-4" />
+                        ) : (
+                          <UserX className="h-4 w-4" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </td>
               )}
             </tr>

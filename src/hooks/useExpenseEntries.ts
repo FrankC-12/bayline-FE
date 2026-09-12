@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { listExpenseEntries, createExpenseEntry } from "@/lib/api/administracion";
+import {
+  listExpenseEntries,
+  createExpenseEntry,
+  reverseExpenseEntry,
+  type CreateExpenseEntryInput,
+} from "@/lib/api/administracion";
 import type { ExpenseEntry } from "@/types/administracion";
 
 export function useExpenseEntries(filialId: string | null, search?: string) {
@@ -25,15 +30,7 @@ export function useExpenseEntries(filialId: string | null, search?: string) {
   }, [load]);
 
   const addEntry = useCallback(
-    async (input: {
-      entry_date: string;
-      category: string;
-      beneficiary: string;
-      description: string;
-      amount: number;
-      currency: string;
-      account_id: string;
-    }) => {
+    async (input: Omit<CreateExpenseEntryInput, "filial_id">) => {
       if (!filialId) return;
       const created = await createExpenseEntry({ filial_id: filialId, ...input });
       setEntries((prev) => [created, ...prev]);
@@ -42,5 +39,11 @@ export function useExpenseEntries(filialId: string | null, search?: string) {
     [filialId]
   );
 
-  return { entries, loading, addEntry, refresh: load };
+  const reverseEntry = useCallback(async (id: string) => {
+    const reversal = await reverseExpenseEntry(id);
+    setEntries((prev) => [reversal, ...prev]);
+    return reversal;
+  }, []);
+
+  return { entries, loading, addEntry, reverseEntry, refresh: load };
 }

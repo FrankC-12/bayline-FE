@@ -47,6 +47,7 @@ export default function ClientFormPanel({
   const [contactPreference, setContactPreference] = useState("");
   const [address, setAddress] = useState("");
   const [addressType, setAddressType] = useState("hogar");
+  const [isHoldingBilling, setIsHoldingBilling] = useState(false);
   const [vehicles, setVehicles] = useState<VehicleFormValue[]>([emptyVehicle()]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -63,6 +64,7 @@ export default function ClientFormPanel({
       setContactPreference(editingClient.contact_preference ?? "");
       setAddress(editingClient.address);
       setAddressType(editingClient.address_type ?? "hogar");
+      setIsHoldingBilling(editingClient.is_holding_billing);
       setVehicles(
         editingClient.vehicles.length
           ? editingClient.vehicles.map((v) => ({
@@ -97,6 +99,7 @@ export default function ClientFormPanel({
       setContactPreference("");
       setAddress("");
       setAddressType("hogar");
+      setIsHoldingBilling(false);
       setVehicles([]);
     }
     setErrors([]);
@@ -196,6 +199,7 @@ export default function ClientFormPanel({
         contact_preference: contactPreference || null,
         address: address.trim(),
         address_type: addressType || null,
+        is_holding_billing: clientType === "empresa" && isHoldingBilling,
         vehicles: vehiclesPayload,
       });
       onClose();
@@ -365,6 +369,23 @@ export default function ClientFormPanel({
                   ))}
                 </select>
               </div>
+
+              {clientType === "empresa" && (
+                <label className="flex items-start gap-2.5 rounded-xl border border-navy/15 px-4 py-3 text-sm sm:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={isHoldingBilling}
+                    onChange={(e) => setIsHoldingBilling(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-navy/30 text-blue focus:ring-blue"
+                  />
+                  <span>
+                    <span className="font-medium text-navy">Este cliente representa al Holding</span>
+                    <span className="block text-xs text-steel">
+                      Úsalo para facturar trabajos de garantía de fábrica en vez de al dueño del vehículo. Aparece como opción al facturar una orden.
+                    </span>
+                  </span>
+                </label>
+              )}
             </div>
           </div>
 

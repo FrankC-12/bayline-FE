@@ -26,7 +26,7 @@ export default function CalendarView() {
   const filialId = currentUser?.filialId ?? null;
 
   const [selectedDate, setSelectedDate] = useState(() => toDateInputValue(new Date()));
-  const { bays, addBay, toggleActive } = useBays(filialId);
+  const { bays, addBay, toggleActive, renameBay } = useBays(filialId);
   const { orders, loading, addOrder, rescheduleOrder } = useScheduledOrders(filialId, selectedDate);
   const { vehicleMap } = useVehicleLookup(filialId);
   const { users } = useUsers({ filialId });
@@ -39,9 +39,15 @@ export default function CalendarView() {
 
   const [configureOpen, setConfigureOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [clickedSlot, setClickedSlot] = useState<{ hour: number; bayId: string } | null>(null);
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
   const draggingRef = useRef(false);
+
+  function openScheduleModal(slot?: { hour: number; bayId: string }) {
+    setClickedSlot(slot ?? null);
+    setScheduleOpen(true);
+  }
 
   const activeBays = useMemo(() => bays.filter((b) => b.is_active), [bays]);
 
@@ -139,7 +145,7 @@ export default function CalendarView() {
             Configurar bahías
           </button>
           <button
-            onClick={() => setScheduleOpen(true)}
+            onClick={() => openScheduleModal()}
             className="rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
           >
             + Agendar Orden de Servicio
@@ -178,7 +184,7 @@ export default function CalendarView() {
 
       <p className="mb-6 flex items-center gap-1.5 text-xs text-steel">
         <GripVertical className="h-3.5 w-3.5" />
-        Arrastra una cita a otra hora o bahía para reagendarla.
+        Arrastra una cita a otra hora o bahía para reagendarla. Haz clic en un espacio libre para agendar una nueva.
       </p>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
@@ -213,14 +219,19 @@ export default function CalendarView() {
                         const cellKey = `${b.id}-${hour}`;
                         const cellOrders = ordersByBayAndHour.get(cellKey) ?? [];
                         const isHovered = hoveredCell === cellKey;
+                        const isEmpty = cellOrders.length === 0;
                         return (
                           <td
                             key={b.id}
                             onDragOver={(e) => handleDragOver(e, cellKey)}
                             onDragLeave={() => setHoveredCell((prev) => (prev === cellKey ? null : prev))}
                             onDrop={(e) => handleDrop(e, b.id, hour)}
+                            onClick={() => {
+                              if (isEmpty) openScheduleModal({ hour, bayId: b.id });
+                            }}
+                            title={isEmpty ? "Clic para agendar una orden de servicio" : undefined}
                             className={`border-l border-navy/5 px-2 py-2 align-top transition-colors ${
-                              isHovered ? "bg-blue-light/70" : ""
+                              isHovered ? "bg-blue-light/70" : isEmpty ? "cursor-pointer hover:bg-ash" : ""
                             }`}
                           >
                             {cellOrders.map((o) => {
@@ -297,6 +308,7 @@ export default function CalendarView() {
         onAdd={async (name) => {
           await addBay(name);
         }}
+        onRename={renameBay}
       />
 
       <ScheduleOrderModal
@@ -304,6 +316,8 @@ export default function CalendarView() {
         onClose={() => setScheduleOpen(false)}
         filialId={filialId}
         defaultDate={selectedDate}
+        defaultTime={clickedSlot ? `${clickedSlot.hour.toString().padStart(2, "0")}:00` : undefined}
+        defaultBayId={clickedSlot?.bayId}
         hours={HOURS}
         bays={activeBays}
         technicians={technicians}

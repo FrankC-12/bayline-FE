@@ -46,6 +46,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
   const [priceCash, setPriceCash] = useState("");
   const [priceFinanced, setPriceFinanced] = useState("");
   const [costPrice, setCostPrice] = useState("");
+  const [costIsEstimated, setCostIsEstimated] = useState(false);
   const [priceCurrency, setPriceCurrency] = useState<"USD" | "VES">("USD");
   const [ivaPercentage, setIvaPercentage] = useState("16");
   const [igtfPercentage, setIgtfPercentage] = useState("3");
@@ -149,6 +150,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
     setPriceCash("");
     setPriceFinanced("");
     setCostPrice("");
+    setCostIsEstimated(false);
     setPriceCurrency("USD");
     setIvaPercentage("16");
     setIgtfPercentage("3");
@@ -192,6 +194,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
         price_cash: Number(priceCash) || 0,
         price_financed: Number(priceFinanced) || 0,
         cost_price: Number(costPrice),
+        cost_is_estimated: costIsEstimated,
         price_currency: priceCurrency,
         iva_percentage: Number(ivaPercentage) || 0,
         igtf_percentage: Number(igtfPercentage) || 0,
@@ -375,6 +378,15 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
               />
             </div>
             <p className="mt-1.5 text-xs text-steel">Lo que pagó el concesionario por el vehículo — se usa para calcular la rentabilidad, no se muestra al cliente.</p>
+            <label className="mt-2 flex items-center gap-2 text-sm text-steel">
+              <input
+                type="checkbox"
+                checked={costIsEstimated}
+                onChange={(e) => setCostIsEstimated(e.target.checked)}
+                className="h-4 w-4 rounded border-navy/25"
+              />
+              Es un costo estimado, no derivado de una compra
+            </label>
           </div>
 
           <div className="rounded-2xl border border-navy/10 bg-ash/60 p-4">

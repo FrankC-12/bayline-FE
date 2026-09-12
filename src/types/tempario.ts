@@ -53,5 +53,14 @@ export interface LaborSettings {
   bcv_rate: number;
   bcv_rate_date: string | null;
   bcv_rate_is_stale: boolean;
+  part_warranty_days: number;
+  vehicle_warranty_default_months: number;
+  workshop_warranty_days: number;
+  workshop_warranty_km: number;
+  workshop_parts_warranty_days: number;
+  workshop_parts_warranty_km: number;
+  iva_retention_default_percentage: number;
+  islr_retention_default_percentage: number;
+  manual_movement_attachment_threshold_usd: number;
   updated_at: string;
 }

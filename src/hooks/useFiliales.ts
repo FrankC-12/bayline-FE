@@ -16,6 +16,11 @@ export function useFiliales(holdingId?: string | null) {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (holdingId === null) {
+      setFiliales([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const data = await listFiliales(holdingId ?? undefined);
     setFiliales(data);

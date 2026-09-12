@@ -68,6 +68,13 @@ export default function PriceSummaryCard({ summary, totalAmount, onDiscountChang
         <span className="font-display text-2xl font-bold text-blue">${summary.total.toFixed(2)}</span>
       </div>
 
+      {summary.non_client_subtotal > 0 && (
+        <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Cubierto por garantía/plan/proveedor (no se cobra al cliente): $
+          {summary.non_client_subtotal.toFixed(2)}
+        </p>
+      )}
+
       {!summary.pricing_snapshot_available && (
         <p className="mt-3 text-xs text-steel">El desglose histórico no está disponible. Se conserva el total facturado.</p>
       )}

@@ -121,7 +121,7 @@ export default function VehicleFields({ index, value, onChange, onRemove, canRem
           />
           {value.currentMileage != null && (
             <p className="mt-1 text-[11px] text-steel">
-              Actual: {value.currentMileage.toLocaleString()} km
+              Actual: {value.currentMileage.toLocaleString("es-VE")} km
               {value.currentMileageVisitDate && (
                 <>
                   {" · "}

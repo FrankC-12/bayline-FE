@@ -17,6 +17,18 @@ export interface Part {
   updated_at: string;
 }
 
+export interface PartWarranty {
+  id: string;
+  part_id: string;
+  lot_id: string;
+  lot_code: string;
+  quantity: number;
+  warranty_days: number;
+  starts_at: string;
+  expires_at: string;
+  is_active: boolean;
+}
+
 export interface PartSaleLine {
   id: string;
   part_id: string;
@@ -27,6 +39,7 @@ export interface PartSaleLine {
   line_total: number;
   dispatched_quantity: number | null;
   allocations: { lot_id: string; quantity: number; unit_cost: number }[];
+  warranties: PartWarranty[];
 }
 
 export interface PartSale {

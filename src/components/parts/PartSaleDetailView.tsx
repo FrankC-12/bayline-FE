@@ -220,6 +220,44 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
         </p>
       )}
 
+      {sale.status === "completado" && sale.lines.some((l) => l.warranties.length > 0) && (
+        <div className="mt-6 rounded-2xl border border-navy/10 bg-white p-6">
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+            Garantía de pieza (no cubre instalación)
+          </p>
+          <div className="space-y-3">
+            {sale.lines
+              .filter((line) => line.warranties.length > 0)
+              .map((line) => {
+                const expiresAt = line.warranties[0].expires_at;
+                const active = line.warranties.every((w) => w.is_active);
+                return (
+                  <div
+                    key={line.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-ash px-4 py-3 text-sm"
+                  >
+                    <div>
+                      <span className="font-medium text-navy">{partName(line.part_id)}</span>{" "}
+                      <span className="text-steel">
+                        · lote(s){" "}
+                        {line.warranties.map((w) => w.lot_code).join(", ")}
+                      </span>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {active ? "Vigente" : "Vencida"} hasta{" "}
+                      {new Date(expiresAt).toLocaleDateString("es-VE")}
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
       {actionError && (
         <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{actionError}</p>
       )}

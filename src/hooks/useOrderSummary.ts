@@ -5,11 +5,13 @@ import {
   getOrderSummary,
   addTask,
   updateTaskStatus,
+  updateTaskPayer,
   deleteTask,
   addTransferLine,
+  updateTransferLinePayer,
   markTransferOrdered,
 } from "@/lib/api/serviceOrders";
-import type { OrderSummary } from "@/types/serviceOrder";
+import type { OrderSummary, ServiceOrderPayer } from "@/types/serviceOrder";
 
 export function useOrderSummary(orderId: string | null) {
   const [summary, setSummary] = useState<OrderSummary | null>(null);
@@ -32,9 +34,9 @@ export function useOrderSummary(orderId: string | null) {
   }, [load]);
 
   const addTaskAndRefresh = useCallback(
-    async (temparioId: string) => {
+    async (temparioId: string, payer: ServiceOrderPayer = "cliente") => {
       if (!orderId) return;
-      const updated = await addTask(orderId, temparioId);
+      const updated = await addTask(orderId, temparioId, payer);
       setSummary(updated);
     },
     [orderId]
@@ -48,6 +50,15 @@ export function useOrderSummary(orderId: string | null) {
     [load]
   );
 
+  const changeTaskPayer = useCallback(
+    async (taskId: string, payer: ServiceOrderPayer) => {
+      if (!orderId) return;
+      const updated = await updateTaskPayer(orderId, taskId, payer);
+      setSummary(updated);
+    },
+    [orderId]
+  );
+
   const removeTask = useCallback(
     async (taskId: string) => {
       await deleteTask(taskId);
@@ -57,9 +68,18 @@ export function useOrderSummary(orderId: string | null) {
   );
 
   const addLineAndRefresh = useCallback(
-    async (partId: string, quantity: number) => {
+    async (partId: string, quantity: number, payer: ServiceOrderPayer = "cliente") => {
       if (!orderId) return;
-      const updated = await addTransferLine(orderId, partId, quantity);
+      const updated = await addTransferLine(orderId, partId, quantity, payer);
+      setSummary(updated);
+    },
+    [orderId]
+  );
+
+  const changeLinePayer = useCallback(
+    async (lineId: string, payer: ServiceOrderPayer) => {
+      if (!orderId) return;
+      const updated = await updateTransferLinePayer(orderId, lineId, payer);
       setSummary(updated);
     },
     [orderId]
@@ -79,8 +99,10 @@ export function useOrderSummary(orderId: string | null) {
     refresh: load,
     addTask: addTaskAndRefresh,
     toggleTaskStatus,
+    changeTaskPayer,
     removeTask,
     addTransferLine: addLineAndRefresh,
+    changeLinePayer,
     markOrdered,
   };
 }

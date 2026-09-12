@@ -3,14 +3,16 @@
 import { useState } from "react";
 import { Package, Search } from "lucide-react";
 import { useParts } from "@/hooks/useParts";
-import type { ServiceOrderTransfer } from "@/types/serviceOrder";
+import { PAYER_LABELS, PAYER_OPTIONS } from "@/lib/servicePayers";
+import type { ServiceOrderTransfer, ServiceOrderPayer } from "@/types/serviceOrder";
 import type { Part } from "@/types/parts";
 
 interface TransfersCardProps {
   filialId: string;
   readOnly?: boolean;
   transfers: ServiceOrderTransfer[];
-  onAddLine: (partId: string, quantity: number) => Promise<void>;
+  onAddLine: (partId: string, quantity: number, payer: ServiceOrderPayer) => Promise<void>;
+  onChangeLinePayer: (lineId: string, payer: ServiceOrderPayer) => Promise<void>;
   onMarkOrdered: (transferId: string) => Promise<void>;
 }
 
@@ -18,6 +20,7 @@ export default function TransfersCard({
   filialId,
   transfers,
   onAddLine,
+  onChangeLinePayer,
   onMarkOrdered,
   readOnly = false,
 }: TransfersCardProps) {
@@ -26,6 +29,7 @@ export default function TransfersCard({
 
   const [search, setSearch] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const [payer, setPayer] = useState<ServiceOrderPayer>("cliente");
   const [adding, setAdding] = useState(false);
 
   const results = search
@@ -42,9 +46,10 @@ export default function TransfersCard({
     if (readOnly) return;
     setAdding(true);
     try {
-      await onAddLine(partId, Number(quantity) || 1);
+      await onAddLine(partId, Number(quantity) || 1, payer);
       setSearch("");
       setQuantity("1");
+      setPayer("cliente");
     } finally {
       setAdding(false);
     }
@@ -99,6 +104,18 @@ export default function TransfersCard({
           onChange={(e) => setQuantity(e.target.value)}
           className="w-16 rounded-xl border border-navy/15 px-2 py-2.5 text-center text-sm outline-none focus:border-blue"
         />
+        <select
+          value={payer}
+          onChange={(e) => setPayer(e.target.value as ServiceOrderPayer)}
+          disabled={readOnly || adding}
+          className="w-40 shrink-0 rounded-xl border border-navy/15 px-2 py-2.5 text-sm outline-none focus:border-blue disabled:opacity-60"
+        >
+          {PAYER_OPTIONS.map((p) => (
+            <option key={p} value={p}>
+              {PAYER_LABELS[p]}
+            </option>
+          ))}
+        </select>
       </div>
 
       {transfers.length === 0 ? (
@@ -146,6 +163,7 @@ export default function TransfersCard({
                     <th className="pb-1.5 text-right font-mono text-[10px] uppercase tracking-widest">
                       Subtotal
                     </th>
+                    <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">Paga</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-navy/5">
@@ -158,6 +176,20 @@ export default function TransfersCard({
                         <td className="py-1.5 text-right text-navy">{line.unit_price == null ? "—" : `$${line.unit_price.toFixed(2)}`}</td>
                         <td className="py-1.5 text-right font-medium text-navy">
                           {line.subtotal == null ? "—" : `$${line.subtotal.toFixed(2)}`}
+                        </td>
+                        <td className="py-1.5">
+                          <select
+                            value={line.payer}
+                            onChange={(e) => onChangeLinePayer(line.id, e.target.value as ServiceOrderPayer)}
+                            disabled={readOnly || adding}
+                            className="rounded-lg border border-navy/15 px-2 py-1 text-xs outline-none focus:border-blue disabled:opacity-60"
+                          >
+                            {PAYER_OPTIONS.map((p) => (
+                              <option key={p} value={p}>
+                                {PAYER_LABELS[p]}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                       </tr>
                     );

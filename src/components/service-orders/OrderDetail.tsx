@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ChevronLeft, Clock } from "lucide-react";
@@ -13,10 +13,12 @@ import { useBays } from "@/hooks/useBays";
 import { useInspectionForOrder } from "@/hooks/useInspectionForOrder";
 import { useInspections } from "@/hooks/useInspections";
 import { useOrderSummary } from "@/hooks/useOrderSummary";
+import { useTemparios } from "@/hooks/useTemparios";
 import TasksCard from "./TaskCard";
 import TransfersCard from "./TransferCard";
 import PriceSummaryCard from "./PriceSummaryCard";
 import BillingModal from "./BillingModal";
+import RegisterReworkClaimModal from "./RegisterReworkClaimModal";
 import { closeServiceOrder } from "@/lib/api/serviceOrderBilling";
 import { formatElapsed } from "@/lib/time";
 
@@ -54,11 +56,32 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const { bays } = useBays(filialId);
   const { inspection, link } = useInspectionForOrder(order?.id ?? null);
   const { inspections: unlinkedInspections } = useInspections(filialId, true);
-  const { summary, refresh: refreshSummary, addTask, toggleTaskStatus, removeTask, addTransferLine, markOrdered } =
-    useOrderSummary(order?.id ?? null);
+  const {
+    summary,
+    refresh: refreshSummary,
+    addTask,
+    toggleTaskStatus,
+    changeTaskPayer,
+    removeTask,
+    addTransferLine,
+    changeLinePayer,
+    markOrdered,
+  } = useOrderSummary(order?.id ?? null);
   const [saving, setSaving] = useState(false);
   const [billingOpen, setBillingOpen] = useState(false);
+  const [claimModalOpen, setClaimModalOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [closePanelOpen, setClosePanelOpen] = useState(false);
+  const [nextMaintenanceDate, setNextMaintenanceDate] = useState("");
+  const [temparioSearch, setTemparioSearch] = useState("");
+  const [nextMaintenanceTempario, setNextMaintenanceTempario] = useState<{ id: string; code: string; name: string } | null>(null);
+  const { temparios: temparioResults } = useTemparios(filialId, temparioSearch || undefined);
+  const [addingPlanTask, setAddingPlanTask] = useState(false);
+  const [intakeMileageDraft, setIntakeMileageDraft] = useState("");
+
+  useEffect(() => {
+    if (order) setIntakeMileageDraft(order.intake_mileage != null ? String(order.intake_mileage) : "");
+  }, [order?.id, order?.intake_mileage]);
 
   const technicianRoleId = roles.find((r) => r.slug === "tecnico")?.id;
   const technicians = users.filter((u) => u.role_id === technicianRoleId);
@@ -89,10 +112,33 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const info = vehicleMap.get(order.vehicle_id);
   const readOnly = !!order.invoiced_at || order.status === "orden_cerrada" || order.status === "cancelado";
 
+  const pendingPlanTemparioId = info?.vehicle.next_maintenance_tempario_id ?? null;
+  const pendingPlanAlreadyAdded = !!(
+    pendingPlanTemparioId && summary?.tasks.some((t) => t.tempario_id === pendingPlanTemparioId)
+  );
+  const showPendingPlanBanner = !readOnly && !!pendingPlanTemparioId && !pendingPlanAlreadyAdded;
+
+  async function addPlanTask() {
+    if (!pendingPlanTemparioId) return;
+    setAddingPlanTask(true);
+    setActionError(null);
+    try {
+      await addTask(pendingPlanTemparioId);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "No se pudo cargar la tarea del plan.");
+    } finally {
+      setAddingPlanTask(false);
+    }
+  }
+
   async function finishOrder() {
     if (!order?.invoiced_at || order.status !== "completado") return;
     setSaving(true); setActionError(null);
-    try { await closeServiceOrder(orderId); await refreshOrder(); await refreshSummary(); }
+    try {
+      await closeServiceOrder(orderId, nextMaintenanceDate || null, nextMaintenanceTempario?.id ?? null);
+      await refreshOrder(); await refreshSummary();
+      setClosePanelOpen(false);
+    }
     catch (err) { setActionError(err instanceof Error ? err.message : "No se pudo cerrar la orden."); }
     finally { setSaving(false); }
   }
@@ -134,6 +180,18 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     setSaving(true);
     try {
       await update(value === "" ? { clear_bay: true } : { bay_id: value });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveIntakeMileage() {
+    if (readOnly) return;
+    const trimmed = intakeMileageDraft.trim();
+    if (trimmed === "" || Number(trimmed) < 0) return;
+    setSaving(true);
+    try {
+      await update({ intake_mileage: Number(trimmed) });
     } finally {
       setSaving(false);
     }
@@ -197,7 +255,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
               className="rounded-full bg-blue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">
               {order.invoiced_at ? "Ver factura y cobro" : "Facturar"}
             </button>
-            <button onClick={finishOrder} disabled={saving || !order.invoiced_at}
+            <button onClick={() => setClosePanelOpen(true)} disabled={saving || !order.invoiced_at || closePanelOpen}
               title={!order.invoiced_at ? "Primero debes facturar y registrar el cobro" : undefined}
               className="rounded-full bg-navy px-5 py-2 text-sm font-semibold text-white disabled:opacity-40">
               Cerrar orden
@@ -205,6 +263,10 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           </>}
           {order.status === "orden_cerrada" && order.invoiced_at && <button onClick={() => setBillingOpen(true)}
             className="rounded-full border border-blue px-5 py-2 text-sm font-semibold text-blue">Ver factura y cobro</button>}
+          {order.invoiced_at && <button onClick={() => setClaimModalOpen(true)}
+            className="rounded-full border border-navy/15 px-5 py-2 text-sm font-semibold text-navy transition hover:border-blue hover:text-blue">
+            Reclamos de garantía
+          </button>}
           {actionError && <p role="alert" className="w-full text-sm text-red-600">{actionError}</p>}
           {(order.status === "pendiente" || order.status === "en_progreso") && (
             <button
@@ -216,6 +278,93 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             </button>
           )}
         </div>
+
+        {closePanelOpen && (
+          <div className="mt-5 rounded-xl bg-ash p-4">
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Próxima visita sugerida (opcional)
+            </label>
+            <p className="mb-2 text-xs text-steel">
+              Si el vehículo aplica, alimenta el listado de mantenimiento por vencer en Torre de
+              Control.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                type="date"
+                value={nextMaintenanceDate}
+                onChange={(e) => setNextMaintenanceDate(e.target.value)}
+                className="rounded-xl border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue"
+              />
+            </div>
+
+            <label className="mb-1.5 mt-4 block text-sm font-medium text-navy">
+              Tarea del plan pendiente (opcional)
+            </label>
+            {nextMaintenanceTempario ? (
+              <div className="flex items-center gap-2 rounded-xl border border-navy/15 bg-white px-3 py-2 text-sm">
+                <span className="font-mono text-blue">{nextMaintenanceTempario.code}</span>
+                <span className="text-navy">{nextMaintenanceTempario.name}</span>
+                <button
+                  onClick={() => setNextMaintenanceTempario(null)}
+                  className="ml-auto text-xs font-medium text-steel hover:text-navy"
+                >
+                  Quitar
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  value={temparioSearch}
+                  onChange={(e) => setTemparioSearch(e.target.value)}
+                  placeholder="Buscar tarea del catálogo — código o nombre..."
+                  className="w-full rounded-xl border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue"
+                />
+                {temparioSearch && temparioResults.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">
+                    {temparioResults.slice(0, 6).map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          setNextMaintenanceTempario({ id: t.id, code: t.code, name: t.name });
+                          setTemparioSearch("");
+                        }}
+                        className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-ash"
+                      >
+                        <span>
+                          <span className="font-mono text-blue">{t.code}</span>{" "}
+                          <span className="text-navy">{t.name}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                onClick={finishOrder}
+                disabled={saving}
+                className="rounded-full bg-navy px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                Confirmar cierre
+              </button>
+              <button
+                onClick={() => {
+                  setClosePanelOpen(false);
+                  setNextMaintenanceDate("");
+                  setNextMaintenanceTempario(null);
+                  setTemparioSearch("");
+                }}
+                disabled={saving}
+                className="text-sm font-medium text-steel hover:text-navy"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-6 rounded-2xl border border-navy/10 bg-white p-6">
@@ -223,9 +372,35 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         <div className="grid gap-4 sm:grid-cols-4">
           <div>
             <p className="text-xs text-steel">Kilometraje de ingreso</p>
-            <p className="mt-0.5 text-sm font-semibold text-navy">
-              {order.intake_mileage != null ? `${order.intake_mileage.toLocaleString("es-VE")} km` : "—"}
-            </p>
+            {readOnly ? (
+              <p className="mt-0.5 text-sm font-semibold text-navy">
+                {order.intake_mileage != null ? `${order.intake_mileage.toLocaleString("es-VE")} km` : "—"}
+              </p>
+            ) : (
+              <div className="mt-0.5 flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  value={intakeMileageDraft}
+                  onChange={(e) => setIntakeMileageDraft(e.target.value)}
+                  placeholder="Aún no ingresa"
+                  disabled={saving}
+                  className="w-24 rounded-lg border border-navy/15 px-2 py-1 text-sm font-semibold text-navy outline-none focus:border-blue disabled:opacity-60"
+                />
+                <span className="text-xs text-steel">km</span>
+                {intakeMileageDraft.trim() !== "" &&
+                  Number(intakeMileageDraft) !== order.intake_mileage && (
+                    <button
+                      type="button"
+                      onClick={saveIntakeMileage}
+                      disabled={saving}
+                      className="text-xs font-semibold text-blue hover:text-navy disabled:opacity-50"
+                    >
+                      Guardar
+                    </button>
+                  )}
+              </div>
+            )}
           </div>
           <div>
             <p className="text-xs text-steel">Asesor responsable</p>
@@ -353,6 +528,28 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
       {readOnly && <p role="status" className="mt-6 rounded-xl bg-ash px-4 py-3 text-sm text-steel">
         Esta orden es de solo lectura.{(order.invoiced_at || order.status === "orden_cerrada") ? " El precio quedó congelado al facturar." : ""}
       </p>}
+      {showPendingPlanBanner && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue/20 bg-blue-light px-5 py-4">
+          <div>
+            <p className="text-sm font-semibold text-navy">
+              Este vehículo tiene un servicio de plan pendiente:{" "}
+              <span className="font-mono text-blue">{info?.vehicle.next_maintenance_tempario_code}</span>{" "}
+              {info?.vehicle.next_maintenance_tempario_name}
+            </p>
+            <p className="mt-0.5 text-xs text-steel">
+              Se cargará la tarea y los repuestos que incluye, sin tener que buscarla.
+            </p>
+          </div>
+          <button
+            onClick={addPlanTask}
+            disabled={addingPlanTask}
+            className="rounded-full bg-blue px-5 py-2 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-60"
+          >
+            Cargar del plan
+          </button>
+        </div>
+      )}
+
       {filialId && (
         <div className="mt-6">
           <TasksCard
@@ -361,6 +558,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             tasks={summary?.tasks ?? []}
             onAdd={addTask}
             onToggleStatus={toggleTaskStatus}
+            onChangePayer={changeTaskPayer}
             onRemove={removeTask}
           />
         </div>
@@ -373,6 +571,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             filialId={filialId}
             transfers={summary?.transfers ?? []}
             onAddLine={addTransferLine}
+            onChangeLinePayer={changeLinePayer}
             onMarkOrdered={markOrdered}
           />
           {summary && <PriceSummaryCard summary={summary} totalAmount={order.total_amount} onDiscountChange={changeDiscount} saving={saving} readOnly={readOnly} />}
@@ -380,6 +579,8 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
       )}
       {billingOpen && <BillingModal orderId={orderId} orderCode={order.code} invoiced={!!order.invoiced_at}
         onClose={() => setBillingOpen(false)} onInvoiced={async () => { await refreshOrder(); await refreshSummary(); }} />}
+      {claimModalOpen && <RegisterReworkClaimModal orderId={orderId} orderCode={order.code} filialId={filialId}
+        summary={summary ?? null} onClose={() => setClaimModalOpen(false)} />}
     </div>
   );
 }

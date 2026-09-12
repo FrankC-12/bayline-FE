@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import RequireScope from "@/components/auth/RequireScope";
 import ConcesionarioLayout from "@/components/concesionario/ConcesionarioLayout";
@@ -8,9 +9,11 @@ export default function ConcesionarioSalesPage() {
     <RequireScope scope="filial">
       <div className="min-h-screen bg-ash">
         <DashboardHeader />
-        <ConcesionarioLayout>
-          <VehicleSalesView />
-        </ConcesionarioLayout>
+        <Suspense fallback={null}>
+          <ConcesionarioLayout>
+            <VehicleSalesView />
+          </ConcesionarioLayout>
+        </Suspense>
       </div>
     </RequireScope>
   );

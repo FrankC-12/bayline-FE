@@ -25,7 +25,7 @@ export function useAccounts(filialId: string | null) {
   }, [load]);
 
   const addAccount = useCallback(
-    async (input: { name: string; bank?: string | null; currency: string; account_type: string }) => {
+    async (input: { name: string; bank?: string | null; currency: string; account_type: string; opening_balance?: number }) => {
       if (!filialId) return;
       const created = await createAccount({ filial_id: filialId, ...input });
       setAccounts((prev) => [...prev, created]);

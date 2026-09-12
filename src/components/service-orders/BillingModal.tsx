@@ -6,6 +6,8 @@ import {
   getBillingContext, refreshBillingRate, quoteBilling, issueInvoice, getInvoice, getInvoiceDocument,
   type BillingContext, type BillingQuote, type Invoice, type PaymentMethod,
 } from "@/lib/api/serviceOrderBilling";
+import { useAuth } from "@/contexts/AuthContext";
+import { useClients } from "@/hooks/useClients";
 
 const usd = (value: number | null | undefined) => `$${(value ?? 0).toFixed(2)}`;
 const bs = (value: number) => `Bs. ${value.toLocaleString("es-VE", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
@@ -22,6 +24,19 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
   const [usdAccount, setUsdAccount] = useState("");
   const [bsAccount, setBsAccount] = useState("");
   const [reference, setReference] = useState("");
+  const [billToOther, setBillToOther] = useState(false);
+  const [billedClientId, setBilledClientId] = useState("");
+  const [clientSearch, setClientSearch] = useState("");
+  const [clientConfirmed, setClientConfirmed] = useState(false);
+  const [clientConfirmedNote, setClientConfirmedNote] = useState("");
+  const [ivaRetentionPct, setIvaRetentionPct] = useState("0");
+  const [islrRetentionPct, setIslrRetentionPct] = useState("0");
+  const [retentionDefaultsApplied, setRetentionDefaultsApplied] = useState(false);
+  const { currentUser } = useAuth();
+  const { clients } = useClients(currentUser?.filialId ?? null);
+  const clientResults = clientSearch
+    ? clients.filter((c) => c.full_name.toLowerCase().includes(clientSearch.toLowerCase())).slice(0, 6)
+    : [];
   const [quote, setQuote] = useState<{ key: string; value: BillingQuote } | null>(null);
   const [revision, setRevision] = useState(0);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
@@ -31,7 +46,7 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const requestRef = useRef<{key: string; id: string} | null>(null);
-  const key = JSON.stringify([orderId, method, usdBase, revision]);
+  const key = JSON.stringify([orderId, method, usdBase, revision, billedClientId, ivaRetentionPct, islrRetentionPct]);
   const current = quote?.key === key ? quote.value : null;
 
   useEffect(() => {
@@ -52,6 +67,11 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
               const accounts = data.accounts.filter((a) => a.currency === currency);
               if (accounts.length === 1) (currency === "usd" ? setUsdAccount : setBsAccount)(accounts[0].id);
             }
+            if (!retentionDefaultsApplied) {
+              setIvaRetentionPct(String(data.iva_retention_default_percentage));
+              setIslrRetentionPct(String(data.islr_retention_default_percentage));
+              setRetentionDefaultsApplied(true);
+            }
           }
         }
       } catch (err) { if (active) setError(err instanceof Error ? err.message : "No se pudo cargar la facturación."); }
@@ -66,12 +86,17 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
     let active = true;
     if (method === "mixed" && (!usdBase || !Number.isFinite(Number(usdBase)) || Number(usdBase) <= 0)) return;
     const timer = setTimeout(() => {
-      quoteBilling(orderId, { payment_method: method, usd_base: method === "mixed" ? usdBase : "0" })
+      quoteBilling(orderId, {
+        payment_method: method, usd_base: method === "mixed" ? usdBase : "0",
+        billed_client_id: billToOther && billedClientId ? billedClientId : null,
+        iva_retention_percentage: Number(ivaRetentionPct) || 0,
+        islr_retention_percentage: Number(islrRetentionPct) || 0,
+      })
         .then((value) => { if (active) { setQuote({key, value}); setQuoteError(null); } })
         .catch((err) => { if (active) setQuoteError({key, message: err instanceof Error ? err.message : "No se pudo calcular el cobro."}); });
     }, 200);
     return () => { active = false; clearTimeout(timer); };
-  }, [context, invoice, invoiced, orderId, method, usdBase, key]);
+  }, [context, invoice, invoiced, orderId, method, usdBase, key, billToOther, billedClientId, ivaRetentionPct, islrRetentionPct]);
 
   async function updateRate() {
     setBusy(true); setError(null);
@@ -83,9 +108,14 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
   async function confirmInvoice() {
     if (!current || busy) return;
     const body = { payment_method: method, usd_base: method === "mixed" ? usdBase : "0",
-      quote_hash: current.quote_hash, paid_usd: current.due_usd > 0 ? paidUsd : "0",
-      paid_bs: current.due_bs > 0 ? paidBs : "0", usd_account_id: current.due_usd > 0 ? usdAccount : null,
-      bs_account_id: current.due_bs > 0 ? bsAccount : null, payment_reference: reference };
+      quote_hash: current.quote_hash, paid_usd: current.due_usd > 0 ? (paidUsd || "0") : "0",
+      paid_bs: current.due_bs > 0 ? (paidBs || "0") : "0", usd_account_id: current.due_usd > 0 ? usdAccount : null,
+      bs_account_id: current.due_bs > 0 ? bsAccount : null, payment_reference: reference,
+      billed_client_id: billToOther && billedClientId ? billedClientId : null,
+      client_confirmed: billToOther && clientConfirmed,
+      client_confirmed_note: billToOther && clientConfirmedNote ? clientConfirmedNote : null,
+      iva_retention_percentage: Number(ivaRetentionPct) || 0,
+      islr_retention_percentage: Number(islrRetentionPct) || 0 };
     const requestKey = JSON.stringify(body);
     if (requestRef.current?.key !== requestKey) requestRef.current = {key: requestKey, id: crypto.randomUUID()};
     setBusy(true); setError(null);
@@ -121,8 +151,13 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
     popup.document.write(document.html); popup.document.close(); popup.focus(); popup.print();
   }
   const exact = (received: string, expected: number) => /^\d+(\.\d{1,2})?$/.test(received) && Number.isFinite(Number(received)) && Math.round(Number(received) * 100) === Math.round(expected * 100);
-  const canIssue = !!current && (current.due_usd === 0 || (!!usdAccount && exact(paidUsd, current.due_usd))) &&
-    (current.due_bs === 0 || (!!bsAccount && exact(paidBs, current.due_bs)));
+  const atMost = (received: string, expected: number) => received === "" || (/^\d+(\.\d{1,2})?$/.test(received) && Number.isFinite(Number(received)) && Number(received) <= expected + 0.001);
+  const billingOverride = billToOther && !!billedClientId;
+  const canIssue = !!current && (billingOverride
+    ? (current.due_usd === 0 || atMost(paidUsd, current.due_usd) && (paidUsd === "" || paidUsd === "0" || !!usdAccount)) &&
+      (current.due_bs === 0 || atMost(paidBs, current.due_bs) && (paidBs === "" || paidBs === "0" || !!bsAccount))
+    : (current.due_usd === 0 || (!!usdAccount && exact(paidUsd, current.due_usd))) &&
+      (current.due_bs === 0 || (!!bsAccount && exact(paidBs, current.due_bs))));
   const summary = current?.summary ?? context?.summary;
 
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 p-4" role="dialog" aria-modal="true" aria-labelledby="billing-title">
@@ -132,7 +167,14 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
         <button type="button" onClick={onClose} disabled={busy} aria-label="Cerrar pantalla de facturación" className="rounded-full p-2 text-steel hover:bg-ash disabled:opacity-50"><X /></button>
       </header>
       {loading ? <p className="p-8 text-center text-steel">Cargando facturación…</p> : invoice ? <div className="space-y-5 p-6">
-        <div className="rounded-xl bg-emerald-50 p-5 text-emerald-800"><CheckCircle2 className="mb-2" /><h3 className="font-bold">{invoice.code} · Pago registrado</h3><p>{invoice.client_name} · {invoice.client_document}</p><p className="mt-2 text-2xl font-bold">{usd(invoice.total_usd)}</p><p>Recibido: {usd(invoice.due_usd)} + {bs(invoice.due_bs)}</p></div>
+        {(() => {
+          const receivedUsd = invoice.payments.filter((p) => p.currency === "usd").reduce((s, p) => s + p.amount, 0);
+          const receivedBs = invoice.payments.filter((p) => p.currency === "bs").reduce((s, p) => s + p.amount, 0);
+          const receivedUsdEquivalent = receivedUsd + (invoice.bcv_rate ? receivedBs / invoice.bcv_rate : 0);
+          const pending = Math.max(0, invoice.net_expected - receivedUsdEquivalent);
+          const hasRetention = invoice.iva_retention_amount > 0 || invoice.islr_retention_amount > 0;
+          return <div className="rounded-xl bg-emerald-50 p-5 text-emerald-800"><CheckCircle2 className="mb-2" /><h3 className="font-bold">{invoice.code} · {pending > 0.01 ? "Facturado" : "Pago registrado"}</h3><p>{invoice.client_name} · {invoice.client_document}</p><p className="mt-2 text-2xl font-bold">{usd(invoice.total_usd)}</p><p>Recibido: {usd(receivedUsd)} + {bs(receivedBs)}</p>{hasRetention && <p className="mt-1">Retenido (IVA + ISLR): {usd(invoice.iva_retention_amount + invoice.islr_retention_amount)} · Neto esperado: {usd(invoice.net_expected)}</p>}{pending > 0.01 && <p className="mt-1 font-semibold">Pendiente por cobrar: {usd(pending)} (queda en Cuentas por Cobrar)</p>}</div>;
+        })()}
         {!document && <button onClick={async () => { try { setDocument(await getInvoiceDocument(orderId)); setError(null); } catch { setError("No se pudo cargar el documento. Intenta nuevamente."); } }} className="text-sm text-blue underline">Cargar documento de factura</button>}
         <div className="flex flex-wrap gap-3"><button onClick={download} disabled={!document} className="rounded-full bg-blue px-5 py-2 text-white disabled:opacity-50">Descargar documento</button><button onClick={print} disabled={!document} className="rounded-full border border-navy/20 px-5 py-2 text-navy disabled:opacity-50">Imprimir / guardar PDF</button></div>
         <p className="text-sm text-steel">La factura conserva los importes y el pago registrados. El cierre de la orden se realiza por separado desde su pantalla.</p>
@@ -142,6 +184,38 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
           <fieldset disabled={busy}><legend className="mb-2 font-semibold text-navy">Método de pago</legend><div className="grid grid-cols-3 gap-2">{([["usd","USD"],["bs","Bs."],["mixed","Mixto"]] as const).map(([value,label]) => <button type="button" key={value} aria-pressed={method === value} onClick={() => {setMethod(value); setPaidUsd(""); setPaidBs("");}} className={`rounded-xl border px-4 py-3 font-semibold ${method === value ? "border-blue bg-blue-light text-blue" : "border-navy/15 text-steel"}`}>{label}</button>)}</div></fieldset>
           <div className="rounded-xl bg-ash p-4 text-sm"><div className="flex items-center justify-between gap-2"><span className="font-semibold text-navy">Tasa BCV del día</span><button disabled={busy} onClick={updateRate} className="text-blue underline disabled:opacity-50">Actualizar BCV</button></div><p className="mt-1 text-steel">{context?.bcv_rate ? `Bs. ${context.bcv_rate.toLocaleString("es-VE", {minimumFractionDigits: 4, maximumFractionDigits: 8})} por USD · ${context.bcv_date}` : "No hay tasa registrada para hoy. Es necesaria para cobrar en Bs. o mixto."}</p></div>
           {method === "mixed" && <label className="block text-sm font-medium text-navy">USD aplicado a la factura, antes de IGTF<input type="number" min="0.01" step="0.01" value={usdBase} disabled={busy} onChange={(e) => {setUsdBase(e.target.value); setPaidUsd(""); setPaidBs("");}} className={inputClass} /><span className="mt-1 block text-xs font-normal text-steel">El IGTF se suma a este aporte en USD. El resto de la factura se cobra en Bs.</span></label>}
+          <fieldset disabled={busy} className="rounded-xl border border-navy/10 p-4">
+            <label className="flex items-center gap-2 text-sm font-semibold text-navy">
+              <input type="checkbox" checked={billToOther} onChange={(e) => { setBillToOther(e.target.checked); if (!e.target.checked) { setBilledClientId(""); setClientSearch(""); setClientConfirmed(false); setClientConfirmedNote(""); } setPaidUsd(""); setPaidBs(""); }} className="h-4 w-4 rounded border-navy/30 text-blue focus:ring-blue" />
+              Facturar a un cliente distinto (garantía de fábrica)
+            </label>
+            {billToOther && <div className="mt-3 space-y-3">
+              <div className="relative">
+                <input value={clientSearch} onChange={(e) => { setClientSearch(e.target.value); setBilledClientId(""); }} placeholder="Busca por nombre..." className={inputClass} />
+                {clientResults.length > 0 && !billedClientId && <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">{clientResults.map((c) => <button type="button" key={c.id} onClick={() => { setBilledClientId(c.id); setClientSearch(c.full_name); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-ash">{c.full_name}{c.is_holding_billing && <span className="ml-2 rounded-full bg-blue-light px-2 py-0.5 text-[10px] font-semibold uppercase text-blue">Holding</span>}</button>)}</div>}
+              </div>
+              <label className="flex items-start gap-2 text-sm text-steel">
+                <input type="checkbox" checked={clientConfirmed} onChange={(e) => setClientConfirmed(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-navy/30 text-blue focus:ring-blue" />
+                <span>El cliente (dueño del vehículo) confirmó el trabajo realizado</span>
+              </label>
+              {clientConfirmed && <input value={clientConfirmedNote} onChange={(e) => setClientConfirmedNote(e.target.value)} placeholder="Quién confirmó (opcional)" maxLength={200} className={inputClass} />}
+              <p className="text-xs text-steel">El monto que no se cobre ahora queda como cuenta por cobrar de este cliente.</p>
+            </div>}
+          </fieldset>
+          <fieldset disabled={busy} className="rounded-xl border border-navy/10 p-4">
+            <legend className="mb-2 font-semibold text-navy">Retenciones (contribuyente especial)</legend>
+            <p className="mb-3 text-xs text-steel">
+              Si el cliente factura como empresa y retiene IVA/ISLR al pagar (ej. un importador), regístralo aquí para que el neto a cobrar sea el correcto.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block text-sm text-steel">% Retención IVA
+                <input type="number" min="0" max="100" step="0.01" value={ivaRetentionPct} onChange={(e) => setIvaRetentionPct(e.target.value)} className={inputClass} />
+              </label>
+              <label className="block text-sm text-steel">% Retención ISLR
+                <input type="number" min="0" max="100" step="0.01" value={islrRetentionPct} onChange={(e) => setIslrRetentionPct(e.target.value)} className={inputClass} />
+              </label>
+            </div>
+          </fieldset>
           <fieldset disabled={busy} className="space-y-4"><legend className="mb-2 font-semibold text-navy">Registrar pago recibido</legend>
             {current && (["usd","bs"] as const).filter((currency) => (currency === "usd" ? current.due_usd : current.due_bs) > 0).map((currency) => <div key={currency} className="rounded-xl border border-navy/10 p-4"><p className="mb-3 font-semibold text-navy">A cobrar: {currency === "usd" ? usd(current.due_usd) : bs(current.due_bs)}</p><label className="block text-sm text-steel">Cuenta receptora ({currency === "usd" ? "USD" : "Bs."})<select value={currency === "usd" ? usdAccount : bsAccount} onChange={(e) => (currency === "usd" ? setUsdAccount : setBsAccount)(e.target.value)} className={inputClass}><option value="">Selecciona una cuenta</option>{context?.accounts.filter((a) => a.currency === currency).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>{!context?.accounts.some((a) => a.currency === currency) && <p className="mt-2 text-xs text-red-600">Registra una cuenta activa en esta moneda en Administración para recibir el pago.</p>}<label className="mt-3 block text-sm text-steel">Monto recibido<input type="number" min="0" step="0.01" value={currency === "usd" ? paidUsd : paidBs} onChange={(e) => (currency === "usd" ? setPaidUsd : setPaidBs)(e.target.value)} className={inputClass} /></label></div>)}
             <label className="block text-sm text-steel">Referencia del pago (opcional)<input value={reference} onChange={(e) => setReference(e.target.value)} maxLength={120} className={inputClass} /></label>
@@ -155,6 +229,11 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
             <div className="flex justify-between"><dt>IGTF ({current?.igtf_percentage ?? context?.igtf_percentage ?? 0}%)</dt><dd>{current ? usd(current.igtf_amount) : "—"}</dd></div>
             <div className="flex justify-between border-t border-navy/10 pt-3 font-bold text-navy"><dt>Total equivalente USD</dt><dd>{current ? usd(current.total_usd) : "—"}</dd></div>
             {current && <><div className="flex justify-between"><dt>Cobro USD (incluye IGTF)</dt><dd>{usd(current.due_usd)}</dd></div><div className="flex justify-between"><dt>Cobro Bs.</dt><dd>{bs(current.due_bs)}</dd></div></>}
+            {current && (current.iva_retention_amount > 0 || current.islr_retention_amount > 0) && <>
+              <div className="flex justify-between text-red-600"><dt>Retención IVA ({current.iva_retention_percentage}%)</dt><dd>-{usd(current.iva_retention_amount)}</dd></div>
+              <div className="flex justify-between text-red-600"><dt>Retención ISLR ({current.islr_retention_percentage}%)</dt><dd>-{usd(current.islr_retention_amount)}</dd></div>
+              <div className="flex justify-between border-t border-navy/10 pt-3 font-bold text-navy"><dt>Neto esperado a cobrar</dt><dd>{usd(current.net_expected)}</dd></div>
+            </>}
           </dl><p className="mt-4 text-xs text-steel">IGTF aplicado únicamente al aporte en USD. Su porcentaje se configura en Postventa.</p>
           {quoteError?.key === key && <p role="alert" className="mt-4 text-sm text-red-600">{quoteError.message}</p>}
           <button disabled={busy || !canIssue} onClick={confirmInvoice} className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-blue px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{busy && <Loader2 className="h-4 w-4 animate-spin"/>}Confirmar cobro y facturar</button>

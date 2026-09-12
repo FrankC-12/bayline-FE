@@ -1,5 +1,6 @@
 import { apiFetch } from "./client";
 import type { Client } from "@/types/client";
+import type { VehiclePlanStatus } from "@/types/maintenancePlan";
 
 export interface VehicleInput {
   id?: string;
@@ -29,6 +30,7 @@ export interface CreateClientInput {
   contact_preference?: string | null;
   address: string;
   address_type?: string | null;
+  is_holding_billing?: boolean;
   vehicles?: VehicleInput[];
 }
 
@@ -54,4 +56,18 @@ export async function updateClient(id: string, input: UpdateClientInput): Promis
 
 export async function deleteClient(id: string): Promise<void> {
   return apiFetch<void>(`/clients/${id}`, { method: "DELETE" });
+}
+
+export async function getVehiclePlanStatus(vehicleId: string): Promise<VehiclePlanStatus> {
+  return apiFetch<VehiclePlanStatus>(`/clients/vehicles/${vehicleId}/maintenance-plan-status`);
+}
+
+export async function assignVehicleMaintenancePlan(
+  vehicleId: string,
+  planId: string | null
+): Promise<VehiclePlanStatus> {
+  return apiFetch<VehiclePlanStatus>(`/clients/vehicles/${vehicleId}/maintenance-plan`, {
+    method: "PATCH",
+    body: JSON.stringify({ plan_id: planId }),
+  });
 }

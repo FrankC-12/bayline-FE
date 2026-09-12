@@ -47,6 +47,15 @@ export default function UsersView() {
     setPanelOpen(true);
   }
 
+  async function handleToggleStatus(user: AppUser) {
+    if (user.status === "inactivo") {
+      await editUser(user.id, { status: "activo" });
+      return;
+    }
+    if (!confirm(`¿Inactivar a ${user.full_name}? No podrá iniciar sesión hasta que se reactive.`)) return;
+    await editUser(user.id, { status: "inactivo" });
+  }
+
   async function handleSubmit(input: CreateUserInput) {
     if (editingUser) {
       await editUser(editingUser.id, {
@@ -105,7 +114,9 @@ export default function UsersView() {
         roles={roles}
         loading={loading}
         canManage={canManage}
+        currentUserId={currentUser?.userId}
         onEdit={openEdit}
+        onToggleStatus={handleToggleStatus}
       />
 
       {canManage && (

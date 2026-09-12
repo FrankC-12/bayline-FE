@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Search } from "lucide-react";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import type { Bay } from "@/types/serviceOrder";
@@ -12,6 +12,8 @@ interface ScheduleOrderModalProps {
   onClose: () => void;
   filialId: string;
   defaultDate: string;
+  defaultTime?: string;
+  defaultBayId?: string;
   hours: number[];
   bays: Bay[];
   technicians: AppUser[];
@@ -24,6 +26,8 @@ export default function ScheduleOrderModal({
   onClose,
   filialId,
   defaultDate,
+  defaultTime,
+  defaultBayId,
   hours,
   bays,
   technicians,
@@ -44,6 +48,28 @@ export default function ScheduleOrderModal({
   const [promisedAt, setPromisedAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // This component stays mounted while closed, so plain useState initial
+  // values only apply once — re-seed a clean form (and the clicked cell's
+  // date/hour/bay, like clicking an empty slot in Google Calendar) every
+  // time it actually opens, instead of carrying over whatever was left
+  // from a previous open.
+  useEffect(() => {
+    if (!open) return;
+    setSearch("");
+    setSelectedVehicleId(null);
+    setDate(defaultDate);
+    setTime(defaultTime ?? "");
+    setBayId(defaultBayId ?? "");
+    setTechnicianId("");
+    setNotes("");
+    setMileage("");
+    setCustomerReason("");
+    setAdvisorId("");
+    setPromisedAt("");
+    setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, defaultDate, defaultTime, defaultBayId]);
 
   const results = useMemo(() => {
     if (!search || selectedVehicleId) return [];
@@ -69,8 +95,8 @@ export default function ScheduleOrderModal({
 
   async function handleSubmit() {
     if (!selectedVehicleId || !date || !time) return;
-    if (mileage === "" || Number(mileage) < 0) {
-      setError("Ingresa el kilometraje de ingreso.");
+    if (mileage !== "" && Number(mileage) < 0) {
+      setError("El kilometraje no puede ser negativo.");
       return;
     }
     if (!customerReason.trim()) {
@@ -95,7 +121,7 @@ export default function ScheduleOrderModal({
         bay_id: bayId || null,
         technician_user_id: technicianId || null,
         notes: notes || null,
-        intake_mileage: Number(mileage),
+        intake_mileage: mileage === "" ? null : Number(mileage),
         customer_reason: customerReason.trim(),
         advisor_user_id: advisorId,
         promised_at: promisedAt,
@@ -252,15 +278,20 @@ export default function ScheduleOrderModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Kilometraje de ingreso</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Kilometraje de ingreso (opcional)
+              </label>
               <input
                 type="number"
                 min="0"
                 value={mileage}
                 onChange={(e) => setMileage(e.target.value)}
-                placeholder="0"
+                placeholder="Aún no ingresa"
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
               />
+              <p className="mt-1 text-[11px] text-steel">
+                Se registra cuando el vehículo llegue, desde la ficha de la orden.
+              </p>
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Fecha prometida de entrega</label>

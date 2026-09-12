@@ -40,5 +40,11 @@ export function useBays(filialId: string | null) {
     return updated;
   }, []);
 
-  return { bays, loading, addBay, toggleActive, refresh: load };
+  const renameBay = useCallback(async (bay: Bay, name: string) => {
+    const updated = await updateBay(bay.id, { name });
+    setBays((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+    return updated;
+  }, []);
+
+  return { bays, loading, addBay, toggleActive, renameBay, refresh: load };
 }

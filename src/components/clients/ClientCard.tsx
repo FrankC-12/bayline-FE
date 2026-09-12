@@ -1,7 +1,9 @@
+import { useState } from "react";
 import Link from "next/link";
-import { Car } from "lucide-react";
+import { Car, CalendarClock } from "lucide-react";
 import type { Client, Vehicle } from "@/types/client";
 import { formatDocumentId } from "@/lib/format";
+import VehicleDetailModal from "./VehicleDetailModal";
 
 function formatVisitDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-VE", { day: "numeric", month: "long", year: "numeric" });
@@ -10,7 +12,7 @@ function formatVisitDate(iso: string): string {
 function MileageInfo({ vehicle }: { vehicle: Vehicle }) {
   if (vehicle.current_mileage == null) {
     return vehicle.mileage != null ? (
-      <p className="text-xs text-steel">{vehicle.mileage.toLocaleString()} km (registro)</p>
+      <p className="text-xs text-steel">{vehicle.mileage.toLocaleString("es-VE")} km (registro)</p>
     ) : null;
   }
 
@@ -20,7 +22,7 @@ function MileageInfo({ vehicle }: { vehicle: Vehicle }) {
 
   return (
     <p className="text-xs text-steel">
-      {vehicle.current_mileage.toLocaleString()} km
+      {vehicle.current_mileage.toLocaleString("es-VE")} km
       {visitLabel &&
         (vehicle.current_mileage_service_order_id ? (
           <>
@@ -49,6 +51,7 @@ const BORDER_TINTS = ["border-l-blue", "border-l-amber", "border-l-emerald-500"]
 
 export default function ClientCard({ client, onClick }: ClientCardProps) {
   const tint = BORDER_TINTS[client.full_name.length % BORDER_TINTS.length];
+  const [detailVehicle, setDetailVehicle] = useState<Vehicle | null>(null);
 
   return (
     <div
@@ -88,13 +91,40 @@ export default function ClientCard({ client, onClick }: ClientCardProps) {
                 <span className="font-medium text-navy">
                   {v.brand} {v.model}
                 </span>
-                <span className="ml-auto font-mono text-xs text-blue">{v.plate}</span>
+                <span className="font-mono text-xs text-blue">{v.plate}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDetailVehicle(v);
+                  }}
+                  title="Plan de mantenimiento y garantías"
+                  className="ml-auto rounded-lg p-1 text-steel hover:bg-ash hover:text-blue"
+                >
+                  <CalendarClock className="h-4 w-4" />
+                </button>
               </div>
               <MileageInfo vehicle={v} />
+              {v.maintenance_plan_brand && (
+                <p className="mt-0.5 text-xs text-steel">
+                  Plan: <span className="text-navy">{v.maintenance_plan_name}</span>
+                </p>
+              )}
             </div>
           ))
         )}
       </div>
+
+      {detailVehicle && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <VehicleDetailModal
+            open
+            onClose={() => setDetailVehicle(null)}
+            vehicle={detailVehicle}
+            filialId={client.filial_id}
+          />
+        </div>
+      )}
     </div>
   );
 }

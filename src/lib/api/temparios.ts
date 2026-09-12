@@ -49,6 +49,15 @@ export interface UpdateLaborSettingsInput {
   iva_percentage: number;
   /** Omit to keep the value auto-synced from the BCV scraper; send it only for a manual override. */
   bcv_rate?: number;
+  part_warranty_days: number;
+  vehicle_warranty_default_months: number;
+  workshop_warranty_days: number;
+  workshop_warranty_km: number;
+  workshop_parts_warranty_days: number;
+  workshop_parts_warranty_km: number;
+  iva_retention_default_percentage: number;
+  islr_retention_default_percentage: number;
+  manual_movement_attachment_threshold_usd: number;
 }
 
 export async function updateLaborSettings(

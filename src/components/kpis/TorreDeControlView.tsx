@@ -4,10 +4,18 @@ import { useState } from "react";
 import { Calendar, Trophy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUsers } from "@/hooks/useUser";
-import { getKpiReport, type KpiCategory } from "@/lib/api/kpis";
-import type { KpiReport } from "@/types/kpis";
+import { getKpiReport, getManualMovementsRate, getReworkReport, type KpiCategory } from "@/lib/api/kpis";
+import type { KpiReport, ManualMovementsRate, ReworkReport } from "@/types/kpis";
+import MaintenanceDueCard from "./MaintenanceDueCard";
+import ManualMovementsRateCard from "./ManualMovementsRateCard";
+import ReworkRateCard from "./ReworkRateCard";
 
-const TABS: { value: KpiCategory; label: string }[] = [
+type Tab = KpiCategory | "mantenimientos" | "retrabajo" | "movimientos-manuales";
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: "mantenimientos", label: "Mantenimiento por vencer" },
+  { value: "retrabajo", label: "Tasa de retrabajo" },
+  { value: "movimientos-manuales", label: "Movimientos manuales" },
   { value: "tecnicos", label: "Técnicos" },
   { value: "asesores", label: "Asesores (ODS)" },
   { value: "almacenistas", label: "Almacenistas (ODT)" },
@@ -31,22 +39,39 @@ export default function TorreDeControlView() {
   const filialId = currentUser?.filialId ?? null;
   const { users } = useUsers({ filialId });
 
-  const [tab, setTab] = useState<KpiCategory>("tecnicos");
+  const [tab, setTab] = useState<Tab>("mantenimientos");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [report, setReport] = useState<KpiReport | null>(null);
+  const [reworkReport, setReworkReport] = useState<ReworkReport | null>(null);
+  const [manualMovementsReport, setManualMovementsReport] = useState<ManualMovementsRate | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const userName = (id: string) => users.find((u) => u.id === id)?.full_name ?? "Usuario desconocido";
+  const isKpiCategory = (t: Tab): t is KpiCategory =>
+    t !== "mantenimientos" && t !== "retrabajo" && t !== "movimientos-manuales";
+
+  async function fetchReport(next: Tab, filial: string, from: string, to: string) {
+    if (next === "retrabajo") return getReworkReport(filial, from, to);
+    if (next === "movimientos-manuales") return getManualMovementsRate(filial, from, to);
+    if (isKpiCategory(next)) return getKpiReport(next, filial, from, to);
+    return null;
+  }
+
+  function applyReport(next: Tab, data: ReworkReport | ManualMovementsRate | KpiReport | null) {
+    if (next === "retrabajo") setReworkReport(data as ReworkReport);
+    else if (next === "movimientos-manuales") setManualMovementsReport(data as ManualMovementsRate);
+    else setReport(data as KpiReport);
+  }
 
   async function handleApply() {
-    if (!filialId || !dateFrom || !dateTo) return;
+    if (!filialId || !dateFrom || !dateTo || tab === "mantenimientos") return;
     setLoading(true);
     setError(null);
     try {
-      const data = await getKpiReport(tab, filialId, dateFrom, dateTo);
-      setReport(data);
+      const data = await fetchReport(tab, filialId, dateFrom, dateTo);
+      applyReport(tab, data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron cargar las métricas.");
     } finally {
@@ -54,13 +79,15 @@ export default function TorreDeControlView() {
     }
   }
 
-  function handleTabChange(next: KpiCategory) {
+  function handleTabChange(next: Tab) {
     setTab(next);
     setReport(null);
-    if (filialId && dateFrom && dateTo) {
+    setReworkReport(null);
+    setManualMovementsReport(null);
+    if (next !== "mantenimientos" && filialId && dateFrom && dateTo) {
       setLoading(true);
-      getKpiReport(next, filialId, dateFrom, dateTo)
-        .then(setReport)
+      fetchReport(next, filialId, dateFrom, dateTo)
+        .then((data) => applyReport(next, data))
         .finally(() => setLoading(false));
     }
   }
@@ -85,35 +112,86 @@ export default function TorreDeControlView() {
           ))}
         </div>
 
-        <div className="flex items-end gap-3">
-          <div>
-            <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-steel">Desde</label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="rounded-xl border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue"
-            />
+        {tab !== "mantenimientos" && (
+          <div className="flex items-end gap-3">
+            <div>
+              <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-steel">Desde</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="rounded-xl border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-steel">Hasta</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="rounded-xl border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue"
+              />
+            </div>
+            <button
+              onClick={handleApply}
+              disabled={!dateFrom || !dateTo || loading}
+              className="rounded-xl bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-40"
+            >
+              Aplicar
+            </button>
           </div>
-          <div>
-            <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-steel">Hasta</label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="rounded-xl border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue"
-            />
-          </div>
-          <button
-            onClick={handleApply}
-            disabled={!dateFrom || !dateTo || loading}
-            className="rounded-xl bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-40"
-          >
-            Aplicar
-          </button>
-        </div>
+        )}
       </div>
 
+      {tab === "mantenimientos" ? (
+        <div className="mt-6 rounded-2xl border border-navy/10 bg-white">
+          <MaintenanceDueCard filialId={filialId} />
+        </div>
+      ) : tab === "retrabajo" ? (
+        <div className="mt-6 rounded-2xl border border-navy/10 bg-white">
+          {!dateFrom || !dateTo || (!reworkReport && !loading) ? (
+            <div className="flex flex-col items-center justify-center gap-3 p-16 text-center">
+              <div className="rounded-2xl bg-blue-light p-4">
+                <Calendar className="h-6 w-6 text-blue" />
+              </div>
+              <p className="font-display text-lg font-bold text-navy">
+                {!dateFrom || !dateTo ? "Selecciona un rango de fechas para ver las métricas" : "Sin resultados en este rango"}
+              </p>
+              <p className="text-sm text-steel">
+                {!dateFrom || !dateTo
+                  ? 'Elige fecha "Desde" y "Hasta" arriba, luego presiona Aplicar.'
+                  : "No hay órdenes facturadas en las fechas elegidas."}
+              </p>
+            </div>
+          ) : loading ? (
+            <div className="p-16 text-center text-sm text-steel">Calculando métricas...</div>
+          ) : reworkReport ? (
+            <ReworkRateCard report={reworkReport} userName={userName} />
+          ) : null}
+        </div>
+      ) : tab === "movimientos-manuales" ? (
+        <div className="mt-6 rounded-2xl border border-navy/10 bg-white">
+          {!dateFrom || !dateTo || (!manualMovementsReport && !loading) ? (
+            <div className="flex flex-col items-center justify-center gap-3 p-16 text-center">
+              <div className="rounded-2xl bg-blue-light p-4">
+                <Calendar className="h-6 w-6 text-blue" />
+              </div>
+              <p className="font-display text-lg font-bold text-navy">
+                {!dateFrom || !dateTo ? "Selecciona un rango de fechas para ver las métricas" : "Sin resultados en este rango"}
+              </p>
+              <p className="text-sm text-steel">
+                {!dateFrom || !dateTo
+                  ? 'Elige fecha "Desde" y "Hasta" arriba, luego presiona Aplicar.'
+                  : "No hay movimientos de Finanzas en las fechas elegidas."}
+              </p>
+            </div>
+          ) : loading ? (
+            <div className="p-16 text-center text-sm text-steel">Calculando métricas...</div>
+          ) : manualMovementsReport ? (
+            <ManualMovementsRateCard report={manualMovementsReport} />
+          ) : null}
+        </div>
+      ) : (
       <div className="mt-6 rounded-2xl border border-navy/10 bg-white">
         {!dateFrom || !dateTo || (!report && !loading) ? (
           <div className="flex flex-col items-center justify-center gap-3 p-16 text-center">
@@ -173,6 +251,7 @@ export default function TorreDeControlView() {
           </div>
         ) : null}
       </div>
+      )}
 
       {error && <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
     </div>

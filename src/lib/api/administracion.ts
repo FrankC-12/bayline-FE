@@ -1,6 +1,7 @@
 import { apiFetch } from "./client";
 import type {
   Account,
+  AccountMovement,
   ExpenseEntry,
   FinanceDashboard,
   IncomeEntry,
@@ -10,6 +11,9 @@ import type {
   SupplierDetail,
   SupplierPaymentAccount,
   SupplierClaim,
+  SupplierClaimResolveInput,
+  WarrantySubmission,
+  WarrantySubmissionPayInput,
 } from "@/types/administracion";
 
 // Suppliers
@@ -89,15 +93,88 @@ export async function createSupplierClaim(input: {
   quantity: number;
   supplier_id: string;
   note?: string | null;
+  claimed_amount?: number | null;
+  currency?: string | null;
+  client_id?: string | null;
 }): Promise<SupplierClaim> {
   return apiFetch<SupplierClaim>("/supplier-claims", { method: "POST", body: JSON.stringify(input) });
 }
 
 export async function updateSupplierClaim(
   id: string,
-  input: { status?: string; return_reference?: string | null }
+  input: {
+    status?: string;
+    return_reference?: string | null;
+    claimed_amount?: number | null;
+    currency?: string | null;
+    client_id?: string | null;
+  }
 ): Promise<SupplierClaim> {
   return apiFetch<SupplierClaim>(`/supplier-claims/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export async function resolveSupplierClaim(
+  id: string,
+  input: SupplierClaimResolveInput
+): Promise<SupplierClaim> {
+  return apiFetch<SupplierClaim>(`/supplier-claims/${id}/resolve`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+// Warranty submissions (presentación mensual al holding)
+
+export async function listWarrantySubmissions(filialId: string): Promise<WarrantySubmission[]> {
+  return apiFetch<WarrantySubmission[]>(`/warranty-submissions?filial_id=${filialId}`);
+}
+
+export async function createWarrantySubmission(input: {
+  filial_id: string;
+  period_year: number;
+  period_month: number;
+  currency: string;
+}): Promise<WarrantySubmission> {
+  return apiFetch<WarrantySubmission>("/warranty-submissions", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function refreshWarrantySubmission(id: string): Promise<WarrantySubmission> {
+  return apiFetch<WarrantySubmission>(`/warranty-submissions/${id}/refresh`, { method: "POST" });
+}
+
+export async function submitWarrantySubmission(id: string): Promise<WarrantySubmission> {
+  return apiFetch<WarrantySubmission>(`/warranty-submissions/${id}/submit`, { method: "POST" });
+}
+
+export async function payWarrantySubmission(
+  id: string,
+  input: WarrantySubmissionPayInput
+): Promise<WarrantySubmission> {
+  return apiFetch<WarrantySubmission>(`/warranty-submissions/${id}/pay`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteWarrantySubmission(id: string): Promise<void> {
+  return apiFetch<void>(`/warranty-submissions/${id}`, { method: "DELETE" });
+}
+
+export async function downloadWarrantySubmissionCsv(id: string, code: string): Promise<void> {
+  const response = await fetch(`/api/v1/warranty-submissions/${id}/export`, {
+    credentials: "same-origin",
+    headers: { "X-CSRF-Protection": "1" },
+  });
+  if (!response.ok) throw new Error("No se pudo exportar la presentación.");
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${code}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 // Accounts
@@ -112,6 +189,7 @@ export async function createAccount(input: {
   bank?: string | null;
   currency: string;
   account_type: string;
+  opening_balance?: number;
 }): Promise<Account> {
   return apiFetch<Account>("/accounts", { method: "POST", body: JSON.stringify(input) });
 }
@@ -123,6 +201,14 @@ export async function updateAccount(
   return apiFetch<Account>(`/accounts/${id}`, { method: "PATCH", body: JSON.stringify(input) });
 }
 
+export async function getAccount(id: string): Promise<Account> {
+  return apiFetch<Account>(`/accounts/${id}`);
+}
+
+export async function getAccountMovements(id: string, limit = 50): Promise<AccountMovement[]> {
+  return apiFetch<AccountMovement[]>(`/accounts/${id}/movements?limit=${limit}`);
+}
+
 // Income / Expense
 
 export async function listIncomeEntries(filialId: string, search?: string): Promise<IncomeEntry[]> {
@@ -131,15 +217,38 @@ export async function listIncomeEntries(filialId: string, search?: string): Prom
   return apiFetch<IncomeEntry[]>(`/income-entries?${query.toString()}`);
 }
 
-export async function createIncomeEntry(input: {
+export interface CreateIncomeEntryInput {
   filial_id: string;
   entry_date: string;
+  concept: string;
   description: string;
   amount: number;
   currency: string;
   account_id: string;
-}): Promise<IncomeEntry> {
-  return apiFetch<IncomeEntry>("/income-entries", { method: "POST", body: JSON.stringify(input) });
+  counterparty_type: string;
+  counterparty_client_id?: string | null;
+  counterparty_supplier_id?: string | null;
+  counterparty_name?: string | null;
+  reference?: string | null;
+  attachment?: File | null;
+}
+
+function toManualMovementForm(input: CreateIncomeEntryInput | CreateExpenseEntryInput): FormData {
+  const { attachment, ...fields } = input;
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== null && value !== undefined && value !== "") form.append(key, String(value));
+  }
+  if (attachment instanceof File) form.append("attachment", attachment);
+  return form;
+}
+
+export async function createIncomeEntry(input: CreateIncomeEntryInput): Promise<IncomeEntry> {
+  return apiFetch<IncomeEntry>("/income-entries", { method: "POST", body: toManualMovementForm(input) });
+}
+
+export async function reverseIncomeEntry(id: string): Promise<IncomeEntry> {
+  return apiFetch<IncomeEntry>(`/income-entries/${id}/reverse`, { method: "POST" });
 }
 
 export async function listExpenseEntries(filialId: string, search?: string): Promise<ExpenseEntry[]> {
@@ -148,7 +257,7 @@ export async function listExpenseEntries(filialId: string, search?: string): Pro
   return apiFetch<ExpenseEntry[]>(`/expense-entries?${query.toString()}`);
 }
 
-export async function createExpenseEntry(input: {
+export interface CreateExpenseEntryInput {
   filial_id: string;
   entry_date: string;
   category: string;
@@ -157,8 +266,20 @@ export async function createExpenseEntry(input: {
   amount: number;
   currency: string;
   account_id: string;
-}): Promise<ExpenseEntry> {
-  return apiFetch<ExpenseEntry>("/expense-entries", { method: "POST", body: JSON.stringify(input) });
+  counterparty_type: string;
+  counterparty_client_id?: string | null;
+  counterparty_supplier_id?: string | null;
+  counterparty_name?: string | null;
+  reference?: string | null;
+  attachment?: File | null;
+}
+
+export async function createExpenseEntry(input: CreateExpenseEntryInput): Promise<ExpenseEntry> {
+  return apiFetch<ExpenseEntry>("/expense-entries", { method: "POST", body: toManualMovementForm(input) });
+}
+
+export async function reverseExpenseEntry(id: string): Promise<ExpenseEntry> {
+  return apiFetch<ExpenseEntry>(`/expense-entries/${id}/reverse`, { method: "POST" });
 }
 
 // Reports

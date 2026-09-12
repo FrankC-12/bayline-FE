@@ -21,6 +21,7 @@ export interface DealershipVehicle {
   price_cash: number;
   price_financed: number;
   cost_price: number | null;
+  cost_is_estimated: boolean;
   price_currency: "USD" | "VES";
   iva_percentage: number;
   igtf_percentage: number;

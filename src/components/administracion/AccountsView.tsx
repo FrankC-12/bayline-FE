@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Plus, X, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccounts } from "@/hooks/useAccounts";
@@ -47,7 +48,14 @@ export default function AccountsView() {
             <tbody className="divide-y divide-navy/5">
               {accounts.map((a) => (
                 <tr key={a.id} className="transition hover:bg-ash/60">
-                  <td className="px-6 py-4 font-semibold text-navy underline">{a.name}</td>
+                  <td className="px-6 py-4 font-semibold">
+                    <Link
+                      href={`/dashboard/administracion/finanzas/cuentas/${a.id}`}
+                      className="text-navy underline hover:text-blue"
+                    >
+                      {a.name}
+                    </Link>
+                  </td>
                   <td className="px-6 py-4 text-steel">{a.bank ?? "—"}</td>
                   <td className="px-6 py-4">
                     <span className="rounded-full bg-blue-light px-2 py-0.5 text-xs font-semibold text-blue">
@@ -91,12 +99,19 @@ function CreateAccountModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onSubmit: (input: { name: string; bank?: string | null; currency: string; account_type: string }) => Promise<unknown>;
+  onSubmit: (input: {
+    name: string;
+    bank?: string | null;
+    currency: string;
+    account_type: string;
+    opening_balance?: number;
+  }) => Promise<unknown>;
 }) {
   const [name, setName] = useState("");
   const [bank, setBank] = useState("");
   const [currency, setCurrency] = useState("bs");
   const [accountType, setAccountType] = useState("corriente");
+  const [openingBalance, setOpeningBalance] = useState("0");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -108,11 +123,18 @@ function CreateAccountModal({
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit({ name, bank: bank || null, currency, account_type: accountType });
+      await onSubmit({
+        name,
+        bank: bank || null,
+        currency,
+        account_type: accountType,
+        opening_balance: Number(openingBalance) || 0,
+      });
       setName("");
       setBank("");
       setCurrency("bs");
       setAccountType("corriente");
+      setOpeningBalance("0");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear la cuenta.");
@@ -182,9 +204,23 @@ function CreateAccountModal({
             </div>
           </div>
 
-          <p className="rounded-xl bg-ash px-4 py-3 text-xs text-steel">
-            El saldo actual se calcula automáticamente con los ingresos y egresos asociados a la cuenta.
-          </p>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">Saldo inicial</label>
+            <div className="flex items-center gap-2">
+              <span className="text-steel">{currency === "usd" ? "$" : "Bs."}</span>
+              <input
+                type="number"
+                step="0.01"
+                value={openingBalance}
+                onChange={(e) => setOpeningBalance(e.target.value)}
+                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+              />
+            </div>
+            <p className="mt-1.5 text-xs text-steel">
+              El saldo que ya tenía la cuenta antes de empezar a registrarla aquí. A partir de ahí, el saldo se
+              calcula solo con los ingresos y egresos asociados a la cuenta.
+            </p>
+          </div>
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 

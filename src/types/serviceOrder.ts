@@ -41,6 +41,12 @@ export interface Bay {
 
 export type TaskStatus = "pendiente" | "completada";
 export type TransferStatus = "pendiente" | "pedido";
+export type ServiceOrderPayer =
+  | "cliente"
+  | "garantia_taller"
+  | "garantia_fabrica"
+  | "plan_mantenimiento"
+  | "proveedor";
 
 export interface ServiceOrderTask {
   id: string;
@@ -49,6 +55,7 @@ export interface ServiceOrderTask {
   name_snapshot: string;
   hours_snapshot: number;
   status: TaskStatus;
+  payer: ServiceOrderPayer;
   created_at: string;
 }
 
@@ -58,6 +65,7 @@ export interface TransferLine {
   quantity: number;
   unit_price: number | null;
   subtotal: number | null;
+  payer: ServiceOrderPayer;
 }
 
 export interface ServiceOrderTransfer {
@@ -79,6 +87,7 @@ export interface OrderSummary {
   transfers: ServiceOrderTransfer[];
   parts_subtotal: number | null;
   labor_subtotal: number | null;
+  non_client_subtotal: number;
   iva_percentage: number | null;
   iva_amount: number | null;
   total: number;

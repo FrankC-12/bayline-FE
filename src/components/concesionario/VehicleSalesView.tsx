@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVehicles } from "@/hooks/useVehicles";
 import { useUsers } from "@/hooks/useUser";
@@ -11,6 +12,8 @@ import VehicleSaleDetailDrawer from "./VehicleSaleDetailDrawer";
 export default function VehicleSalesView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
+  const searchParams = useSearchParams();
+  const deepLinkSaleId = searchParams.get("sale");
 
   const { vehicles } = useVehicles(filialId);
   const { users } = useUsers({ filialId });
@@ -24,7 +27,12 @@ export default function VehicleSalesView() {
     listVehicleSales(filialId).then((data) => {
       setSales(data);
       setLoading(false);
+      if (deepLinkSaleId) {
+        const match = data.find((s) => s.id === deepLinkSaleId);
+        if (match) setSelectedSale(match);
+      }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filialId]);
 
   const vehicleLabel = (id: string) => {
