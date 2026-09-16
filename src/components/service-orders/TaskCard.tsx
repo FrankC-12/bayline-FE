@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { CheckCircle2, Circle, Search, Trash2 } from "lucide-react";
 import { useTemparios } from "@/hooks/useTemparios";
-import { PAYER_LABELS, PAYER_OPTIONS } from "@/lib/servicePayers";
 import type { ServiceOrderTask, ServiceOrderPayer } from "@/types/serviceOrder";
 
 interface TasksCardProps {
@@ -12,15 +11,13 @@ interface TasksCardProps {
   tasks: ServiceOrderTask[];
   onAdd: (temparioId: string, payer: ServiceOrderPayer) => Promise<void>;
   onToggleStatus: (taskId: string, status: "pendiente" | "completada") => Promise<void>;
-  onChangePayer: (taskId: string, payer: ServiceOrderPayer) => Promise<void>;
   onRemove: (taskId: string) => Promise<void>;
 }
 
-export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onChangePayer, onRemove, readOnly = false }: TasksCardProps) {
+export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRemove, readOnly = false }: TasksCardProps) {
   const [search, setSearch] = useState("");
   const { temparios } = useTemparios(filialId, search || undefined);
   const [adding, setAdding] = useState(false);
-  const [payer, setPayer] = useState<ServiceOrderPayer>("cliente");
 
   const results = search ? temparios.slice(0, 6) : [];
 
@@ -28,9 +25,8 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onCh
     if (readOnly) return;
     setAdding(true);
     try {
-      await onAdd(temparioId, payer);
+      await onAdd(temparioId, "cliente");
       setSearch("");
-      setPayer("cliente");
     } finally {
       setAdding(false);
     }
@@ -38,53 +34,46 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onCh
 
   return (
     <div className="rounded-2xl border border-navy/10 bg-white p-6">
+      <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <h3 className="mb-1 font-display text-lg font-bold text-navy">Tareas a realizar</h3>
-      <p className="mb-4 text-sm text-steel">
-        Los repuestos de cada tempario vinculado a tu catálogo se agregan solos a la ODT.
-      </p>
 
-      <div className="mb-4 flex items-start gap-2">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            disabled={adding || readOnly}
-            placeholder="Agregar tarea — código (MP-501) o nombre..."
-            className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 disabled:opacity-60"
-          />
-        {!readOnly && results.length > 0 && (
-          <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">
-            {results.map((t) => (
-              <button
-                key={t.id}
-                type="button"
+      <div className="w-full md:max-w-md">
+        <div className="flex-1">
+          <label htmlFor="ods-task-search" className="sr-only">Buscar tarea</label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
+            <input
+              id="ods-task-search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              disabled={adding || readOnly}
+              placeholder="Agregar tarea — código (MP-501) o nombre..."
+              className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 disabled:opacity-60"
+            />
+            {!readOnly && results.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">
+                {results.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
                     disabled={readOnly || adding}
-                onClick={() => handleAdd(t.id)}
-                className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-ash"
-              >
-                <span>
-                  <span className="font-mono text-blue">{t.code}</span>{" "}
-                  <span className="text-navy">{t.name}</span>
-                </span>
-                <span className="text-xs text-steel">{t.estimated_hours} h</span>
-              </button>
-            ))}
+                    onClick={() => handleAdd(t.id)}
+                    className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-ash"
+                  >
+                    <span>
+                      <span className="font-mono text-blue">{t.code}</span>{" "}
+                      <span className="text-navy">{t.name}</span>
+                    </span>
+                    <span className="text-xs text-steel">{t.estimated_hours} h</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        )}
         </div>
-        <select
-          value={payer}
-          onChange={(e) => setPayer(e.target.value as ServiceOrderPayer)}
-          disabled={adding || readOnly}
-          className="w-40 shrink-0 rounded-xl border border-navy/15 px-2 py-2.5 text-sm outline-none focus:border-blue disabled:opacity-60"
-        >
-          {PAYER_OPTIONS.map((p) => (
-            <option key={p} value={p}>
-              {PAYER_LABELS[p]}
-            </option>
-          ))}
-        </select>
+
+      </div>
+
       </div>
 
       {tasks.length === 0 ? (
@@ -92,14 +81,13 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onCh
           Todavía no hay tareas agregadas a esta orden.
         </p>
       ) : (
-        <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm">
           <thead className="border-b border-navy/10">
             <tr>
-              <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Tarea</th>
+              <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Tarea (tempario)</th>
               <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Código</th>
               <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Horas</th>
               <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Estado</th>
-              <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Paga</th>
               <th className="py-2" />
             </tr>
           </thead>
@@ -119,8 +107,8 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onCh
                         task.status === "pendiente" ? "completada" : "pendiente"
                       )
                     }
-                    className={`flex items-center gap-1.5 text-xs font-semibold ${
-                      task.status === "completada" ? "text-emerald-600" : "text-amber-600"
+                    className={`flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold uppercase ${
+                      task.status === "completada" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                     }`}
                   >
                     {task.status === "completada" ? (
@@ -130,20 +118,6 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onCh
                     )}
                     {task.status === "completada" ? "Completada" : "Pendiente"}
                   </button>
-                </td>
-                <td className="py-2.5">
-                  <select
-                    value={task.payer}
-                    onChange={(e) => onChangePayer(task.id, e.target.value as ServiceOrderPayer)}
-                    disabled={readOnly || adding}
-                    className="rounded-lg border border-navy/15 px-2 py-1 text-xs outline-none focus:border-blue disabled:opacity-60"
-                  >
-                    {PAYER_OPTIONS.map((p) => (
-                      <option key={p} value={p}>
-                        {PAYER_LABELS[p]}
-                      </option>
-                    ))}
-                  </select>
                 </td>
                 <td className="py-2.5 text-right">
                   <button
@@ -159,7 +133,7 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onCh
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
     </div>
   );

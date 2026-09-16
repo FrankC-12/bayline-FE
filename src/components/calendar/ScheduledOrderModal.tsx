@@ -42,7 +42,6 @@ export default function ScheduleOrderModal({
   const [bayId, setBayId] = useState("");
   const [technicianId, setTechnicianId] = useState("");
   const [notes, setNotes] = useState("");
-  const [mileage, setMileage] = useState("");
   const [customerReason, setCustomerReason] = useState("");
   const [advisorId, setAdvisorId] = useState("");
   const [promisedAt, setPromisedAt] = useState("");
@@ -63,7 +62,6 @@ export default function ScheduleOrderModal({
     setBayId(defaultBayId ?? "");
     setTechnicianId("");
     setNotes("");
-    setMileage("");
     setCustomerReason("");
     setAdvisorId("");
     setPromisedAt("");
@@ -95,10 +93,6 @@ export default function ScheduleOrderModal({
 
   async function handleSubmit() {
     if (!selectedVehicleId || !date || !time) return;
-    if (mileage !== "" && Number(mileage) < 0) {
-      setError("El kilometraje no puede ser negativo.");
-      return;
-    }
     if (!customerReason.trim()) {
       setError("Ingresa el motivo o síntoma reportado por el cliente.");
       return;
@@ -121,7 +115,6 @@ export default function ScheduleOrderModal({
         bay_id: bayId || null,
         technician_user_id: technicianId || null,
         notes: notes || null,
-        intake_mileage: mileage === "" ? null : Number(mileage),
         customer_reason: customerReason.trim(),
         advisor_user_id: advisorId,
         promised_at: promisedAt,
@@ -132,7 +125,6 @@ export default function ScheduleOrderModal({
       setBayId("");
       setTechnicianId("");
       setNotes("");
-      setMileage("");
       setCustomerReason("");
       setAdvisorId("");
       setPromisedAt("");
@@ -276,32 +268,18 @@ export default function ScheduleOrderModal({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">
-                Kilometraje de ingreso (opcional)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={mileage}
-                onChange={(e) => setMileage(e.target.value)}
-                placeholder="Aún no ingresa"
-                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-              />
-              <p className="mt-1 text-[11px] text-steel">
-                Se registra cuando el vehículo llegue, desde la ficha de la orden.
-              </p>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Fecha prometida de entrega</label>
-              <input
-                type="date"
-                value={promisedAt}
-                onChange={(e) => setPromisedAt(e.target.value)}
-                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-              />
-            </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">Fecha prometida de entrega</label>
+            <input
+              type="date"
+              value={promisedAt}
+              onChange={(e) => setPromisedAt(e.target.value)}
+              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+            />
+            <p className="mt-1 text-[11px] text-steel">
+              El kilometraje de ingreso se registrará al vincular la inspección preliminar, desde la
+              ficha de la orden, cuando el vehículo llegue.
+            </p>
           </div>
 
           <div>

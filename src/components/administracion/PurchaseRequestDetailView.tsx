@@ -43,6 +43,7 @@ export default function PurchaseRequestDetailView({ requestId }: PurchaseRequest
   const [loading, setLoading] = useState(true);
   const [quoteCosts, setQuoteCosts] = useState<Record<string, string>>({});
   const [warehouseId, setWarehouseId] = useState("");
+  const [location, setLocation] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,7 +88,7 @@ export default function PurchaseRequestDetailView({ requestId }: PurchaseRequest
           setSubmitting(false);
           return;
         }
-        await updatePurchaseRequestStatus(request.id, next, undefined, warehouseId);
+        await updatePurchaseRequestStatus(request.id, next, undefined, warehouseId, location.trim());
       } else {
         await updatePurchaseRequestStatus(request.id, next);
       }
@@ -226,22 +227,35 @@ export default function PurchaseRequestDetailView({ requestId }: PurchaseRequest
       </div>
 
       {request.status === "pagada" && next === "recibida" && (
-        <div className="mt-4 rounded-2xl border border-navy/10 bg-white p-6">
-          <label className="mb-1.5 block text-sm font-medium text-navy">Almacén que recibe</label>
-          <select
-            value={warehouseId}
-            onChange={(e) => setWarehouseId(e.target.value)}
-            className="w-full max-w-xs rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-          >
-            <option value="">Selecciona un almacén...</option>
-            {warehouses.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </select>
-          <p className="mt-2 text-xs text-steel">
-            Al recibir, se crea un lote FIFO por cada línea en el almacén elegido, con el costo cotizado.
+        <div className="mt-4 grid gap-4 rounded-2xl border border-navy/10 bg-white p-6 sm:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">Almacén que recibe</label>
+            <select
+              value={warehouseId}
+              onChange={(e) => setWarehouseId(e.target.value)}
+              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+            >
+              <option value="">Selecciona un almacén...</option>
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">Ubicación (opcional)</label>
+            <input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Pasillo 3, Estante B"
+              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+            />
+          </div>
+          <p className="sm:col-span-2 -mt-2 text-xs text-steel">
+            Al recibir, se crea un lote FIFO por cada línea en el almacén elegido, con el costo
+            cotizado. La ubicación se aplica a todos los lotes de esta recepción y alimenta la
+            columna &ldquo;Ubicación&rdquo; del Catálogo de Repuestos.
           </p>
         </div>
       )}

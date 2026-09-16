@@ -6,15 +6,40 @@ export interface Part {
   id: string;
   filial_id: string;
   code: string;
+  manufacturer_part_number: string | null;
   name: string;
-  category: string;
-  brand: string;
-  application: string;
+  category_id: string;
+  category_name: string;
+  vehicle_brand_id: string | null;
+  vehicle_brand_name: string | null;
+  vehicle_model_id: string | null;
+  vehicle_model_name: string | null;
+  year_from: number | null;
+  year_to: number | null;
+  measure_id: string | null;
+  measure_name: string | null;
   unit: string;
+  min_stock: number;
+  is_active: boolean;
   stock_total: number;
   reference_price: number | null;
+  location: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface PartCategory {
+  id: string;
+  holding_id: string;
+  name: string;
+  is_active: boolean;
+}
+
+export interface PartMeasure {
+  id: string;
+  holding_id: string;
+  name: string;
+  is_active: boolean;
 }
 
 export interface PartWarranty {

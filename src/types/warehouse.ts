@@ -6,6 +6,13 @@ export interface Warehouse {
   created_at: string;
 }
 
+export interface StockInReason {
+  id: string;
+  holding_id: string;
+  name: string;
+  is_active: boolean;
+}
+
 export interface PartLot {
   id: string;
   code: string;
@@ -17,6 +24,44 @@ export interface PartLot {
   location: string | null;
   note: string | null;
   received_at: string;
+}
+
+export type LotOutboundMovementSource = "venta_repuestos" | "odt_taller";
+
+export interface LotOutboundMovement {
+  id: string;
+  source: LotOutboundMovementSource;
+  quantity: number;
+  unit_cost: number;
+  occurred_at: string;
+  reference_code: string;
+  description: string;
+  link_id: string;
+}
+
+export interface PartLotDetail extends PartLot {
+  part_code: string;
+  part_name: string;
+  warehouse_name: string;
+  outbound_movements: LotOutboundMovement[];
+}
+
+export interface ServiceOrderPartRequestLine {
+  part_id: string;
+  part_code: string;
+  part_name: string;
+  quantity: number;
+}
+
+export interface ServiceOrderPartRequest {
+  id: string;
+  code: string;
+  service_order_id: string;
+  service_order_code: string;
+  vehicle_label: string;
+  fulfilled_at: string | null;
+  warehouse_seen: boolean;
+  lines: ServiceOrderPartRequestLine[];
 }
 
 export type MovementType = "entrada" | "salida" | "transferencia_salida" | "transferencia_entrada" | "devolucion";

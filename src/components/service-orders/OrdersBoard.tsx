@@ -8,7 +8,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useServiceOrders } from "@/hooks/useServiceOrders";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUsers } from "@/hooks/useUser";
-import { updateInspection } from "@/lib/api/inspections";
 import type { ServiceOrder, ServiceOrderStatus } from "@/types/serviceOrder";
 import OrderCard from "./OrderCard";
 import CreateOrderPanel, { type CreateOrderExtra } from "./CreateOrderPanel";
@@ -43,18 +42,16 @@ export default function OrdersBoard() {
     vehicleId: string,
     orderType: "regular" | "mpt",
     extra: CreateOrderExtra,
-    inspectionId?: string
+    inspectionId: string
   ) {
     if (!filialId) return;
     const created = await addOrder({
       filial_id: filialId,
       vehicle_id: vehicleId,
       order_type: orderType,
+      inspection_id: inspectionId,
       ...extra,
     });
-    if (inspectionId) {
-      await updateInspection(inspectionId, { service_order_id: created.id });
-    }
     router.push(`/dashboard/servicios/${created.id}`);
   }
 

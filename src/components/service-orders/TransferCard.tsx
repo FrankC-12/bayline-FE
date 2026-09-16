@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Package, Search } from "lucide-react";
 import { useParts } from "@/hooks/useParts";
-import { PAYER_LABELS, PAYER_OPTIONS } from "@/lib/servicePayers";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import type { ServiceOrderTransfer, ServiceOrderPayer } from "@/types/serviceOrder";
 import type { Part } from "@/types/parts";
 
@@ -12,7 +12,6 @@ interface TransfersCardProps {
   readOnly?: boolean;
   transfers: ServiceOrderTransfer[];
   onAddLine: (partId: string, quantity: number, payer: ServiceOrderPayer) => Promise<void>;
-  onChangeLinePayer: (lineId: string, payer: ServiceOrderPayer) => Promise<void>;
   onMarkOrdered: (transferId: string) => Promise<void>;
 }
 
@@ -20,7 +19,6 @@ export default function TransfersCard({
   filialId,
   transfers,
   onAddLine,
-  onChangeLinePayer,
   onMarkOrdered,
   readOnly = false,
 }: TransfersCardProps) {
@@ -29,8 +27,20 @@ export default function TransfersCard({
 
   const [search, setSearch] = useState("");
   const [quantity, setQuantity] = useState("1");
-  const [payer, setPayer] = useState<ServiceOrderPayer>("cliente");
   const [adding, setAdding] = useState(false);
+  const [confirmingTransferId, setConfirmingTransferId] = useState<string | null>(null);
+  const [dispatching, setDispatching] = useState(false);
+
+  async function handleConfirmMarkOrdered() {
+    if (!confirmingTransferId) return;
+    setDispatching(true);
+    try {
+      await onMarkOrdered(confirmingTransferId);
+      setConfirmingTransferId(null);
+    } finally {
+      setDispatching(false);
+    }
+  }
 
   const results = search
     ? parts
@@ -46,10 +56,9 @@ export default function TransfersCard({
     if (readOnly) return;
     setAdding(true);
     try {
-      await onAddLine(partId, Number(quantity) || 1, payer);
+      await onAddLine(partId, Number(quantity) || 1, "cliente");
       setSearch("");
       setQuantity("1");
-      setPayer("cliente");
     } finally {
       setAdding(false);
     }
@@ -104,18 +113,7 @@ export default function TransfersCard({
           onChange={(e) => setQuantity(e.target.value)}
           className="w-16 rounded-xl border border-navy/15 px-2 py-2.5 text-center text-sm outline-none focus:border-blue"
         />
-        <select
-          value={payer}
-          onChange={(e) => setPayer(e.target.value as ServiceOrderPayer)}
-          disabled={readOnly || adding}
-          className="w-40 shrink-0 rounded-xl border border-navy/15 px-2 py-2.5 text-sm outline-none focus:border-blue disabled:opacity-60"
-        >
-          {PAYER_OPTIONS.map((p) => (
-            <option key={p} value={p}>
-              {PAYER_LABELS[p]}
-            </option>
-          ))}
-        </select>
+
       </div>
 
       {transfers.length === 0 ? (
@@ -144,7 +142,7 @@ export default function TransfersCard({
                   <button
                     type="button"
                     disabled={readOnly || adding}
-                    onClick={() => onMarkOrdered(transfer.id)}
+                    onClick={() => setConfirmingTransferId(transfer.id)}
                     className="rounded-full bg-blue px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-navy"
                   >
                     Marcar como Pedido
@@ -152,7 +150,7 @@ export default function TransfersCard({
                 )}
               </div>
 
-              <table className="w-full text-left text-sm">
+              <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm">
                 <thead>
                   <tr className="text-steel">
                     <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">Repuesto</th>
@@ -163,7 +161,6 @@ export default function TransfersCard({
                     <th className="pb-1.5 text-right font-mono text-[10px] uppercase tracking-widest">
                       Subtotal
                     </th>
-                    <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">Paga</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-navy/5">
@@ -171,31 +168,18 @@ export default function TransfersCard({
                     const part = partById(line.part_id);
                     return (
                       <tr key={line.id}>
-                        <td className="py-1.5 text-navy">{part?.name ?? "—"}</td>
+                        <td className="py-1.5 text-navy">{part?.name ?? "—"}<span className="mt-1 block font-mono text-xs text-blue">{part?.code}</span></td>
                         <td className="py-1.5 text-navy">{line.quantity}</td>
                         <td className="py-1.5 text-right text-navy">{line.unit_price == null ? "—" : `$${line.unit_price.toFixed(2)}`}</td>
                         <td className="py-1.5 text-right font-medium text-navy">
                           {line.subtotal == null ? "—" : `$${line.subtotal.toFixed(2)}`}
                         </td>
-                        <td className="py-1.5">
-                          <select
-                            value={line.payer}
-                            onChange={(e) => onChangeLinePayer(line.id, e.target.value as ServiceOrderPayer)}
-                            disabled={readOnly || adding}
-                            className="rounded-lg border border-navy/15 px-2 py-1 text-xs outline-none focus:border-blue disabled:opacity-60"
-                          >
-                            {PAYER_OPTIONS.map((p) => (
-                              <option key={p} value={p}>
-                                {PAYER_LABELS[p]}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
+
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>
+              </table></div>
               <div className="mt-2 flex justify-end text-sm font-semibold text-navy">
                 Subtotal: {transfer.subtotal == null ? "—" : `$${transfer.subtotal.toFixed(2)}`}
               </div>
@@ -209,6 +193,16 @@ export default function TransfersCard({
           Todas las ODT de esta orden ya fueron pedidas. Al agregar otro repuesto se abre una nueva.
         </p>
       )}
+
+      <ConfirmDialog
+        open={confirmingTransferId !== null}
+        title="¿Confirmar envío al almacén?"
+        description={`Una vez marcada como "Pedido", esta Orden de Transferencia ya no podrá modificarse ni eliminarse. Verifica que los repuestos y cantidades sean correctos antes de continuar.`}
+        confirmLabel="Sí, marcar como Pedido"
+        confirming={dispatching}
+        onConfirm={handleConfirmMarkOrdered}
+        onCancel={() => setConfirmingTransferId(null)}
+      />
     </div>
   );
 }

@@ -10,9 +10,17 @@ interface WarehousePickerProps {
   onChange: (id: string) => void;
   onCreate: (name: string) => Promise<Warehouse | undefined>;
   label?: string;
+  allowCreate?: boolean;
 }
 
-export default function WarehousePicker({ warehouses, value, onChange, onCreate, label }: WarehousePickerProps) {
+export default function WarehousePicker({
+  warehouses,
+  value,
+  onChange,
+  onCreate,
+  label,
+  allowCreate = true,
+}: WarehousePickerProps) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -49,7 +57,7 @@ export default function WarehousePicker({ warehouses, value, onChange, onCreate,
             {w.name}
           </button>
         ))}
-        {!adding ? (
+        {!allowCreate ? null : !adding ? (
           <button
             type="button"
             onClick={() => setAdding(true)}

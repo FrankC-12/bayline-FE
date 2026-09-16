@@ -1,12 +1,5 @@
 import type { VehicleStatus } from "@/types/concesionario";
 
-export const BRAND_MODELS: Record<string, string[]> = {
-  Toyota: ["Corolla", "Yaris", "Hilux", "Fortuner", "4Runner", "Prado", "Camry", "Hiace", "RAV4"],
-  Lexus: ["ES", "IS", "RX", "NX", "GX", "LX", "UX"],
-  Kia: ["Sportage", "Rio", "Sorento", "Picanto"],
-  Chevrolet: ["Aveo", "Spark", "Captiva", "Silverado"],
-};
-
 export const VEHICLE_COLORS = [
   "Blanco", "Negro", "Gris", "Plata", "Azul", "Rojo", "Verde", "Beige", "Marrón", "Amarillo", "Naranja",
 ];

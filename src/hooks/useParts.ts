@@ -5,6 +5,7 @@ import {
   listParts,
   createPart,
   updatePart,
+  setPartActive,
   bulkCreateParts,
   type CreatePartInput,
   type UpdatePartInput,
@@ -12,7 +13,7 @@ import {
 } from "@/lib/api/parts";
 import type { Part } from "@/types/parts";
 
-export function useParts(filialId: string | null, search?: string) {
+export function useParts(filialId: string | null, search?: string, includeInactive = false) {
   const [parts, setParts] = useState<Part[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -23,10 +24,10 @@ export function useParts(filialId: string | null, search?: string) {
       return;
     }
     setLoading(true);
-    const data = await listParts(filialId, search);
+    const data = await listParts(filialId, search, includeInactive);
     setParts(data);
     setLoading(false);
-  }, [filialId, search]);
+  }, [filialId, search, includeInactive]);
 
   useEffect(() => {
     load();
@@ -54,5 +55,14 @@ export function useParts(filialId: string | null, search?: string) {
     [filialId, load]
   );
 
-  return { parts, loading, addPart, editPart, bulkAddParts, refresh: load };
+  const toggleActive = useCallback(
+    async (id: string, isActive: boolean) => {
+      const updated = await setPartActive(id, isActive);
+      await load();
+      return updated;
+    },
+    [load]
+  );
+
+  return { parts, loading, addPart, editPart, bulkAddParts, toggleActive, refresh: load };
 }

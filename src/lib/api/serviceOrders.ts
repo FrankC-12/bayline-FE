@@ -7,10 +7,12 @@ export interface CreateServiceOrderInput {
   filial_id: string;
   vehicle_id: string;
   order_type?: string;
-  // Optional — a walk-in ODS collects it right away (vehicle present), but
-  // one scheduled ahead of time can't know it yet; it's recorded later via
-  // UpdateServiceOrderInput once the vehicle arrives.
-  intake_mileage?: number | null;
+  // intake_mileage is never sent — it's always a read-only view inherited
+  // from a PreliminaryInspection, derived server-side. A walk-in ODS (no
+  // scheduled_at) must pass an existing unlinked inspection_id for the
+  // vehicle; one scheduled ahead of time can omit it and link an inspection
+  // later, from the order detail screen, once the vehicle arrives.
+  inspection_id?: string;
   customer_reason: string;
   advisor_user_id: string;
   promised_at: string;
@@ -29,7 +31,6 @@ export interface UpdateServiceOrderInput {
   bay_id?: string | null;
   scheduled_at?: string | null;
   notes?: string | null;
-  intake_mileage?: number | null;
   clear_technician?: boolean;
   clear_advisor?: boolean;
   clear_bay?: boolean;

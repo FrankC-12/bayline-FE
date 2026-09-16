@@ -6,7 +6,7 @@ import UpsellsView from "@/components/service-orders/UpsellsView";
 export default function UpsellsPage() {
   return (
     <RequireScope scope="filial">
-      <div className="min-h-screen bg-ash">
+      <div className="flex h-dvh flex-col overflow-hidden bg-ash [&>header]:shrink-0">
         <DashboardHeader />
         <ServiceOrdersLayout>
           <UpsellsView />

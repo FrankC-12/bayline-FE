@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useServiceOrders } from "@/hooks/useServiceOrders";
@@ -22,6 +22,7 @@ const STATUS_STYLES: Record<string, string> = {
 type FilterTab = "todos" | "orden_cerrada" | "cancelado";
 
 export default function HistorialView() {
+  const router = useRouter();
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
@@ -143,14 +144,13 @@ export default function HistorialView() {
               {filtered.map((o) => {
                 const info = vehicleMap.get(o.vehicle_id);
                 return (
-                  <tr key={o.id} className="transition hover:bg-ash/60">
+                  <tr
+                    key={o.id}
+                    onClick={() => router.push(`/dashboard/servicios/${o.id}`)}
+                    className="cursor-pointer transition hover:bg-ash/60"
+                  >
                     <td className="px-6 py-4">
-                      <Link
-                        href={`/dashboard/servicios/${o.id}`}
-                        className="font-mono font-semibold text-blue hover:text-navy"
-                      >
-                        {o.code}
-                      </Link>
+                      <span className="font-mono font-semibold text-blue">{o.code}</span>
                     </td>
                     <td className="px-6 py-4 text-steel">
                       {new Date(o.created_at).toLocaleDateString("es-VE")}

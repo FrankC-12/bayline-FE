@@ -22,14 +22,10 @@ function parseTextRows(text: string): BulkPartItem[] {
         code: cols[0] ?? "",
         name: cols[1] ?? "",
         category: cols[2] ?? "",
-        brand: cols[3] ?? "",
-        application: cols[4] ?? "",
-        unit: cols[5] ?? "",
+        unit: cols[3] ?? "",
       };
     })
-    .filter(
-      (item) => item.code && item.name && item.category && item.brand && item.application && item.unit
-    );
+    .filter((item) => item.code && item.name && item.category && item.unit);
 }
 
 export default function BulkImportPartsModal({ open, onClose, onImport }: BulkImportPartsModalProps) {
@@ -63,14 +59,9 @@ export default function BulkImportPartsModal({ open, onClose, onImport }: BulkIm
           code: String(row[0] ?? "").trim(),
           name: String(row[1] ?? "").trim(),
           category: String(row[2] ?? "").trim(),
-          brand: String(row[3] ?? "").trim(),
-          application: String(row[4] ?? "").trim(),
-          unit: String(row[5] ?? "").trim(),
+          unit: String(row[3] ?? "").trim(),
         }))
-        .filter(
-          (item) =>
-            item.code && item.name && item.category && item.brand && item.application && item.unit
-        );
+        .filter((item) => item.code && item.name && item.category && item.unit);
       setItems(parsed);
     } catch {
       setError("No se pudo leer el archivo. Verifica que sea un Excel (.xlsx) o CSV válido.");
@@ -160,17 +151,16 @@ export default function BulkImportPartsModal({ open, onClose, onImport }: BulkIm
             {mode === "text" ? (
               <div>
                 <p className="mb-2 text-xs text-steel">
-                  Una línea por repuesto:{" "}
-                  <span className="font-mono">
-                    código, nombre, categoría, marca, aplicación, unidad
-                  </span>
+                  Una línea por repuesto: <span className="font-mono">código, nombre, categoría, unidad</span>
+                  . La categoría se crea sola si no existe todavía. Marca, modelo, años, medida y
+                  stock mínimo se completan después editando el repuesto.
                 </p>
                 <textarea
                   value={textValue}
                   onChange={(e) => handleTextChange(e.target.value)}
                   rows={8}
                   placeholder={
-                    "08880-83840, Aceite 5W-30, Lubricantes, Toyota, Hilux 2018-2025, Litro\n90915-YZZD4, Filtro de aceite, Filtros, Toyota, Universal, Unidad"
+                    "08880-83840, Aceite 5W-30, Lubricantes, Litro\n90915-YZZD4, Filtro de aceite, Filtros, Unidad"
                   }
                   className="w-full rounded-xl border border-navy/15 px-4 py-2.5 font-mono text-xs outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
                 />
@@ -178,8 +168,9 @@ export default function BulkImportPartsModal({ open, onClose, onImport }: BulkIm
             ) : (
               <div>
                 <p className="mb-2 text-xs text-steel">
-                  Archivo .xlsx o .csv con columnas: Código, Nombre, Categoría, Marca, Aplicación y
-                  Unidad. La primera fila se asume encabezado.
+                  Archivo .xlsx o .csv con columnas: Código, Nombre, Categoría y Unidad. La primera
+                  fila se asume encabezado. Marca, modelo, años, medida y stock mínimo se completan
+                  después editando el repuesto.
                 </p>
                 <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-navy/20 px-4 py-8 text-center transition hover:border-blue/40 hover:bg-blue-light">
                   <Upload className="h-6 w-6 text-steel" />
@@ -204,7 +195,6 @@ export default function BulkImportPartsModal({ open, onClose, onImport }: BulkIm
                         <th className="px-3 py-2 font-mono uppercase text-steel">Código</th>
                         <th className="px-3 py-2 font-mono uppercase text-steel">Nombre</th>
                         <th className="px-3 py-2 font-mono uppercase text-steel">Categoría</th>
-                        <th className="px-3 py-2 font-mono uppercase text-steel">Marca</th>
                         <th className="px-3 py-2 font-mono uppercase text-steel">Unidad</th>
                       </tr>
                     </thead>
@@ -214,7 +204,6 @@ export default function BulkImportPartsModal({ open, onClose, onImport }: BulkIm
                           <td className="px-3 py-1.5 font-mono text-blue">{item.code}</td>
                           <td className="px-3 py-1.5 text-navy">{item.name}</td>
                           <td className="px-3 py-1.5 text-navy">{item.category}</td>
-                          <td className="px-3 py-1.5 text-navy">{item.brand}</td>
                           <td className="px-3 py-1.5 text-navy">{item.unit}</td>
                         </tr>
                       ))}

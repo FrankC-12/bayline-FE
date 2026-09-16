@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X, Loader2 } from "lucide-react";
-import { BRAND_MODELS, STATUS_OPTIONS, VEHICLE_COLORS } from "@/lib/vehicle-catalog-dealership";
+import { STATUS_OPTIONS, VEHICLE_COLORS } from "@/lib/vehicle-catalog-dealership";
 import { formatMoneyInput } from "@/lib/format";
 import { getLatestExchangeRates, type CreateVehicleInput } from "@/lib/api/concesionario";
 import CreatableSelect from "./CreatableSelect";
+import BrandModelSelect from "@/components/common/BrandModelSelect";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
+import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 10 }, (_, i) => CURRENT_YEAR + 1 - i);
@@ -28,13 +30,13 @@ function suggestSku(brand: string, model: string, year: number, color: string): 
 
 export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: AddVehicleModalProps) {
   const { canEdit } = useModuleAccess("concesionario");
+  const { brands } = useVehicleCatalog(filialId);
   const [status, setStatus] = useState("en_transito");
-  const [brandModels, setBrandModels] = useState<Record<string, string[]>>(BRAND_MODELS);
   const [years, setYears] = useState(YEARS);
   const [colors, setColors] = useState(VEHICLE_COLORS);
   const [condition, setCondition] = useState("nuevo");
-  const [brand, setBrand] = useState("Toyota");
-  const [model, setModel] = useState(BRAND_MODELS["Toyota"][0]);
+  const [brand, setBrand] = useState("");
+  const [model, setModel] = useState("");
   const [year, setYear] = useState(CURRENT_YEAR);
   const [color, setColor] = useState("");
   const [fuelType, setFuelType] = useState("gasolina");
@@ -56,47 +58,20 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const models = brandModels[brand] ?? [];
-
   useEffect(() => {
     try {
       const saved = localStorage.getItem("bayline.vehicleOptions");
       if (!saved) return;
-      const parsed = JSON.parse(saved) as { brandModels?: Record<string, string[]>; years?: number[]; colors?: string[] };
-      if (parsed.brandModels) setBrandModels(parsed.brandModels);
+      const parsed = JSON.parse(saved) as { years?: number[]; colors?: string[] };
       if (parsed.years) setYears(parsed.years);
       if (parsed.colors) setColors(parsed.colors);
     } catch {
-      // Keep the built-in catalog if local preferences are unavailable.
+      // Keep the built-in options if local preferences are unavailable.
     }
   }, []);
 
-  function saveOptions(nextBrandModels = brandModels, nextYears = years, nextColors = colors) {
-    localStorage.setItem("bayline.vehicleOptions", JSON.stringify({ brandModels: nextBrandModels, years: nextYears, colors: nextColors }));
-  }
-
-  function addBrand(value: string) {
-    const normalized = value.trim();
-    if (!normalized) return;
-    const existing = Object.keys(brandModels).find((item) => item.toLowerCase() === normalized.toLowerCase());
-    const selected = existing ?? normalized;
-    const next = existing ? brandModels : { ...brandModels, [selected]: [] };
-    setBrandModels(next);
-    setBrand(selected);
-    setModel(next[selected]?.[0] ?? "");
-    saveOptions(next);
-  }
-
-  function addModel(value: string) {
-    const normalized = value.trim();
-    if (!normalized) return;
-    const current = brandModels[brand] ?? [];
-    const existing = current.find((item) => item.toLowerCase() === normalized.toLowerCase());
-    const selected = existing ?? normalized;
-    const next = existing ? brandModels : { ...brandModels, [brand]: [...current, selected] };
-    setBrandModels(next);
-    setModel(selected);
-    saveOptions(next);
+  function saveOptions(nextYears = years, nextColors = colors) {
+    localStorage.setItem("bayline.vehicleOptions", JSON.stringify({ years: nextYears, colors: nextColors }));
   }
 
   function addYear(value: string) {
@@ -108,7 +83,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
     const next = Array.from(new Set([...years, parsed])).sort((a, b) => b - a);
     setYears(next);
     setYear(parsed);
-    saveOptions(brandModels, next);
+    saveOptions(next);
   }
 
   function addColor(value: string) {
@@ -119,13 +94,8 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
     const next = existing ? colors : [...colors, selected].sort();
     setColors(next);
     setColor(selected);
-    saveOptions(brandModels, years, next);
+    saveOptions(years, next);
   }
-
-  useEffect(() => {
-    if (!models.includes(model)) setModel(models[0] ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brand]);
 
   const suggestedSku = useMemo(() => suggestSku(brand, model, year, color), [brand, model, year, color]);
 
@@ -137,8 +107,8 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
     if (!open) return;
     setStatus("en_transito");
     setCondition("nuevo");
-    setBrand("Toyota");
-    setModel(brandModels["Toyota"]?.[0] ?? "");
+    setBrand("");
+    setModel("");
     setYear(CURRENT_YEAR);
     setColor("");
     setFuelType("gasolina");
@@ -255,8 +225,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <CreatableSelect label="Marca" required canAdd={canEdit} value={brand} options={Object.keys(brandModels)} onChange={setBrand} onAdd={addBrand} />
-            <CreatableSelect label="Modelo" required canAdd={canEdit} value={model} options={models} onChange={setModel} onAdd={addModel} />
+            <BrandModelSelect brands={brands} brand={brand} model={model} onBrandChange={setBrand} onModelChange={setModel} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

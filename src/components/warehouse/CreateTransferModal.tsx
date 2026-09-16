@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { X, Loader2, Plus, Search } from "lucide-react";
 import { useParts } from "@/hooks/useParts";
 import WarehousePicker from "./WarehousePicker";
+import PartAvailabilityHint from "./PartAvailabilityHint";
+import CreatePartModal from "@/components/parts/CreatePartModal";
 import type { Warehouse } from "@/types/warehouse";
 import type { TransferLineInput } from "@/lib/api/warehouse";
 
@@ -40,12 +42,14 @@ export default function CreateTransferModal({
   initialLines,
   onCreateWarehouse,
 }: CreateTransferModalProps) {
-  const { parts } = useParts(filialId);
+  const { parts, addPart } = useParts(filialId);
   const [originId, setOriginId] = useState(initialOriginId ?? warehouses[0]?.id ?? "");
   const [destinationId, setDestinationId] = useState(
     initialDestinationId ?? warehouses[1]?.id ?? warehouses[0]?.id ?? ""
   );
   const [lines, setLines] = useState<LineDraft[]>(initialLines?.length ? initialLines : [emptyLine()]);
+  const [lineErrors, setLineErrors] = useState<Record<number, string>>({});
+  const [quickCreateLineIndex, setQuickCreateLineIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,12 +58,20 @@ export default function CreateTransferModal({
     setOriginId(initialOriginId ?? warehouses[0]?.id ?? "");
     setDestinationId(initialDestinationId ?? warehouses[1]?.id ?? warehouses[0]?.id ?? "");
     setLines(initialLines?.length ? initialLines : [emptyLine()]);
+    setLineErrors({});
+    setQuickCreateLineIndex(null);
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   function updateLine(index: number, patch: Partial<LineDraft>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
+    setLineErrors((prev) => {
+      if (!(index in prev)) return prev;
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
   }
 
   function resultsFor(term: string) {
@@ -69,11 +81,31 @@ export default function CreateTransferModal({
   }
 
   async function handleSubmit() {
-    const validLines = lines.filter((l) => l.partId && Number(l.quantity) > 0);
-    if (!originId || !destinationId || originId === destinationId || validLines.length === 0) {
-      setError("Selecciona almacenes distintos y al menos un repuesto con cantidad.");
+    // A line where someone typed something but never picked a real catalog
+    // match doesn't get silently dropped — it's flagged on that line, not
+    // folded into the generic "something's missing" message below.
+    const newLineErrors: Record<number, string> = {};
+    lines.forEach((l, i) => {
+      if (l.search.trim() && !l.partId) {
+        newLineErrors[i] = "Este repuesto no existe en el catálogo.";
+      }
+    });
+    if (Object.keys(newLineErrors).length > 0) {
+      setLineErrors(newLineErrors);
       return;
     }
+
+    const validLines = lines.filter((l) => l.partId && Number(l.quantity) > 0);
+    const missing: string[] = [];
+    if (!originId || !destinationId) missing.push("almacenes de origen y destino");
+    else if (originId === destinationId) missing.push("almacenes de origen y destino distintos");
+    if (validLines.length === 0) missing.push("al menos un repuesto con cantidad");
+    if (missing.length > 0) {
+      setError(`Selecciona ${missing.join(" y ")}.`);
+      return;
+    }
+
+    setLineErrors({});
     setSubmitting(true);
     setError(null);
     try {
@@ -93,6 +125,7 @@ export default function CreateTransferModal({
   if (!open) return null;
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div onClick={onClose} className="absolute inset-0 bg-navy/40" />
       <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
@@ -111,6 +144,7 @@ export default function CreateTransferModal({
               value={originId}
               onChange={setOriginId}
               onCreate={onCreateWarehouse}
+              allowCreate={false}
             />
             <WarehousePicker
               label="Almacén destino"
@@ -118,50 +152,78 @@ export default function CreateTransferModal({
               value={destinationId}
               onChange={setDestinationId}
               onCreate={onCreateWarehouse}
+              allowCreate={false}
             />
           </div>
 
           <div className="space-y-3 rounded-xl border border-navy/10 p-4">
             {lines.map((line, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-steel" />
+              <div key={i}>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-steel" />
+                    <input
+                      value={line.search}
+                      onChange={(e) => updateLine(i, { search: e.target.value, partId: "" })}
+                      placeholder="Buscar por código o nombre..."
+                      className={`w-full rounded-lg border py-2 pl-8 pr-2 text-sm outline-none focus:border-blue ${
+                        lineErrors[i] ? "border-red-400" : "border-navy/15"
+                      }`}
+                    />
+                    {line.search && !line.partId && (
+                      resultsFor(line.search).length > 0 ? (
+                        <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-lg border border-navy/10 bg-white shadow-lg">
+                          {resultsFor(line.search).map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => updateLine(i, { partId: p.id, search: `${p.code} · ${p.name}` })}
+                              className="block w-full px-3 py-1.5 text-left text-xs hover:bg-ash"
+                            >
+                              <span className="font-mono text-blue">{p.code}</span> {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="absolute z-10 mt-1 w-full rounded-lg border border-navy/10 bg-white p-3 shadow-lg">
+                          <p className="text-xs text-steel">Sin resultados en catálogo.</p>
+                          <button
+                            type="button"
+                            onClick={() => setQuickCreateLineIndex(i)}
+                            className="mt-2 flex items-center gap-1 text-xs font-semibold text-blue hover:text-navy"
+                          >
+                            <Plus className="h-3 w-3" />
+                            Crear repuesto en catálogo
+                          </button>
+                        </div>
+                      )
+                    )}
+                  </div>
                   <input
-                    value={line.search}
-                    onChange={(e) => updateLine(i, { search: e.target.value, partId: "" })}
-                    placeholder="Buscar por código o nombre..."
-                    className="w-full rounded-lg border border-navy/15 py-2 pl-8 pr-2 text-sm outline-none focus:border-blue"
+                    type="number"
+                    min="1"
+                    placeholder="Cant."
+                    value={line.quantity}
+                    onChange={(e) => updateLine(i, { quantity: e.target.value })}
+                    className="w-20 rounded-lg border border-navy/15 px-2 py-2 text-center text-sm outline-none focus:border-blue"
                   />
-                  {line.search && !line.partId && resultsFor(line.search).length > 0 && (
-                    <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-lg border border-navy/10 bg-white shadow-lg">
-                      {resultsFor(line.search).map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => updateLine(i, { partId: p.id, search: `${p.code} · ${p.name}` })}
-                          className="block w-full px-3 py-1.5 text-left text-xs hover:bg-ash"
-                        >
-                          <span className="font-mono text-blue">{p.code}</span> {p.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setLines((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev))}
+                    className="rounded-lg border border-navy/15 p-2 text-red-500 hover:bg-red-50"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="Cant."
-                  value={line.quantity}
-                  onChange={(e) => updateLine(i, { quantity: e.target.value })}
-                  className="w-20 rounded-lg border border-navy/15 px-2 py-2 text-center text-sm outline-none focus:border-blue"
-                />
-                <button
-                  type="button"
-                  onClick={() => setLines((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev))}
-                  className="rounded-lg border border-navy/15 p-2 text-red-500 hover:bg-red-50"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+                {lineErrors[i] && <p className="mt-1 text-xs text-red-600">{lineErrors[i]}</p>}
+                {line.partId && (
+                  <PartAvailabilityHint
+                    filialId={filialId}
+                    partId={line.partId}
+                    warehouses={warehouses}
+                    originWarehouseId={originId}
+                  />
+                )}
               </div>
             ))}
             <button
@@ -188,5 +250,18 @@ export default function CreateTransferModal({
         </div>
       </div>
     </div>
+
+    <CreatePartModal
+      open={quickCreateLineIndex !== null}
+      onClose={() => setQuickCreateLineIndex(null)}
+      filialId={filialId}
+      initialName={quickCreateLineIndex !== null ? lines[quickCreateLineIndex]?.search ?? "" : ""}
+      onCreate={addPart}
+      onSaved={(part) => {
+        if (quickCreateLineIndex === null) return;
+        updateLine(quickCreateLineIndex, { partId: part.id, search: `${part.code} · ${part.name}` });
+      }}
+    />
+    </>
   );
 }

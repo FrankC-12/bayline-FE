@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Loader2, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { X, Loader2, ShieldCheck, Gauge } from "lucide-react";
 import { getVehiclePlanStatus, assignVehicleMaintenancePlan } from "@/lib/api/clients";
 import { getVehicleWarrantyByVin } from "@/lib/api/vehicleWarranties";
 import { useMaintenancePlans } from "@/hooks/useMaintenancePlans";
+import { useVehicleMileageHistory } from "@/hooks/useVehicleMileageHistory";
 import { ApiError } from "@/lib/api/client";
 import type { Vehicle } from "@/types/client";
 import type { VehiclePlanStatus } from "@/types/maintenancePlan";
@@ -41,7 +43,7 @@ interface VehicleDetailModalProps {
   filialId: string;
 }
 
-type Tab = "plan" | "garantias";
+type Tab = "plan" | "garantias" | "kilometraje";
 
 export default function VehicleDetailModal({ open, onClose, vehicle, filialId }: VehicleDetailModalProps) {
   const [tab, setTab] = useState<Tab>("plan");
@@ -50,6 +52,7 @@ export default function VehicleDetailModal({ open, onClose, vehicle, filialId }:
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { history: mileageHistory, loading: mileageLoading } = useVehicleMileageHistory(open ? vehicle.id : null);
 
   const [warranty, setWarranty] = useState<VehicleWarranty | null>(null);
   const [warrantyLoading, setWarrantyLoading] = useState(true);
@@ -148,6 +151,14 @@ export default function VehicleDetailModal({ open, onClose, vehicle, filialId }:
           >
             Garantías
           </button>
+          <button
+            onClick={() => setTab("kilometraje")}
+            className={`border-b-2 px-3 py-3 text-sm font-semibold transition ${
+              tab === "kilometraje" ? "border-blue text-blue" : "border-transparent text-steel hover:text-navy"
+            }`}
+          >
+            Historial de Kilometraje
+          </button>
         </div>
 
         {tab === "plan" ? (
@@ -239,7 +250,7 @@ export default function VehicleDetailModal({ open, onClose, vehicle, filialId }:
 
             {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
           </div>
-        ) : (
+        ) : tab === "garantias" ? (
           <div className="flex-1 space-y-4 overflow-y-auto p-6">
             <p className="text-xs text-steel">
               Solo consulta. Las garantías cuelgan del VIN, así que siguen al vehículo aunque cambie de dueño.
@@ -291,6 +302,47 @@ export default function VehicleDetailModal({ open, onClose, vehicle, filialId }:
               <p className="rounded-xl bg-ash px-4 py-6 text-center text-sm text-steel">
                 Este vehículo no tiene garantía de fábrica registrada.
               </p>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1 space-y-4 overflow-y-auto p-6">
+            <p className="text-xs text-steel">
+              Cada registro proviene de una inspección preliminar — se acumulan, nunca se sobrescriben.
+            </p>
+
+            {mileageLoading ? (
+              <div className="p-10 text-center text-sm text-steel">Cargando historial...</div>
+            ) : mileageHistory.length === 0 ? (
+              <p className="rounded-xl bg-ash px-4 py-6 text-center text-sm text-steel">
+                Este vehículo aún no tiene lecturas de kilometraje registradas.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {mileageHistory.map((entry) => (
+                  <li
+                    key={entry.inspection_id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-navy/10 px-4 py-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Gauge className="h-4 w-4 text-steel" />
+                      <span className="font-semibold text-navy">
+                        {entry.mileage.toLocaleString("es-VE")} km
+                      </span>
+                    </div>
+                    <div className="text-right text-xs text-steel">
+                      <p>{new Date(entry.recorded_at).toLocaleDateString("es-VE")}</p>
+                      {entry.service_order_id && entry.service_order_code && (
+                        <Link
+                          href={`/dashboard/servicios/${entry.service_order_id}`}
+                          className="font-mono text-blue hover:underline"
+                        >
+                          {entry.service_order_code}
+                        </Link>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         )}

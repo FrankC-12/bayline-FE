@@ -1,5 +1,14 @@
 import { apiFetch } from "./client";
-import type { InventoryRow, PartLot, StockMovement, Transfer, Warehouse } from "@/types/warehouse";
+import type {
+  InventoryRow,
+  PartLot,
+  PartLotDetail,
+  ServiceOrderPartRequest,
+  StockInReason,
+  StockMovement,
+  Transfer,
+  Warehouse,
+} from "@/types/warehouse";
 
 export async function listWarehouses(filialId: string): Promise<Warehouse[]> {
   return apiFetch<Warehouse[]>(`/warehouses?filial_id=${filialId}`);
@@ -12,26 +21,71 @@ export async function createWarehouse(filialId: string, name: string): Promise<W
   });
 }
 
+export async function listStockInReasons(
+  filialId: string,
+  includeInactive = false
+): Promise<StockInReason[]> {
+  const query = new URLSearchParams({ filial_id: filialId, include_inactive: String(includeInactive) });
+  return apiFetch<StockInReason[]>(`/stock-in-reasons?${query.toString()}`);
+}
+
+export async function createStockInReason(filialId: string, name: string): Promise<StockInReason> {
+  return apiFetch<StockInReason>(`/stock-in-reasons?filial_id=${filialId}`, {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function renameStockInReason(
+  filialId: string,
+  reasonId: string,
+  name: string
+): Promise<StockInReason> {
+  return apiFetch<StockInReason>(`/stock-in-reasons/${reasonId}?filial_id=${filialId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function setStockInReasonActive(
+  filialId: string,
+  reasonId: string,
+  isActive: boolean
+): Promise<StockInReason> {
+  const action = isActive ? "activate" : "deactivate";
+  return apiFetch<StockInReason>(`/stock-in-reasons/${reasonId}/${action}?filial_id=${filialId}`, {
+    method: "POST",
+  });
+}
+
 export async function getInventory(
   filialId: string,
   warehouseId?: string,
-  search?: string
+  search?: string,
+  partId?: string
 ): Promise<InventoryRow[]> {
   const query = new URLSearchParams({ filial_id: filialId });
   if (warehouseId) query.set("warehouse_id", warehouseId);
   if (search) query.set("search", search);
+  if (partId) query.set("part_id", partId);
   return apiFetch<InventoryRow[]>(`/almacen/inventory?${query.toString()}`);
 }
 
 export async function listLots(
   filialId: string,
   partId?: string,
-  warehouseId?: string
+  warehouseId?: string,
+  search?: string
 ): Promise<PartLot[]> {
   const query = new URLSearchParams({ filial_id: filialId });
   if (partId) query.set("part_id", partId);
   if (warehouseId) query.set("warehouse_id", warehouseId);
+  if (search) query.set("search", search);
   return apiFetch<PartLot[]>(`/almacen/lots?${query.toString()}`);
+}
+
+export async function getLotDetail(lotId: string): Promise<PartLotDetail> {
+  return apiFetch<PartLotDetail>(`/almacen/lots/${lotId}`);
 }
 
 export interface StockInLine {
@@ -123,6 +177,16 @@ export async function updateTransferStatus(transferId: string, status: string): 
   return apiFetch<Transfer>(`/almacen/transfers/${transferId}`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+  });
+}
+
+export async function listServiceOrderRequests(filialId: string): Promise<ServiceOrderPartRequest[]> {
+  return apiFetch<ServiceOrderPartRequest[]>(`/almacen/service-order-requests?filial_id=${filialId}`);
+}
+
+export async function acknowledgeServiceOrderRequest(filialId: string, transferId: string): Promise<void> {
+  await apiFetch(`/almacen/service-order-requests/${transferId}/acknowledge?filial_id=${filialId}`, {
+    method: "POST",
   });
 }
 

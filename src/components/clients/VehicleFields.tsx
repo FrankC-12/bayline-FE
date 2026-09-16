@@ -4,7 +4,9 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { formatThousands, stripThousands } from "@/lib/format";
 import type { VehicleFormValue } from "@/types/client-form";
+import type { VehicleBrandOption } from "@/types/vehicleCatalog";
 import { normalizeVenezuelaPlate, validateVenezuelaPlate } from "@/lib/venezuela-plate";
+import BrandModelSelect from "@/components/common/BrandModelSelect";
 
 function formatVisitDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-VE", { day: "numeric", month: "long", year: "numeric" });
@@ -35,12 +37,13 @@ const UPHOLSTERY_TYPES = [
 interface VehicleFieldsProps {
   index: number;
   value: VehicleFormValue;
+  brands: VehicleBrandOption[];
   onChange: (index: number, patch: Partial<VehicleFormValue>) => void;
   onRemove: (index: number) => void;
   canRemove: boolean;
 }
 
-export default function VehicleFields({ index, value, onChange, onRemove, canRemove }: VehicleFieldsProps) {
+export default function VehicleFields({ index, value, brands, onChange, onRemove, canRemove }: VehicleFieldsProps) {
   const vinLength = value.vin.length;
   const vinInvalid = vinLength > 0 && vinLength !== 17;
   const normalizedPlate = normalizeVenezuelaPlate(value.plate);
@@ -63,24 +66,14 @@ export default function VehicleFields({ index, value, onChange, onRemove, canRem
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-navy">Marca</label>
-          <input
-            value={value.brand}
-            onChange={(e) => onChange(index, { brand: e.target.value })}
-            placeholder="Ej: Toyota"
-            className="w-full rounded-lg border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-navy">Modelo</label>
-          <input
-            value={value.model}
-            onChange={(e) => onChange(index, { model: e.target.value })}
-            placeholder="Ej: Hilux"
-            className="w-full rounded-lg border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-          />
-        </div>
+        <BrandModelSelect
+          compact
+          brands={brands}
+          brand={value.brand}
+          model={value.model}
+          onBrandChange={(brand) => onChange(index, { brand })}
+          onModelChange={(model) => onChange(index, { model })}
+        />
         <div>
           <label className="mb-1 block text-xs font-medium text-navy">Año</label>
           <input

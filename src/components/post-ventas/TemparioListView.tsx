@@ -102,6 +102,7 @@ export default function TemparioListView() {
         onClose={() => setCreateModalOpen(false)}
         filialId={filialId}
         hourlyRate={settings?.hourly_rate ?? 25}
+        ivaPercentage={settings?.iva_percentage ?? 16}
         onSubmit={handleSubmit}
         editingTempario={editingTempario}
       />

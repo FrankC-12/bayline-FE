@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Plus, Search } from "lucide-react";
 import { CATEGORY_OPTIONS } from "@/lib/temparios-categories";
-import { VEHICLE_CATALOG } from "@/lib/vehicle-catalog";
 import { useParts } from "@/hooks/useParts";
+import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 import type { CreateTemparioInput } from "@/lib/api/temparios";
 import type { Tempario, TemparioCategory } from "@/types/tempario";
 
@@ -22,6 +22,7 @@ interface CreateTemparioModalProps {
   onClose: () => void;
   filialId: string;
   hourlyRate: number;
+  ivaPercentage?: number;
   onSubmit: (input: CreateTemparioInput) => Promise<void>;
   editingTempario?: Tempario | null;
 }
@@ -35,6 +36,7 @@ export default function CreateTemparioModal({
   onClose,
   filialId,
   hourlyRate,
+  ivaPercentage = 16,
   onSubmit,
   editingTempario,
 }: CreateTemparioModalProps) {
@@ -54,6 +56,7 @@ export default function CreateTemparioModal({
 
   const currentPrefix = CATEGORY_OPTIONS.find((c) => c.value === category)?.prefix ?? "";
   const { parts: catalogParts } = useParts(filialId);
+  const { brands: vehicleBrands } = useVehicleCatalog(filialId);
 
   useEffect(() => {
     if (!open) return;
@@ -147,7 +150,9 @@ export default function CreateTemparioModal({
   );
   const partsMargin = partsCost * 0.3;
   const laborCost = (Number(estimatedHours) || 0) * hourlyRate;
-  const totalPrice = partsCost + partsMargin + laborCost;
+  const subtotal = partsCost + partsMargin + laborCost;
+  const ivaAmount = subtotal * (ivaPercentage / 100);
+  const totalWithIva = subtotal + ivaAmount;
 
   async function handleSubmit() {
     if (!name.trim()) {
@@ -245,18 +250,63 @@ export default function CreateTemparioModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Horas estimadas</label>
-              <input
-                type="number"
-                min="0"
-                step="0.1"
-                value={estimatedHours}
-                onChange={(e) => setEstimatedHours(e.target.value)}
-                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-              />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">Horas estimadas</label>
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              value={estimatedHours}
+              onChange={(e) => setEstimatedHours(e.target.value)}
+              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+            />
+          </div>
+
+          <div>
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-blue">
+              Vehículos compatibles
+            </p>
+            <div className="space-y-4 rounded-xl border border-navy/10 p-4">
+              {vehicleBrands.length === 0 && (
+                <p className="text-xs text-steel">
+                  No hay marcas cargadas todavía — agrégalas en Ajustes → Marcas y Modelos.
+                </p>
+              )}
+              {vehicleBrands.map((b) => (
+                <div key={b.id}>
+                  <p className="mb-2 font-semibold text-navy">{b.name}</p>
+                  {b.models.length === 0 ? (
+                    <p className="text-xs text-steel">Esta marca todavía no tiene modelos cargados.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {b.models.map((m) => {
+                        const key = `${b.name}|${m.name}`;
+                        const checked = selectedVehicles.has(key);
+                        return (
+                          <label
+                            key={m.id}
+                            className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                              checked ? "border-blue bg-blue-light text-blue" : "border-navy/15 text-navy"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleVehicle(b.name, m.name)}
+                              className="h-3.5 w-3.5"
+                            />
+                            {m.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Año compatible desde</label>
               <select
@@ -286,41 +336,6 @@ export default function CreateTemparioModal({
                   </option>
                 ))}
               </select>
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-blue">
-              Vehículos compatibles
-            </p>
-            <div className="space-y-4 rounded-xl border border-navy/10 p-4">
-              {Object.entries(VEHICLE_CATALOG).map(([brand, models]) => (
-                <div key={brand}>
-                  <p className="mb-2 font-semibold text-navy">{brand}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {models.map((model) => {
-                      const key = `${brand}|${model}`;
-                      const checked = selectedVehicles.has(key);
-                      return (
-                        <label
-                          key={model}
-                          className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
-                            checked ? "border-blue bg-blue-light text-blue" : "border-navy/15 text-navy"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleVehicle(brand, model)}
-                            className="h-3.5 w-3.5"
-                          />
-                          {model}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
 
@@ -494,10 +509,18 @@ export default function CreateTemparioModal({
                 </span>
                 <span>${laborCost.toFixed(2)}</span>
               </div>
+              <div className="flex justify-between border-t border-navy/10 pt-1.5 text-steel">
+                <span>IVA ({ivaPercentage}%)</span>
+                <span>${ivaAmount.toFixed(2)}</span>
+              </div>
             </div>
             <div className="mt-3 flex items-center justify-between border-t border-navy/10 pt-3">
-              <span className="font-display font-bold text-navy">Precio total</span>
-              <span className="font-display text-xl font-bold text-blue">${totalPrice.toFixed(2)}</span>
+              <span className="font-display font-bold text-navy">Subtotal</span>
+              <span className="font-display font-bold text-navy">${subtotal.toFixed(2)}</span>
+            </div>
+            <div className="mt-1 flex items-center justify-between">
+              <span className="font-display font-bold text-navy">Precio total (con IVA)</span>
+              <span className="font-display text-xl font-bold text-blue">${totalWithIva.toFixed(2)}</span>
             </div>
           </div>
 

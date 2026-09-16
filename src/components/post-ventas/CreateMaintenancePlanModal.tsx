@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { X, Loader2, Plus, Search } from "lucide-react";
-import { VEHICLE_CATALOG } from "@/lib/vehicle-catalog";
 import { useTemparios } from "@/hooks/useTemparios";
+import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 import type { CreateMaintenancePlanInput } from "@/lib/api/maintenancePlans";
 import type { MaintenancePlan } from "@/types/maintenancePlan";
 
@@ -115,7 +115,8 @@ export default function CreateMaintenancePlanModal({
   onSubmit,
   editingPlan,
 }: CreateMaintenancePlanModalProps) {
-  const [brand, setBrand] = useState(Object.keys(VEHICLE_CATALOG)[0] ?? "");
+  const { brands } = useVehicleCatalog(filialId);
+  const [brand, setBrand] = useState("");
   const [name, setName] = useState("");
   const [entries, setEntries] = useState<EntryDraft[]>([emptyEntry()]);
   const [submitting, setSubmitting] = useState(false);
@@ -138,12 +139,18 @@ export default function CreateMaintenancePlanModal({
           : [emptyEntry()]
       );
     } else {
-      setBrand(Object.keys(VEHICLE_CATALOG)[0] ?? "");
+      setBrand("");
       setName("");
       setEntries([emptyEntry()]);
     }
     setError(null);
   }, [open, editingPlan]);
+
+  // Default to the first catalog brand once it loads — only for a new plan;
+  // an editingPlan's brand (set above) must never be overridden by this.
+  useEffect(() => {
+    if (open && !editingPlan && !brand && brands.length > 0) setBrand(brands[0].name);
+  }, [open, editingPlan, brand, brands]);
 
   function updateEntry(index: number, patch: Partial<EntryDraft>) {
     setEntries((prev) => prev.map((e, i) => (i === index ? { ...e, ...patch } : e)));
@@ -158,6 +165,10 @@ export default function CreateMaintenancePlanModal({
   }
 
   async function handleSubmit() {
+    if (!brand) {
+      setError("Selecciona una marca.");
+      return;
+    }
     if (!name.trim()) {
       setError("El nombre del plan es obligatorio.");
       return;
@@ -223,9 +234,9 @@ export default function CreateMaintenancePlanModal({
                 onChange={(e) => setBrand(e.target.value)}
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
               >
-                {Object.keys(VEHICLE_CATALOG).map((b) => (
-                  <option key={b} value={b}>
-                    {b}
+                {brands.map((b) => (
+                  <option key={b.id} value={b.name}>
+                    {b.name}
                   </option>
                 ))}
               </select>

@@ -8,7 +8,6 @@ import { useUsers } from "@/hooks/useUser";
 import { useRoles } from "@/hooks/useRoles";
 
 export interface CreateOrderExtra {
-  intake_mileage: number;
   customer_reason: string;
   advisor_user_id: string;
   promised_at: string;
@@ -22,7 +21,7 @@ interface CreateOrderPanelProps {
     vehicleId: string,
     orderType: "regular" | "mpt",
     extra: CreateOrderExtra,
-    inspectionId?: string
+    inspectionId: string
   ) => Promise<void>;
 }
 
@@ -37,7 +36,6 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
   const [search, setSearch] = useState("");
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [orderType, setOrderType] = useState<"regular" | "mpt">("regular");
-  const [mileage, setMileage] = useState("");
   const [customerReason, setCustomerReason] = useState("");
   const [advisorUserId, setAdvisorUserId] = useState("");
   const [promisedAt, setPromisedAt] = useState("");
@@ -76,7 +74,6 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
 
   useEffect(() => {
     if (matchedInspection) {
-      setMileage(matchedInspection.mileage != null ? String(matchedInspection.mileage) : "");
       setCustomerReason(matchedInspection.notes ?? "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,7 +82,6 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
   function selectVehicle(vehicleId: string, label: string) {
     setSelectedVehicleId(vehicleId);
     setSearch(label);
-    setMileage("");
     setCustomerReason("");
   }
 
@@ -94,8 +90,10 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
       setError("Selecciona un vehículo.");
       return;
     }
-    if (mileage === "" || Number(mileage) < 0) {
-      setError("Ingresa el kilometraje de ingreso.");
+    if (!matchedInspection) {
+      setError(
+        "Este vehículo no tiene una inspección preliminar sin vincular. Realiza la inspección preliminar antes de crear la ODS."
+      );
       return;
     }
     if (!customerReason.trim()) {
@@ -117,16 +115,14 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
         selectedVehicleId,
         orderType,
         {
-          intake_mileage: Number(mileage),
           customer_reason: customerReason.trim(),
           advisor_user_id: advisorUserId,
           promised_at: promisedAt,
         },
-        matchedInspection?.id
+        matchedInspection.id
       );
       setSearch("");
       setSelectedVehicleId(null);
-      setMileage("");
       setCustomerReason("");
       setAdvisorUserId("");
       setPromisedAt("");
@@ -212,24 +208,26 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
             </select>
           </div>
 
-          {matchedInspection && (
+          {selectedVehicleId && matchedInspection ? (
             <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
               Kilometraje y motivo heredados de la Inspección Preliminar del{" "}
-              {new Date(matchedInspection.created_at).toLocaleDateString("es-VE")} — puedes editarlos.
+              {new Date(matchedInspection.created_at).toLocaleDateString("es-VE")} — el motivo puedes editarlo.
             </p>
-          )}
+          ) : selectedVehicleId ? (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              Este vehículo no tiene una inspección preliminar sin vincular. Realiza la inspección
+              preliminar antes de crear la ODS.
+            </p>
+          ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Kilometraje de ingreso</label>
-              <input
-                type="number"
-                min="0"
-                value={mileage}
-                onChange={(e) => setMileage(e.target.value)}
-                placeholder="0"
-                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-              />
+              <p className="w-full rounded-xl border border-navy/10 bg-ash px-4 py-2.5 text-sm font-semibold text-navy">
+                {matchedInspection?.mileage != null
+                  ? `${matchedInspection.mileage.toLocaleString("es-VE")} km`
+                  : "—"}
+              </p>
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Fecha prometida de entrega</label>
@@ -287,7 +285,7 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!selectedVehicleId || submitting}
+            disabled={!selectedVehicleId || !matchedInspection || submitting}
             className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

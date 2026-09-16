@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { useWarehouseScope } from "@/contexts/WarehouseContext";
 import { useParts } from "@/hooks/useParts";
 import { listLots } from "@/lib/api/warehouse";
+import LotDetailModal from "./LotDetailModal";
 import type { PartLot } from "@/types/warehouse";
 import type { Part } from "@/types/parts";
 
@@ -16,6 +17,8 @@ export default function LotsSystemView() {
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [lots, setLots] = useState<PartLot[]>([]);
   const [loading, setLoading] = useState(false);
+  const [lotMatches, setLotMatches] = useState<PartLot[]>([]);
+  const [detailLotId, setDetailLotId] = useState<string | null>(null);
 
   const results = search && !selectedPart
     ? parts.filter((p) => p.code.toLowerCase().includes(search.toLowerCase()) || p.name.toLowerCase().includes(search.toLowerCase())).slice(0, 6)
@@ -32,6 +35,30 @@ export default function LotsSystemView() {
       setLoading(false);
     });
   }, [activeWarehouseId, filialId, selectedPart]);
+
+  // Also search by lot code (e.g. "L-104") — matched independently of the
+  // part filter above, since a lot code doesn't tell you the part up front.
+  useEffect(() => {
+    if (!filialId || !search || selectedPart) {
+      setLotMatches([]);
+      return;
+    }
+    let active = true;
+    listLots(filialId, undefined, undefined, search).then((data) => {
+      if (active) setLotMatches(data);
+    });
+    return () => {
+      active = false;
+    };
+  }, [filialId, search, selectedPart]);
+
+  function openLotFromSearch(lot: PartLot) {
+    const part = parts.find((p) => p.id === lot.part_id) ?? null;
+    setSelectedPart(part);
+    setSearch("");
+    setLotMatches([]);
+    setDetailLotId(lot.id);
+  }
 
   return (
     <div>
@@ -52,11 +79,29 @@ export default function LotsSystemView() {
               setSearch(e.target.value);
               setSelectedPart(null);
             }}
-            placeholder="Buscar por código o nombre..."
+            placeholder="Buscar por código o nombre de repuesto, o código de lote (L-104)..."
             className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
           />
-          {results.length > 0 && (
+          {(results.length > 0 || lotMatches.length > 0) && (
             <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">
+              {lotMatches.map((lot) => {
+                const part = parts.find((p) => p.id === lot.part_id);
+                return (
+                  <button
+                    key={`lot-${lot.id}`}
+                    type="button"
+                    onClick={() => openLotFromSearch(lot)}
+                    className="block w-full bg-blue-light/40 px-4 py-2 text-left text-sm hover:bg-blue-light"
+                  >
+                    <span className="font-mono font-semibold text-blue">{lot.code}</span>{" "}
+                    {part ? (
+                      <span className="text-navy">
+                        — {part.code} {part.name}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
               {results.map((p) => (
                 <button
                   key={p.id}
@@ -99,7 +144,11 @@ export default function LotsSystemView() {
               </thead>
               <tbody className="divide-y divide-navy/5">
                 {lots.map((lot) => (
-                  <tr key={lot.id} className="transition hover:bg-ash/60">
+                  <tr
+                    key={lot.id}
+                    onClick={() => setDetailLotId(lot.id)}
+                    className="cursor-pointer transition hover:bg-ash/60"
+                  >
                     <td className="px-6 py-4 font-mono font-semibold text-blue">{lot.code}</td>
                     <td className="px-6 py-4 text-navy">${lot.unit_cost.toFixed(2)}</td>
                     <td className="px-6 py-4 text-navy">{lot.quantity_received}</td>
@@ -120,6 +169,8 @@ export default function LotsSystemView() {
           )}
         </div>
       )}
+
+      <LotDetailModal lotId={detailLotId} onClose={() => setDetailLotId(null)} />
     </div>
   );
 }

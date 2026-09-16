@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { Client } from "@/types/client";
+import type { Client, VehicleMileageHistoryEntry } from "@/types/client";
 import type { VehiclePlanStatus } from "@/types/maintenancePlan";
 
 export interface VehicleInput {
@@ -70,4 +70,8 @@ export async function assignVehicleMaintenancePlan(
     method: "PATCH",
     body: JSON.stringify({ plan_id: planId }),
   });
+}
+
+export async function getVehicleMileageHistory(vehicleId: string): Promise<VehicleMileageHistoryEntry[]> {
+  return apiFetch<VehicleMileageHistoryEntry[]>(`/clients/vehicles/${vehicleId}/mileage-history`);
 }

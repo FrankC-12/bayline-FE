@@ -1,27 +1,46 @@
 import { apiFetch } from "./client";
-import type { Part, PartReturn, PartSale } from "@/types/parts";
+import type { Part, PartCategory, PartMeasure, PartReturn, PartSale } from "@/types/parts";
 
 export interface CreatePartInput {
   filial_id: string;
   code: string;
+  manufacturer_part_number?: string | null;
   name: string;
-  category: string;
-  brand: string;
-  application: string;
+  category_id: string;
+  vehicle_brand_id?: string | null;
+  vehicle_model_id?: string | null;
+  year_from?: number | null;
+  year_to?: number | null;
+  measure_id?: string | null;
   unit: string;
+  min_stock?: number;
 }
 
 export interface UpdatePartInput {
   code?: string;
+  manufacturer_part_number?: string | null;
   name?: string;
-  category?: string;
-  brand?: string;
-  application?: string;
+  category_id?: string;
+  vehicle_brand_id?: string | null;
+  vehicle_model_id?: string | null;
+  year_from?: number | null;
+  year_to?: number | null;
+  measure_id?: string | null;
   unit?: string;
+  min_stock?: number;
+  clear_vehicle_brand?: boolean;
+  clear_vehicle_model?: boolean;
+  clear_measure?: boolean;
+  clear_manufacturer_part_number?: boolean;
+  clear_years?: boolean;
 }
 
-export async function listParts(filialId: string, search?: string): Promise<Part[]> {
-  const query = new URLSearchParams({ filial_id: filialId });
+export async function listParts(
+  filialId: string,
+  search?: string,
+  includeInactive = false
+): Promise<Part[]> {
+  const query = new URLSearchParams({ filial_id: filialId, include_inactive: String(includeInactive) });
   if (search) query.set("search", search);
   return apiFetch<Part[]>(`/parts?${query.toString()}`);
 }
@@ -34,12 +53,89 @@ export async function updatePart(id: string, input: UpdatePartInput): Promise<Pa
   return apiFetch<Part>(`/parts/${id}`, { method: "PATCH", body: JSON.stringify(input) });
 }
 
+export async function setPartActive(id: string, isActive: boolean): Promise<Part> {
+  const action = isActive ? "activate" : "deactivate";
+  return apiFetch<Part>(`/parts/${id}/${action}`, { method: "POST" });
+}
+
+export async function listPartCategories(
+  filialId: string,
+  includeInactive = false
+): Promise<PartCategory[]> {
+  const query = new URLSearchParams({ filial_id: filialId, include_inactive: String(includeInactive) });
+  return apiFetch<PartCategory[]>(`/part-categories?${query.toString()}`);
+}
+
+export async function createPartCategory(filialId: string, name: string): Promise<PartCategory> {
+  return apiFetch<PartCategory>(`/part-categories?filial_id=${filialId}`, {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function renamePartCategory(
+  filialId: string,
+  categoryId: string,
+  name: string
+): Promise<PartCategory> {
+  return apiFetch<PartCategory>(`/part-categories/${categoryId}?filial_id=${filialId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function setPartCategoryActive(
+  filialId: string,
+  categoryId: string,
+  isActive: boolean
+): Promise<PartCategory> {
+  const action = isActive ? "activate" : "deactivate";
+  return apiFetch<PartCategory>(`/part-categories/${categoryId}/${action}?filial_id=${filialId}`, {
+    method: "POST",
+  });
+}
+
+export async function listPartMeasures(
+  filialId: string,
+  includeInactive = false
+): Promise<PartMeasure[]> {
+  const query = new URLSearchParams({ filial_id: filialId, include_inactive: String(includeInactive) });
+  return apiFetch<PartMeasure[]>(`/part-measures?${query.toString()}`);
+}
+
+export async function createPartMeasure(filialId: string, name: string): Promise<PartMeasure> {
+  return apiFetch<PartMeasure>(`/part-measures?filial_id=${filialId}`, {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function renamePartMeasure(
+  filialId: string,
+  measureId: string,
+  name: string
+): Promise<PartMeasure> {
+  return apiFetch<PartMeasure>(`/part-measures/${measureId}?filial_id=${filialId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function setPartMeasureActive(
+  filialId: string,
+  measureId: string,
+  isActive: boolean
+): Promise<PartMeasure> {
+  const action = isActive ? "activate" : "deactivate";
+  return apiFetch<PartMeasure>(`/part-measures/${measureId}/${action}?filial_id=${filialId}`, {
+    method: "POST",
+  });
+}
+
 export interface BulkPartItem {
   code: string;
   name: string;
   category: string;
-  brand: string;
-  application: string;
   unit: string;
 }
 

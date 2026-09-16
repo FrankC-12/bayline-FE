@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { Plus, ArrowRight, Wrench } from "lucide-react";
 import { useWarehouseScope } from "@/contexts/WarehouseContext";
 import { useTransfers } from "@/hooks/useTransfers";
+import { useServiceOrderPartRequests } from "@/hooks/useServiceOrderPartRequests";
 import CreateTransferModal from "./CreateTransferModal";
 import { formatElapsed } from "@/lib/time";
 import type { Transfer, TransferStatus } from "@/types/warehouse";
@@ -43,6 +45,8 @@ export default function TransfersListView() {
   const { filialId, warehouses, activeWarehouse, activeWarehouseId, createWarehouse } =
     useWarehouseScope();
   const { transfers, loading, addTransfer, setStatus } = useTransfers(filialId);
+  const { requests: partRequests, loading: partRequestsLoading, acknowledge } =
+    useServiceOrderPartRequests(filialId);
   const [createOpen, setCreateOpen] = useState(false);
   const warehouseName = (id: string) => warehouses.find((w) => w.id === id)?.name ?? "—";
   const visibleTransfers = activeWarehouseId
@@ -72,6 +76,53 @@ export default function TransfersListView() {
           ? `Movimientos con origen o destino en ${activeWarehouse.name}`
           : "Selecciona o crea un almacén en la barra izquierda"}
       </p>
+
+      {!partRequestsLoading && partRequests.length > 0 && (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-navy/10 bg-white">
+          <div className="border-b border-navy/10 px-6 py-3">
+            <h2 className="font-display text-sm font-bold text-navy">
+              Solicitudes desde Órdenes de Servicio
+            </h2>
+            <p className="text-xs text-steel">
+              Repuestos ya despachados a un taller al marcar una ODT como &ldquo;Pedido&rdquo; — no requieren
+              acción, son de solo consulta.
+            </p>
+          </div>
+          <div className="divide-y divide-navy/5">
+            {partRequests.map((request) => (
+              <Link
+                key={request.id}
+                href={`/dashboard/servicios/${request.service_order_id}`}
+                onClick={() => acknowledge(request.id)}
+                className="flex items-center justify-between gap-4 px-6 py-4 transition hover:bg-ash/60"
+              >
+                <div className="flex items-center gap-3">
+                  <Wrench className="h-4 w-4 shrink-0 text-blue" />
+                  <div>
+                    <p className="flex items-center gap-2 text-sm font-semibold text-navy">
+                      {request.service_order_code}
+                      {!request.warehouse_seen && (
+                        <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white">
+                          Nuevo
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-steel">
+                      {request.vehicle_label} ·{" "}
+                      {request.lines.map((l) => `${l.quantity}x ${l.part_name}`).join(", ")}
+                    </p>
+                  </div>
+                </div>
+                {request.fulfilled_at && (
+                  <span className="shrink-0 text-xs text-steel">
+                    {new Date(request.fulfilled_at).toLocaleString("es-VE")}
+                  </span>
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (

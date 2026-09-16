@@ -93,6 +93,10 @@ export function useOrderSummary(orderId: string | null) {
     [load]
   );
 
+  const dismissWarnings = useCallback(() => {
+    setSummary((current) => (current ? { ...current, warnings: [] } : current));
+  }, []);
+
   return {
     summary,
     loading,
@@ -104,5 +108,6 @@ export function useOrderSummary(orderId: string | null) {
     addTransferLine: addLineAndRefresh,
     changeLinePayer,
     markOrdered,
+    dismissWarnings,
   };
 }

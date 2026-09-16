@@ -5,6 +5,7 @@ import { Clock } from "lucide-react";
 import { formatElapsed } from "@/lib/time";
 import type { ServiceOrder } from "@/types/serviceOrder";
 import type { VehicleLookupEntry } from "@/hooks/useVehicleLookUp";
+import LiveDot from "@/components/common/LiveDot";
 
 interface OrderCardProps {
   order: ServiceOrder;
@@ -19,7 +20,7 @@ export default function OrderCard({ order, info, technicianName }: OrderCardProp
 
   useEffect(() => {
     if (order.closed_at) return;
-    const interval = setInterval(() => setElapsed(formatElapsed(order.created_at)), 60000);
+    const interval = setInterval(() => setElapsed(formatElapsed(order.created_at)), 1000);
     return () => clearInterval(interval);
   }, [order.created_at, order.closed_at]);
 
@@ -40,7 +41,8 @@ export default function OrderCard({ order, info, technicianName }: OrderCardProp
 
       <div className="mt-4 flex items-center justify-between border-t border-navy/10 pt-3 text-sm">
         <span className="text-steel">{technicianName || "Sin asignar"}</span>
-        <span className="flex items-center gap-1 font-mono text-xs text-blue">
+        <span className="flex items-center gap-1.5 font-mono text-xs text-blue">
+          {!order.closed_at && <LiveDot />}
           <Clock className="h-3.5 w-3.5" />
           {elapsed}
         </span>

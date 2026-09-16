@@ -6,7 +6,7 @@ import HistorialView from "@/components/service-orders/HistorialView";
 export default function HistorialPage() {
   return (
     <RequireScope scope="filial">
-      <div className="min-h-screen bg-ash">
+      <div className="flex h-dvh flex-col overflow-hidden bg-ash [&>header]:shrink-0">
         <DashboardHeader />
         <ServiceOrdersLayout>
           <HistorialView />

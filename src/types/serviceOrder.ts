@@ -78,6 +78,7 @@ export interface ServiceOrderTransfer {
 }
 
 export interface OrderSummary {
+  payer_breakdown?: { payer: ServiceOrderPayer; labor_subtotal: number; parts_subtotal: number; subtotal: number }[] | null;
   igtf_percentage: number;
   igtf_amount: number;
   pricing_frozen: boolean;
@@ -91,4 +92,8 @@ export interface OrderSummary {
   iva_percentage: number | null;
   iva_amount: number | null;
   total: number;
+  // Non-blocking, one-off hints from whatever action just returned this
+  // summary (e.g. "added the part anyway, but stock is short") — empty on
+  // any summary fetched afterward that isn't a direct result of that action.
+  warnings: string[];
 }

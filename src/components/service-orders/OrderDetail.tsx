@@ -16,11 +16,13 @@ import { useOrderSummary } from "@/hooks/useOrderSummary";
 import { useTemparios } from "@/hooks/useTemparios";
 import TasksCard from "./TaskCard";
 import TransfersCard from "./TransferCard";
+import CoverageBreakdownCard from "./CoverageBreakdownCard";
 import PriceSummaryCard from "./PriceSummaryCard";
 import BillingModal from "./BillingModal";
 import RegisterReworkClaimModal from "./RegisterReworkClaimModal";
 import { closeServiceOrder } from "@/lib/api/serviceOrderBilling";
 import { formatElapsed } from "@/lib/time";
+import LiveDot from "@/components/common/LiveDot";
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Pendiente",
@@ -66,6 +68,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     addTransferLine,
     changeLinePayer,
     markOrdered,
+    dismissWarnings,
   } = useOrderSummary(order?.id ?? null);
   const [saving, setSaving] = useState(false);
   const [billingOpen, setBillingOpen] = useState(false);
@@ -77,11 +80,14 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const [nextMaintenanceTempario, setNextMaintenanceTempario] = useState<{ id: string; code: string; name: string } | null>(null);
   const { temparios: temparioResults } = useTemparios(filialId, temparioSearch || undefined);
   const [addingPlanTask, setAddingPlanTask] = useState(false);
-  const [intakeMileageDraft, setIntakeMileageDraft] = useState("");
+  const [elapsed, setElapsed] = useState(() => (order ? formatElapsed(order.created_at, order.closed_at) : ""));
 
   useEffect(() => {
-    if (order) setIntakeMileageDraft(order.intake_mileage != null ? String(order.intake_mileage) : "");
-  }, [order?.id, order?.intake_mileage]);
+    if (!order || order.closed_at) return;
+    setElapsed(formatElapsed(order.created_at));
+    const interval = setInterval(() => setElapsed(formatElapsed(order.created_at)), 1000);
+    return () => clearInterval(interval);
+  }, [order]);
 
   const technicianRoleId = roles.find((r) => r.slug === "tecnico")?.id;
   const technicians = users.filter((u) => u.role_id === technicianRoleId);
@@ -185,20 +191,8 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     }
   }
 
-  async function saveIntakeMileage() {
-    if (readOnly) return;
-    const trimmed = intakeMileageDraft.trim();
-    if (trimmed === "" || Number(trimmed) < 0) return;
-    setSaving(true);
-    try {
-      await update({ intake_mileage: Number(trimmed) });
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
+    <div className="min-w-0">
       <button
         onClick={() => router.push("/dashboard/servicios")}
         className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-steel hover:text-navy"
@@ -218,18 +212,21 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           <span className="rounded-full bg-ash px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-steel">
             {TYPE_LABELS[order.order_type]}
           </span>
-          <span className="flex items-center gap-1 rounded-full border border-navy/15 px-2.5 py-1 font-mono text-xs text-navy">
+          <span className="flex items-center gap-1.5 rounded-full border border-navy/15 px-2.5 py-1 font-mono text-xs text-navy">
+            {!order.closed_at && <LiveDot />}
             <Clock className="h-3.5 w-3.5" />
-            {formatElapsed(order.created_at, order.closed_at)}
+            {elapsed}
           </span>
         </div>
 
         <h1 className="mt-3 font-display text-2xl font-bold text-navy">
-          {info ? `${info.vehicle.brand} ${info.vehicle.model}` : "Vehículo"}
+          {info ? `${info.vehicle.brand} ${info.vehicle.model} ${info.vehicle.year ?? ""}` : "Vehículo"}
         </h1>
         <p className="text-sm text-steel">
-          {info?.vehicle.plate} · {info?.client.full_name}
+          {info?.vehicle.plate} · {info?.client.full_name} · Técnico: {users.find((u) => u.id === order.technician_user_id)?.full_name ?? "Sin asignar"}
         </p>
+
+        {inspection && <p className="mt-4 inline-flex rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800">✓ Inspección preliminar vinculada</p>}
 
         <div className="mt-5 flex flex-wrap gap-3 border-t border-navy/10 pt-5">
           {order.status === "pendiente" && (
@@ -372,34 +369,11 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         <div className="grid gap-4 sm:grid-cols-4">
           <div>
             <p className="text-xs text-steel">Kilometraje de ingreso</p>
-            {readOnly ? (
-              <p className="mt-0.5 text-sm font-semibold text-navy">
-                {order.intake_mileage != null ? `${order.intake_mileage.toLocaleString("es-VE")} km` : "—"}
-              </p>
-            ) : (
-              <div className="mt-0.5 flex items-center gap-2">
-                <input
-                  type="number"
-                  min="0"
-                  value={intakeMileageDraft}
-                  onChange={(e) => setIntakeMileageDraft(e.target.value)}
-                  placeholder="Aún no ingresa"
-                  disabled={saving}
-                  className="w-24 rounded-lg border border-navy/15 px-2 py-1 text-sm font-semibold text-navy outline-none focus:border-blue disabled:opacity-60"
-                />
-                <span className="text-xs text-steel">km</span>
-                {intakeMileageDraft.trim() !== "" &&
-                  Number(intakeMileageDraft) !== order.intake_mileage && (
-                    <button
-                      type="button"
-                      onClick={saveIntakeMileage}
-                      disabled={saving}
-                      className="text-xs font-semibold text-blue hover:text-navy disabled:opacity-50"
-                    >
-                      Guardar
-                    </button>
-                  )}
-              </div>
+            <p className="mt-0.5 text-sm font-semibold text-navy">
+              {order.intake_mileage != null ? `${order.intake_mileage.toLocaleString("es-VE")} km` : "—"}
+            </p>
+            {order.intake_mileage == null && !readOnly && (
+              <p className="mt-0.5 text-[11px] text-steel">Se registra al vincular la inspección preliminar.</p>
             )}
           </div>
           <div>
@@ -421,7 +395,12 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className="mt-6 grid gap-5 md:grid-cols-3">
+        <div className="rounded-2xl border border-navy/10 bg-white p-5">
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">Creación</p>
+          <p className="font-semibold text-navy">{new Date(order.created_at).toLocaleString("es-VE", { dateStyle: "long", timeStyle: "short" })}</p>
+          <span className="mt-4 inline-flex items-center gap-2 rounded-xl border border-navy/10 bg-ash px-3 py-2 font-mono font-semibold text-blue"><Clock className="h-4 w-4" />{elapsed}</span>
+        </div>
         <div className="rounded-2xl border border-navy/10 bg-white p-5">
           <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">
             Técnico asignado
@@ -505,7 +484,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
                     <button
                       key={c.id}
                       disabled={readOnly || saving}
-                      onClick={() => { if (!readOnly) void link(c.id); }}
+                      onClick={() => { if (!readOnly) void link(c.id).then(() => refreshOrder()); }}
                       className="flex w-full items-center justify-between rounded-xl border border-navy/10 px-3 py-2 text-left text-sm transition hover:bg-ash"
                     >
                       <span className="text-steel">
@@ -519,9 +498,9 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             })()
           )}
         </div>
-        <div className="rounded-2xl border border-dashed border-navy/20 bg-ash/50 p-5">
+        <div className="rounded-2xl border border-navy/10 bg-white p-5">
           <p className="font-display text-sm font-bold text-navy">Inspección Minuciosa</p>
-          <p className="mt-1 text-sm text-steel">El técnico aún no ha realizado la inspección minuciosa.</p>
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">El técnico aún no ha realizado la inspección minuciosa.</p>
         </div>
       </div>
 
@@ -550,6 +529,28 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         </div>
       )}
 
+      {summary && summary.warnings.length > 0 && (
+        <div className="mt-6 space-y-2">
+          {summary.warnings.map((warning, i) => (
+            <div
+              key={i}
+              role="alert"
+              className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p className="flex-1">{warning}</p>
+              <button
+                onClick={dismissWarnings}
+                aria-label="Cerrar advertencia"
+                className="text-amber-700 hover:text-amber-900"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {filialId && (
         <div className="mt-6">
           <TasksCard
@@ -558,23 +559,22 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             tasks={summary?.tasks ?? []}
             onAdd={addTask}
             onToggleStatus={toggleTaskStatus}
-            onChangePayer={changeTaskPayer}
             onRemove={removeTask}
           />
         </div>
       )}
 
       {filialId && (
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="mt-6 space-y-6">
           <TransfersCard
             readOnly={readOnly || saving}
             filialId={filialId}
             transfers={summary?.transfers ?? []}
             onAddLine={addTransferLine}
-            onChangeLinePayer={changeLinePayer}
             onMarkOrdered={markOrdered}
           />
-          {summary && <PriceSummaryCard summary={summary} totalAmount={order.total_amount} onDiscountChange={changeDiscount} saving={saving} readOnly={readOnly} />}
+          {summary && <CoverageBreakdownCard summary={summary} filialId={filialId} readOnly={readOnly || saving} onChangeTaskPayer={changeTaskPayer} onChangeLinePayer={changeLinePayer} />}
+          <div className="ml-auto w-full lg:max-w-lg">{summary && <PriceSummaryCard summary={summary} totalAmount={order.total_amount} onDiscountChange={changeDiscount} saving={saving} readOnly={readOnly} />}</div>
         </div>
       )}
       {billingOpen && <BillingModal orderId={orderId} orderCode={order.code} invoiced={!!order.invoiced_at}

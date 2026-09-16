@@ -11,11 +11,13 @@ import {
   X,
 } from "lucide-react";
 import { WarehouseProvider, useWarehouseScope } from "@/contexts/WarehouseContext";
+import { useServiceOrderPartRequests } from "@/hooks/useServiceOrderPartRequests";
 import { NAV_ITEMS } from "./nav-items";
 
 function WarehouseLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { warehouses, activeWarehouseId, loading, selectWarehouse, createWarehouse } = useWarehouseScope();
+  const { filialId, warehouses, activeWarehouseId, loading, selectWarehouse, createWarehouse } = useWarehouseScope();
+  const { unseenCount } = useServiceOrderPartRequests(filialId);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -54,6 +56,7 @@ function WarehouseLayoutContent({ children }: { children: React.ReactNode }) {
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
+            const isTransfers = item.href === "/dashboard/almacen/transferencias";
             return (
               <Link
                 key={item.href}
@@ -63,7 +66,12 @@ function WarehouseLayoutContent({ children }: { children: React.ReactNode }) {
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {isTransfers && unseenCount > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
+                    {unseenCount}
+                  </span>
+                )}
               </Link>
             );
           })}

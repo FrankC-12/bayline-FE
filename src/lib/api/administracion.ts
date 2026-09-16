@@ -73,11 +73,12 @@ export async function updatePurchaseRequestStatus(
   id: string,
   status: string,
   quotes?: { line_id: string; unit_cost: number }[],
-  warehouseId?: string
+  warehouseId?: string,
+  location?: string
 ): Promise<PurchaseRequest> {
   return apiFetch<PurchaseRequest>(`/purchase-requests/${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ status, quotes, warehouse_id: warehouseId }),
+    body: JSON.stringify({ status, quotes, warehouse_id: warehouseId, location: location || null }),
   });
 }
 

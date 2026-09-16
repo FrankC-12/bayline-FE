@@ -32,6 +32,14 @@ export interface Vehicle {
   maintenance_plan_name: string | null;
 }
 
+export interface VehicleMileageHistoryEntry {
+  inspection_id: string;
+  mileage: number;
+  recorded_at: string;
+  service_order_id: string | null;
+  service_order_code: string | null;
+}
+
 export interface Client {
   id: string;
   filial_id: string;

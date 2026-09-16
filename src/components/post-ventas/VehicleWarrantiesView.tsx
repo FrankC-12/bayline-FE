@@ -4,8 +4,10 @@ import { useState } from "react";
 import { Plus, Search, Upload, X, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVehicleWarranties } from "@/hooks/useVehicleWarranties";
+import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 import type { VehicleWarrantyStatus } from "@/types/vehicleWarranty";
 import EmptyState from "@/components/common/EmptyState";
+import BrandModelSelect from "@/components/common/BrandModelSelect";
 import BulkImportWarrantiesModal from "./BulkImportWarrantiesModal";
 
 const STATUS_STYLES: Record<VehicleWarrantyStatus, string> = {
@@ -108,7 +110,14 @@ export default function VehicleWarrantiesView() {
         )}
       </div>
 
-      {filialId && <CreateWarrantyModal open={createOpen} onClose={() => setCreateOpen(false)} onSubmit={addWarranty} />}
+      {filialId && (
+        <CreateWarrantyModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          filialId={filialId}
+          onSubmit={addWarranty}
+        />
+      )}
       <BulkImportWarrantiesModal open={bulkOpen} onClose={() => setBulkOpen(false)} onImport={importBulk} />
     </div>
   );
@@ -117,10 +126,12 @@ export default function VehicleWarrantiesView() {
 function CreateWarrantyModal({
   open,
   onClose,
+  filialId,
   onSubmit,
 }: {
   open: boolean;
   onClose: () => void;
+  filialId: string;
   onSubmit: (input: {
     vin: string;
     brand: string;
@@ -131,6 +142,7 @@ function CreateWarrantyModal({
     note?: string | null;
   }) => Promise<unknown>;
 }) {
+  const { brands } = useVehicleCatalog(filialId);
   const [vin, setVin] = useState("");
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
@@ -200,14 +212,14 @@ function CreateWarrantyModal({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Marca</label>
-              <input value={brand} onChange={(e) => setBrand(e.target.value)} className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue" />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Modelo (opcional)</label>
-              <input value={model} onChange={(e) => setModel(e.target.value)} className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue" />
-            </div>
+            <BrandModelSelect
+              brands={brands}
+              brand={brand}
+              model={model}
+              onBrandChange={setBrand}
+              onModelChange={setModel}
+              modelRequired={false}
+            />
           </div>
 
           <div>

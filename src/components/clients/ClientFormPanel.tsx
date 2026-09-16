@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { X, Loader2, Plus } from "lucide-react";
 import { formatThousands, formatVenezuelanPhone, stripThousands } from "@/lib/format";
 import { normalizeVenezuelaPlate, validateVenezuelaPlate } from "@/lib/venezuela-plate";
+import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 import type { Client } from "@/types/client";
 import type { CreateClientInput, VehicleInput as ApiVehicleInput } from "@/lib/api/clients";
 import { emptyVehicle, type VehicleFormValue } from "@/types/client-form";
@@ -51,6 +52,7 @@ export default function ClientFormPanel({
   const [vehicles, setVehicles] = useState<VehicleFormValue[]>([emptyVehicle()]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const { brands } = useVehicleCatalog(filialId);
 
   useEffect(() => {
     if (editingClient) {
@@ -399,6 +401,7 @@ export default function ClientFormPanel({
                   key={i}
                   index={i}
                   value={v}
+                  brands={brands}
                   onChange={updateVehicle}
                   onRemove={removeVehicle}
                   canRemove={vehicles.length > 0}

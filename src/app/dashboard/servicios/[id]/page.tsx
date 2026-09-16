@@ -1,5 +1,6 @@
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import RequireScope from "@/components/auth/RequireScope";
+import ServiceOrdersLayout from "@/components/service-orders/ServiceOrdersLayout";
 import OrderDetail from "@/components/service-orders/OrderDetail";
 
 interface ServiceOrderDetailPageProps {
@@ -9,9 +10,11 @@ interface ServiceOrderDetailPageProps {
 export default function ServiceOrderDetailPage({ params }: ServiceOrderDetailPageProps) {
   return (
     <RequireScope scope="filial">
-      <div className="min-h-screen bg-ash">
+      <div className="flex h-dvh flex-col overflow-hidden bg-ash [&>header]:shrink-0">
         <DashboardHeader />
-        <OrderDetail orderId={params.id} />
+        <ServiceOrdersLayout>
+          <OrderDetail orderId={params.id} />
+        </ServiceOrdersLayout>
       </div>
     </RequireScope>
   );
