@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ChevronLeft, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/contexts/ToastContext";
 import { useServiceOrder } from "@/hooks/useServiceOrder";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUsers } from "@/hooks/useUser";
@@ -19,7 +20,7 @@ import TransfersCard from "./TransferCard";
 import CoverageBreakdownCard from "./CoverageBreakdownCard";
 import PriceSummaryCard from "./PriceSummaryCard";
 import BillingModal from "./BillingModal";
-import RegisterReworkClaimModal from "./RegisterReworkClaimModal";
+import WarrantyClaimModal from "./WarrantyClaimModal";
 import { closeServiceOrder } from "@/lib/api/serviceOrderBilling";
 import { formatElapsed } from "@/lib/time";
 import LiveDot from "@/components/common/LiveDot";
@@ -50,6 +51,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const router = useRouter();
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
+  const toast = useToast();
 
   const { order, loading, error, update, refresh: refreshOrder } = useServiceOrder(orderId);
   const { vehicleMap } = useVehicleLookup(filialId);
@@ -144,10 +146,17 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
       await closeServiceOrder(orderId, nextMaintenanceDate || null, nextMaintenanceTempario?.id ?? null);
       await refreshOrder(); await refreshSummary();
       setClosePanelOpen(false);
+      toast.success("Orden cerrada.");
     }
     catch (err) { setActionError(err instanceof Error ? err.message : "No se pudo cerrar la orden."); }
     finally { setSaving(false); }
   }
+
+  const STATUS_TRANSITION_TOAST: Record<string, string> = {
+    en_progreso: "Orden iniciada.",
+    completado: "Orden marcada como completada.",
+    cancelado: "Orden cancelada.",
+  };
 
   async function transition(status: string) {
     if (readOnly) return;
@@ -155,6 +164,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     try {
       await update({ status });
       await refreshSummary();
+      if (STATUS_TRANSITION_TOAST[status]) toast.success(STATUS_TRANSITION_TOAST[status]);
     } finally {
       setSaving(false);
     }
@@ -578,9 +588,15 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         </div>
       )}
       {billingOpen && <BillingModal orderId={orderId} orderCode={order.code} invoiced={!!order.invoiced_at}
-        onClose={() => setBillingOpen(false)} onInvoiced={async () => { await refreshOrder(); await refreshSummary(); }} />}
-      {claimModalOpen && <RegisterReworkClaimModal orderId={orderId} orderCode={order.code} filialId={filialId}
-        summary={summary ?? null} onClose={() => setClaimModalOpen(false)} />}
+        onClose={() => setBillingOpen(false)} onInvoiced={async () => { await refreshOrder(); await refreshSummary(); toast.success("Orden facturada."); }} />}
+      {claimModalOpen && filialId && (
+        <WarrantyClaimModal
+          filialId={filialId}
+          vehicleId={order.vehicle_id}
+          serviceOrderId={orderId}
+          onClose={() => setClaimModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

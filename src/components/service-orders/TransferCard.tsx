@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Package, Search } from "lucide-react";
 import { useParts } from "@/hooks/useParts";
+import { useToast } from "@/contexts/ToastContext";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import type { ServiceOrderTransfer, ServiceOrderPayer } from "@/types/serviceOrder";
 import type { Part } from "@/types/parts";
@@ -30,6 +31,7 @@ export default function TransfersCard({
   const [adding, setAdding] = useState(false);
   const [confirmingTransferId, setConfirmingTransferId] = useState<string | null>(null);
   const [dispatching, setDispatching] = useState(false);
+  const toast = useToast();
 
   async function handleConfirmMarkOrdered() {
     if (!confirmingTransferId) return;
@@ -37,6 +39,7 @@ export default function TransfersCard({
     try {
       await onMarkOrdered(confirmingTransferId);
       setConfirmingTransferId(null);
+      toast.success("Repuestos enviados a almacén — la ODT quedó marcada como Pedido.");
     } finally {
       setDispatching(false);
     }

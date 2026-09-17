@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X, Loader2, Plus, Search } from "lucide-react";
+import { useToast } from "@/contexts/ToastContext";
 import { useParts } from "@/hooks/useParts";
 import { useStockInReasons } from "@/hooks/useStockInReasons";
 import { createStockIn } from "@/lib/api/warehouse";
@@ -40,6 +41,7 @@ export default function StockInModal({
   onSaved,
   onCreateWarehouse,
 }: StockInModalProps) {
+  const toast = useToast();
   const { parts, addPart } = useParts(filialId);
   const { reasons: catalogReasons } = useStockInReasons(filialId);
   const [warehouseId, setWarehouseId] = useState(defaultWarehouseId ?? warehouses[0]?.id ?? "");
@@ -100,7 +102,9 @@ export default function StockInModal({
     if (!reason || (reason === "Otro" && !otherReason.trim())) missing.push("motivo");
     if (validLines.length === 0) missing.push("al menos un repuesto con cantidad");
     if (missing.length > 0) {
-      setError(`Selecciona ${missing.join(", ")}.`);
+      const message = `Selecciona ${missing.join(", ")}.`;
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -120,6 +124,7 @@ export default function StockInModal({
         }))
       );
       setLines([emptyLine()]);
+      toast.success("Entrada registrada — se crearon los lotes correspondientes.");
       onSaved();
       onClose();
     } catch (err) {

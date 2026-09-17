@@ -1,7 +1,7 @@
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import RequireScope from "@/components/auth/RequireScope";
 import ServiceOrdersLayout from "@/components/service-orders/ServiceOrdersLayout";
-import WarrantyClaimsView from "@/components/service-orders/WarrantyClaimsView";
+import WarrantyClaimsListView from "@/components/service-orders/WarrantyClaimsListView";
 
 export default function WarrantyClaimsPage() {
   return (
@@ -9,7 +9,7 @@ export default function WarrantyClaimsPage() {
       <div className="flex h-dvh flex-col overflow-hidden bg-ash [&>header]:shrink-0">
         <DashboardHeader />
         <ServiceOrdersLayout>
-          <WarrantyClaimsView />
+          <WarrantyClaimsListView />
         </ServiceOrdersLayout>
       </div>
     </RequireScope>

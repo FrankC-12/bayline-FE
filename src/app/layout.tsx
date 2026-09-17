@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ToastProvider } from "@/contexts/ToastContext";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -34,7 +35,9 @@ export default function RootLayout({
       <body
         className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} bg-ash font-body text-ink antialiased`}
       >
-        <AuthProvider>{children}</AuthProvider>
+        <ToastProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </ToastProvider>
       </body>
     </html>
   );

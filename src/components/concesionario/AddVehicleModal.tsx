@@ -136,7 +136,9 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
 
   const cash = Number(priceCash) || 0;
   const ivaAmount = cash * (Number(ivaPercentage) || 0) / 100;
-  const igtfAmount = priceCurrency === "USD" ? cash * (Number(igtfPercentage) || 0) / 100 : 0;
+  // IGTF taxes the actual payment amount, which already includes IVA — not
+  // just the pre-tax base. Mirrors DealershipVehicle.igtf_amount.
+  const igtfAmount = priceCurrency === "USD" ? (cash + ivaAmount) * (Number(igtfPercentage) || 0) / 100 : 0;
   const luxuryAmount = cash * (Number(luxuryTaxPercentage) || 0) / 100;
   const cashTotal = cash + ivaAmount + igtfAmount + luxuryAmount;
 
