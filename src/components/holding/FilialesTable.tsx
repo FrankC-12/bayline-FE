@@ -1,9 +1,13 @@
 import { Pencil, Power, PowerOff, UserPlus } from "lucide-react";
 import type { Filial } from "@/types/filial";
+import type { ListErrorInfo } from "@/lib/api/listError";
+import ErrorState from "@/components/common/ErrorState";
 
 interface FilialesTableProps {
   filiales: Filial[];
   loading: boolean;
+  error: ListErrorInfo | null;
+  onRetry: () => void;
   onEdit: (filial: Filial) => void;
   onToggleActive: (filial: Filial) => void;
   onCreateUser: (filial: Filial) => void;
@@ -12,6 +16,8 @@ interface FilialesTableProps {
 export default function FilialesTable({
   filiales,
   loading,
+  error,
+  onRetry,
   onEdit,
   onToggleActive,
   onCreateUser,
@@ -22,6 +28,10 @@ export default function FilialesTable({
         Cargando filiales...
       </div>
     );
+  }
+
+  if (error) {
+    return <ErrorState error={error} onRetry={onRetry} />;
   }
 
   if (filiales.length === 0) {

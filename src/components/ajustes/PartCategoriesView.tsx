@@ -9,7 +9,7 @@ export default function PartCategoriesView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
   const { canEdit } = useModuleAccess("ajustes");
-  const { categories, loading, addCategory, editCategory, toggleCategoryActive } = usePartCategories(
+  const { categories, loading, error, refresh, addCategory, editCategory, toggleCategoryActive } = usePartCategories(
     filialId,
     true
   );
@@ -19,6 +19,8 @@ export default function PartCategoriesView() {
       description="Catálogo compartido por todo el holding — alimenta el selector de categoría al agregar un repuesto."
       items={categories}
       loading={loading}
+      fetchError={error}
+      onRetry={refresh}
       canEdit={canEdit}
       addPlaceholder="Nombre de la categoría"
       addButtonLabel="Agregar categoría"

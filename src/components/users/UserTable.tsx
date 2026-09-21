@@ -1,12 +1,16 @@
 import { Pencil, UserX, UserCheck } from "lucide-react";
 import type { AppUser } from "@/types/user";
 import type { Role } from "@/types/role";
+import type { ListErrorInfo } from "@/lib/api/listError";
+import ErrorState from "@/components/common/ErrorState";
 import UserStatusBadge from "./UserStatusBadge";
 
 interface UserTableProps {
   users: AppUser[];
   roles: Role[];
   loading: boolean;
+  error?: ListErrorInfo | null;
+  onRetry?: () => void;
   canManage: boolean;
   currentUserId?: string | null;
   onEdit: (user: AppUser) => void;
@@ -22,7 +26,7 @@ function getInitials(name: string) {
     .join("");
 }
 
-export default function UserTable({ users, roles, loading, canManage, currentUserId, onEdit, onToggleStatus }: UserTableProps) {
+export default function UserTable({ users, roles, loading, error, onRetry, canManage, currentUserId, onEdit, onToggleStatus }: UserTableProps) {
   const roleName = (roleId: string) => roles.find((r) => r.id === roleId)?.name ?? "—";
 
   if (loading) {
@@ -31,6 +35,10 @@ export default function UserTable({ users, roles, loading, canManage, currentUse
         Cargando usuarios...
       </div>
     );
+  }
+
+  if (error) {
+    return <ErrorState error={error} onRetry={onRetry ?? (() => {})} />;
   }
 
   if (users.length === 0) {

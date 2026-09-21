@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Plus, Search } from "lucide-react";
 import { CATEGORY_OPTIONS } from "@/lib/temparios-categories";
+import { DEFAULT_DISCOUNT, PARTS_MULTIPLIERS } from "@/lib/partsPricing";
 import { useParts } from "@/hooks/useParts";
 import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 import type { CreateTemparioInput } from "@/lib/api/temparios";
@@ -148,9 +149,13 @@ export default function CreateTemparioModal({
     () => validParts.reduce((sum, p) => sum + p.quantity * p.unit_cost, 0),
     [validParts]
   );
-  const partsMargin = partsCost * 0.3;
+  // Same formula/margin tier a fresh ODS starts on (PARTS_MULTIPLIERS in
+  // app/modules/parts/pricing.py) — applied once, on the real cost, so
+  // this preview matches what the ODS using this tempario will charge.
+  const partsPrice = partsCost * PARTS_MULTIPLIERS[DEFAULT_DISCOUNT];
+  const partsMargin = partsPrice - partsCost;
   const laborCost = (Number(estimatedHours) || 0) * hourlyRate;
-  const subtotal = partsCost + partsMargin + laborCost;
+  const subtotal = partsPrice + laborCost;
   const ivaAmount = subtotal * (ivaPercentage / 100);
   const totalWithIva = subtotal + ivaAmount;
 
@@ -463,7 +468,10 @@ export default function CreateTemparioModal({
                                 updatePart(i, {
                                   partId: cp.id,
                                   search: `${cp.code} · ${cp.name}`,
-                                  unitCost: String(cp.reference_price ?? 0),
+                                  // The real cost, never reference_price
+                                  // (that's already cost × margin) — a
+                                  // tempario applies its own margin on top.
+                                  unitCost: String(cp.latest_cost ?? 0),
                                 })
                               }
                               className="block w-full px-3 py-1.5 text-left text-xs hover:bg-ash"
@@ -471,7 +479,7 @@ export default function CreateTemparioModal({
                               <span className="font-mono text-blue">{cp.code}</span>{" "}
                               <span className="text-navy">{cp.name}</span>{" "}
                               <span className="text-steel">
-                                · ${cp.reference_price?.toFixed(2) ?? "Sin costo"}
+                                · costo ${cp.latest_cost?.toFixed(2) ?? "Sin costo"}
                               </span>
                             </button>
                           ))}

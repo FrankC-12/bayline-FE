@@ -6,8 +6,9 @@ import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePartReturns } from "@/hooks/usePartReturns";
 import { useParts } from "@/hooks/useParts";
-import { useUsers } from "@/hooks/useUser";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 
 const REASON_LABELS: Record<string, string> = {
   pedido_en_exceso: "Pedido en exceso",
@@ -21,9 +22,9 @@ export default function PartReturnsListView() {
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
-  const { returns, loading } = usePartReturns(filialId);
+  const { returns, loading, error, refresh } = usePartReturns(filialId);
   const { parts } = useParts(filialId);
-  const { users } = useUsers({ filialId });
+  const { users } = useUserDirectory({ filialId });
 
   const partName = (id: string) => parts.find((p) => p.id === id)?.name ?? "—";
   const responsibleName = (id: string) => users.find((u) => u.id === id)?.full_name ?? "—";
@@ -63,6 +64,8 @@ export default function PartReturnsListView() {
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando devoluciones...</div>
+        ) : error ? (
+          <ErrorState error={error} onRetry={refresh} compact />
         ) : filtered.length === 0 ? (
           <EmptyState
             compact

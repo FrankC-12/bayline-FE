@@ -158,7 +158,7 @@ export default function WarrantyClaimForm({
           client.vehicles
             .filter(
               (v) =>
-                v.plate.toLowerCase().includes(vehicleSearch.trim().toLowerCase()) ||
+                (v.plate ?? "").toLowerCase().includes(vehicleSearch.trim().toLowerCase()) ||
                 (v.vin ?? "").toLowerCase().includes(vehicleSearch.trim().toLowerCase()) ||
                 client.full_name.toLowerCase().includes(vehicleSearch.trim().toLowerCase())
             )
@@ -340,7 +340,7 @@ export default function WarrantyClaimForm({
                 <Car className="mt-0.5 h-4 w-4 text-blue" />
                 <div>
                   <p className="font-semibold text-navy">
-                    {vehicleEntry.vehicle.plate} · {vehicleEntry.vehicle.brand} {vehicleEntry.vehicle.model}
+                    {vehicleEntry.vehicle.plate ?? "Sin placa"} · {vehicleEntry.vehicle.brand} {vehicleEntry.vehicle.model}
                   </p>
                   <p className="flex items-center gap-1 text-xs text-steel">
                     <User className="h-3 w-3" /> {vehicleEntry.client.full_name}
@@ -373,7 +373,7 @@ export default function WarrantyClaimForm({
                       }}
                       className="block w-full px-4 py-2 text-left text-sm hover:bg-ash"
                     >
-                      <span className="font-semibold text-navy">{vehicle.plate}</span>{" "}
+                      <span className="font-semibold text-navy">{vehicle.plate ?? "Sin placa"}</span>{" "}
                       <span className="text-steel">
                         {vehicle.brand} {vehicle.model} · {client.full_name}
                       </span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   listInspections,
   createInspection,
@@ -10,43 +10,45 @@ import {
   type UpdateInspectionInput,
 } from "@/lib/api/inspections";
 import type { Inspection } from "@/types/inspection";
+import { useListLoader } from "./useListLoader";
 
 export function useInspections(filialId: string | null, unlinkedOnly = false) {
-  const [inspections, setInspections] = useState<Inspection[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: inspections,
+    setData: setInspections,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<Inspection>(
+    () => (filialId ? listInspections(filialId, unlinkedOnly) : Promise.resolve([])),
+    [filialId, unlinkedOnly]
+  );
 
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setInspections([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listInspections(filialId, unlinkedOnly);
-    setInspections(data);
-    setLoading(false);
-  }, [filialId, unlinkedOnly]);
+  const addInspection = useCallback(
+    async (input: CreateInspectionInput) => {
+      const created = await createInspection(input);
+      setInspections((prev) => [created, ...prev]);
+      return created;
+    },
+    [setInspections]
+  );
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const editInspection = useCallback(
+    async (id: string, input: UpdateInspectionInput) => {
+      const updated = await updateInspection(id, input);
+      setInspections((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+      return updated;
+    },
+    [setInspections]
+  );
 
-  const addInspection = useCallback(async (input: CreateInspectionInput) => {
-    const created = await createInspection(input);
-    setInspections((prev) => [created, ...prev]);
-    return created;
-  }, []);
+  const removeInspection = useCallback(
+    async (id: string) => {
+      await deleteInspection(id);
+      setInspections((prev) => prev.filter((i) => i.id !== id));
+    },
+    [setInspections]
+  );
 
-  const editInspection = useCallback(async (id: string, input: UpdateInspectionInput) => {
-    const updated = await updateInspection(id, input);
-    setInspections((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
-    return updated;
-  }, []);
-
-  const removeInspection = useCallback(async (id: string) => {
-    await deleteInspection(id);
-    setInspections((prev) => prev.filter((i) => i.id !== id));
-  }, []);
-
-  return { inspections, loading, addInspection, editInspection, removeInspection, refresh: load };
+  return { inspections, loading, error, addInspection, editInspection, removeInspection, refresh };
 }

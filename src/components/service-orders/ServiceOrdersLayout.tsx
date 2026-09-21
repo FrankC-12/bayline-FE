@@ -3,14 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useUpsells } from "@/hooks/useUpsells";
+import { UpsellsProvider, useUpsellsContext } from "@/contexts/UpsellsContext";
 import { NAV_ITEMS } from "./nav-items";
 
 export default function ServiceOrdersLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <UpsellsProvider>
+      <ServiceOrdersLayoutContent>{children}</ServiceOrdersLayoutContent>
+    </UpsellsProvider>
+  );
+}
+
+function ServiceOrdersLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { currentUser } = useAuth();
-  const { upsells } = useUpsells(currentUser?.filialId ?? null);
+  const { upsells } = useUpsellsContext();
   const pendingCount = upsells.filter((u) => u.status === "pendiente").length;
 
   return (

@@ -29,7 +29,7 @@ export default function GarantiasConsolidadoView() {
   }, [holdingId]);
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
+    <div className="max-w-5xl">
       <h1 className="mb-2 font-display text-3xl font-bold text-navy">Garantías al Holding — Consolidado</h1>
       <p className="mb-6 text-sm text-steel">
         Cuánto se le ha facturado al holding por garantías de fábrica en cada filial, cuánto sigue pendiente de cobro y cuánto ya se cobró con sus retenciones.

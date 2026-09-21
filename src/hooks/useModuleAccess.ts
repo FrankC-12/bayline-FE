@@ -1,16 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api/client";
+import { useAuth } from "@/contexts/AuthContext";
 
+/** Thin wrapper over AuthContext's shared access map — kept for the
+ * existing call sites' sake (same {access, canEdit} shape as before), but
+ * no longer fetches anything itself. */
 export function useModuleAccess(moduleId: string) {
-  const [access, setAccess] = useState<"ver" | "editar" | null>(null);
-  useEffect(() => {
-    let active = true;
-    apiFetch<{ modules: Record<string, "ver" | "editar"> }>("/auth/access")
-      .then((result) => { if (active) setAccess(result.modules[moduleId] ?? null); })
-      .catch(() => { if (active) setAccess(null); });
-    return () => { active = false; };
-  }, [moduleId]);
-  return { access, canEdit: access === "editar" };
+  const { accessMap, accessLoading, canEditModule } = useAuth();
+  const level = accessMap[moduleId];
+  const access = level === "ver" || level === "editar" ? level : null;
+  return { access, canEdit: canEditModule(moduleId), loading: accessLoading };
 }

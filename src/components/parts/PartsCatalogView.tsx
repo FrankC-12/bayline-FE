@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useParts } from "@/hooks/useParts";
 import type { Part } from "@/types/parts";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 import BulkImportPartsModal from "./BulkImportPartsModal";
 import CreatePartModal from "./CreatePartModal";
 
@@ -24,7 +25,7 @@ export default function PartsCatalogView() {
   const filialId = currentUser?.filialId ?? null;
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
-  const { parts, loading, addPart, editPart, bulkAddParts, toggleActive } = useParts(
+  const { parts, loading, error: loadError, refresh, addPart, editPart, bulkAddParts, toggleActive } = useParts(
     filialId,
     search || undefined,
     showInactive
@@ -104,6 +105,8 @@ export default function PartsCatalogView() {
       <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando catálogo...</div>
+        ) : loadError ? (
+          <ErrorState error={loadError} onRetry={refresh} compact />
         ) : parts.length === 0 ? (
           <EmptyState
             compact

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   listParts,
   createPart,
@@ -12,57 +12,49 @@ import {
   type BulkPartItem,
 } from "@/lib/api/parts";
 import type { Part } from "@/types/parts";
+import { useListLoader } from "./useListLoader";
 
 export function useParts(filialId: string | null, search?: string, includeInactive = false) {
-  const [parts, setParts] = useState<Part[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setParts([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listParts(filialId, search, includeInactive);
-    setParts(data);
-    setLoading(false);
-  }, [filialId, search, includeInactive]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: parts,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<Part>(
+    () => (filialId ? listParts(filialId, search, includeInactive) : Promise.resolve([])),
+    [filialId, search, includeInactive]
+  );
 
   const addPart = useCallback(async (input: CreatePartInput) => {
     const created = await createPart(input);
-    await load();
+    await refresh();
     return created;
-  }, [load]);
+  }, [refresh]);
 
   const editPart = useCallback(async (id: string, input: UpdatePartInput) => {
     const updated = await updatePart(id, input);
-    await load();
+    await refresh();
     return updated;
-  }, [load]);
+  }, [refresh]);
 
   const bulkAddParts = useCallback(
     async (items: BulkPartItem[]) => {
       if (!filialId) throw new Error("No filial selected.");
       const result = await bulkCreateParts(filialId, items);
-      await load();
+      await refresh();
       return result;
     },
-    [filialId, load]
+    [filialId, refresh]
   );
 
   const toggleActive = useCallback(
     async (id: string, isActive: boolean) => {
       const updated = await setPartActive(id, isActive);
-      await load();
+      await refresh();
       return updated;
     },
-    [load]
+    [refresh]
   );
 
-  return { parts, loading, addPart, editPart, bulkAddParts, toggleActive, refresh: load };
+  return { parts, loading, error, addPart, editPart, bulkAddParts, toggleActive, refresh };
 }

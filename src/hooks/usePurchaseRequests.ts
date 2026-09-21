@@ -1,32 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   listPurchaseRequests,
   createPurchaseRequest,
   updatePurchaseRequestStatus,
 } from "@/lib/api/administracion";
 import type { PurchaseRequest } from "@/types/administracion";
+import { useListLoader } from "./useListLoader";
 
 export function usePurchaseRequests(filialId: string | null, search?: string) {
-  const [requests, setRequests] = useState<PurchaseRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setRequests([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listPurchaseRequests(filialId, search);
-    setRequests(data);
-    setLoading(false);
-  }, [filialId, search]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: requests,
+    setData: setRequests,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<PurchaseRequest>(
+    () => (filialId ? listPurchaseRequests(filialId, search) : Promise.resolve([])),
+    [filialId, search]
+  );
 
   const addRequest = useCallback(
     async (supplierId: string, lines: { part_id: string; quantity: number }[]) => {
@@ -35,7 +28,7 @@ export function usePurchaseRequests(filialId: string | null, search?: string) {
       setRequests((prev) => [created, ...prev]);
       return created;
     },
-    [filialId]
+    [filialId, setRequests]
   );
 
   const advanceStatus = useCallback(
@@ -44,8 +37,8 @@ export function usePurchaseRequests(filialId: string | null, search?: string) {
       setRequests((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       return updated;
     },
-    []
+    [setRequests]
   );
 
-  return { requests, loading, addRequest, advanceStatus, refresh: load };
+  return { requests, loading, error, addRequest, advanceStatus, refresh };
 }

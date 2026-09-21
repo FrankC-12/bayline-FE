@@ -6,6 +6,7 @@ import { Plus, ArrowRight, Wrench } from "lucide-react";
 import { useWarehouseScope } from "@/contexts/WarehouseContext";
 import { useTransfers } from "@/hooks/useTransfers";
 import { useServiceOrderPartRequests } from "@/hooks/useServiceOrderPartRequests";
+import ErrorState from "@/components/common/ErrorState";
 import CreateTransferModal from "./CreateTransferModal";
 import { formatElapsed } from "@/lib/time";
 import type { Transfer, TransferStatus } from "@/types/warehouse";
@@ -44,7 +45,7 @@ function ElapsedLabel({ transfer }: { transfer: Transfer }) {
 export default function TransfersListView() {
   const { filialId, warehouses, activeWarehouse, activeWarehouseId, createWarehouse } =
     useWarehouseScope();
-  const { transfers, loading, addTransfer, setStatus } = useTransfers(filialId);
+  const { transfers, loading, error, addTransfer, setStatus, refresh } = useTransfers(filialId);
   const { requests: partRequests, loading: partRequestsLoading, acknowledge } =
     useServiceOrderPartRequests(filialId);
   const [createOpen, setCreateOpen] = useState(false);
@@ -127,6 +128,8 @@ export default function TransfersListView() {
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando transferencias...</div>
+        ) : error ? (
+          <ErrorState error={error} onRetry={refresh} compact />
         ) : visibleTransfers.length === 0 ? (
           <div className="p-12 text-center text-sm text-steel">No hay órdenes de transferencia todavía.</div>
         ) : (

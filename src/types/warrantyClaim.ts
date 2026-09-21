@@ -36,7 +36,7 @@ export interface WarrantyClaim {
   filial_id: string;
   claim_type: WarrantyClaimType;
   vehicle_id: string;
-  vehicle_plate: string;
+  vehicle_plate: string | null;
   vehicle_vin: string | null;
   client_name: string;
   service_order_id: string | null;

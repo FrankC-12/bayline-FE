@@ -4,21 +4,28 @@ import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVehicles } from "@/hooks/useVehicles";
+import { useClients } from "@/hooks/useClients";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
 import VehicleCard from "./VehicleCard";
 import AddVehicleModal from "./AddVehicleModal";
 import SellVehicleModal from "./SellVehicleModal";
+import ReserveVehicleModal from "./ReserveVehicleModal";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 import type { DealershipVehicle } from "@/types/concesionario";
-import type { VehicleSaleInput } from "@/lib/api/concesionario";
+import type { VehicleReservationInput, VehicleSaleInput } from "@/lib/api/concesionario";
 
 export default function VehicleDashboardView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
-  const { vehicles, loading, addVehicle, editVehicle, removeVehicle } = useVehicles(filialId, search || undefined);
+  const { vehicles, loading, error, addVehicle, editVehicle, reserveVehicle, removeVehicle, refresh } = useVehicles(filialId, search || undefined);
+  const { clients } = useClients(filialId);
+  const { users } = useUserDirectory({ filialId });
   const [addOpen, setAddOpen] = useState(false);
   const [sellTarget, setSellTarget] = useState<DealershipVehicle | null>(null);
+  const [reserveTarget, setReserveTarget] = useState<DealershipVehicle | null>(null);
 
   const summary = useMemo(() => {
     return {
@@ -34,6 +41,10 @@ export default function VehicleDashboardView() {
       setSellTarget(vehicle);
       return;
     }
+    if (status === "reservado") {
+      setReserveTarget(vehicle);
+      return;
+    }
     await editVehicle(vehicle.id, { status });
   }
 
@@ -41,6 +52,12 @@ export default function VehicleDashboardView() {
     if (!sellTarget) return;
     await editVehicle(sellTarget.id, { status: "vendido", sale });
     setSellTarget(null);
+  }
+
+  async function confirmReservation(reservation: VehicleReservationInput) {
+    if (!reserveTarget) return;
+    await reserveVehicle(reserveTarget.id, reservation);
+    setReserveTarget(null);
   }
 
   if (!filialId) return null;
@@ -92,6 +109,8 @@ export default function VehicleDashboardView() {
         <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center text-sm text-steel">
           Cargando inventario...
         </div>
+      ) : error ? (
+        <ErrorState error={error} onRetry={refresh} compact />
       ) : vehicles.length === 0 ? (
         <EmptyState
           compact
@@ -106,6 +125,9 @@ export default function VehicleDashboardView() {
               editable
               onDelete={() => removeVehicle(v.id)}
               onStatusChange={(status) => handleStatusChange(v, status)}
+              onSell={() => setSellTarget(v)}
+              reservedClientName={clients.find((c) => c.id === v.reserved_client_id)?.full_name}
+              reservedByName={users.find((u) => u.id === v.reserved_by_user_id)?.full_name}
             />
           ))}
         </div>
@@ -118,6 +140,13 @@ export default function VehicleDashboardView() {
         filialId={filialId}
         vehicle={sellTarget}
         onConfirm={confirmSale}
+      />
+      <ReserveVehicleModal
+        open={reserveTarget != null}
+        onClose={() => setReserveTarget(null)}
+        filialId={filialId}
+        vehicle={reserveTarget}
+        onConfirm={confirmReservation}
       />
     </div>
   );

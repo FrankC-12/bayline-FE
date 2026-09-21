@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getServiceOrder, updateServiceOrder, type UpdateServiceOrderInput } from "@/lib/api/serviceOrders";
+import {
+  cancelServiceOrder,
+  getServiceOrder,
+  reopenServiceOrder,
+  updateServiceOrder,
+  type UpdateServiceOrderInput,
+} from "@/lib/api/serviceOrders";
 import type { ServiceOrder } from "@/types/serviceOrder";
 
 export function useServiceOrder(id: string) {
@@ -36,5 +42,20 @@ export function useServiceOrder(id: string) {
     [id]
   );
 
-  return { order, loading, error, update, refresh: load };
+  const cancel = useCallback(
+    async (reason: string) => {
+      const updated = await cancelServiceOrder(id, reason);
+      setOrder(updated);
+      return updated;
+    },
+    [id]
+  );
+
+  const reopen = useCallback(async () => {
+    const updated = await reopenServiceOrder(id);
+    setOrder(updated);
+    return updated;
+  }, [id]);
+
+  return { order, loading, error, update, cancel, reopen, refresh: load };
 }

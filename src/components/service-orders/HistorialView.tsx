@@ -6,8 +6,9 @@ import { Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useServiceOrders } from "@/hooks/useServiceOrders";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
-import { useUsers } from "@/hooks/useUser";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 
 const STATUS_LABELS: Record<string, string> = {
   orden_cerrada: "Orden Cerrada",
@@ -26,9 +27,9 @@ export default function HistorialView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
-  const { orders, loading } = useServiceOrders(filialId, "history");
+  const { orders, loading, error, refresh } = useServiceOrders(filialId, "history");
   const { vehicleMap } = useVehicleLookup(filialId);
-  const { users } = useUsers({ filialId });
+  const { users } = useUserDirectory({ filialId });
 
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<FilterTab>("todos");
@@ -111,6 +112,8 @@ export default function HistorialView() {
       <div className="mt-6 overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando historial...</div>
+        ) : error ? (
+          <ErrorState error={error} onRetry={refresh} compact />
         ) : filtered.length === 0 ? (
           <EmptyState
             compact

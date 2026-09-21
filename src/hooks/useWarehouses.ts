@@ -1,28 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { listWarehouses, createWarehouse } from "@/lib/api/warehouse";
 import type { Warehouse } from "@/types/warehouse";
+import { useListLoader } from "./useListLoader";
 
 export function useWarehouses(filialId: string | null) {
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setWarehouses([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listWarehouses(filialId);
-    setWarehouses(data);
-    setLoading(false);
-  }, [filialId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: warehouses,
+    setData: setWarehouses,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<Warehouse>(() => (filialId ? listWarehouses(filialId) : Promise.resolve([])), [filialId]);
 
   const addWarehouse = useCallback(
     async (name: string) => {
@@ -31,8 +21,8 @@ export function useWarehouses(filialId: string | null) {
       setWarehouses((prev) => [...prev, created]);
       return created;
     },
-    [filialId]
+    [filialId, setWarehouses]
   );
 
-  return { warehouses, loading, addWarehouse, refresh: load };
+  return { warehouses, loading, error, addWarehouse, refresh };
 }

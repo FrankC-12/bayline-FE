@@ -9,6 +9,7 @@ import { useSuppliers } from "@/hooks/useSuppliers";
 import { usePurchaseRequests } from "@/hooks/usePurchaseRequests";
 import { formatVenezuelanPhone } from "@/lib/format";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 import CreateSupplierModal from "./CreateSuppliermodal";
 import SupplierDetailDrawer from "./SupplierDetailDrawer";
 import type { Supplier } from "@/types/administracion";
@@ -51,8 +52,14 @@ export default function ComprasProveedoresView() {
   }, [searchParams]);
 
   const [search, setSearch] = useState("");
-  const { requests, loading: loadingRequests } = usePurchaseRequests(filialId, search || undefined);
-  const { suppliers, loading: loadingSuppliers, addSupplier, refresh: refreshSuppliers } = useSuppliers(filialId, tab === "proveedores" ? search || undefined : undefined);
+  const { requests, loading: loadingRequests, error: requestsError, refresh: refreshRequests } = usePurchaseRequests(filialId, search || undefined);
+  const {
+    suppliers,
+    loading: loadingSuppliers,
+    error: suppliersError,
+    addSupplier,
+    refresh: refreshSuppliers,
+  } = useSuppliers(filialId, tab === "proveedores" ? search || undefined : undefined);
   const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.business_name ?? "—";
 
   const [createSupplierOpen, setCreateSupplierOpen] = useState(false);
@@ -102,6 +109,8 @@ export default function ComprasProveedoresView() {
           <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
             {loadingRequests ? (
               <div className="p-12 text-center text-sm text-steel">Cargando compras...</div>
+            ) : requestsError ? (
+              <ErrorState error={requestsError} onRetry={refreshRequests} compact />
             ) : requests.length === 0 ? (
               <EmptyState
                 compact
@@ -169,6 +178,8 @@ export default function ComprasProveedoresView() {
           <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
             {loadingSuppliers ? (
               <div className="p-12 text-center text-sm text-steel">Cargando proveedores...</div>
+            ) : suppliersError ? (
+              <ErrorState error={suppliersError} onRetry={refreshSuppliers} compact />
             ) : suppliers.length === 0 ? (
               <EmptyState
                 compact

@@ -4,23 +4,30 @@ import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVehicles } from "@/hooks/useVehicles";
+import { useClients } from "@/hooks/useClients";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
 import VehicleCard from "./VehicleCard";
 import AddVehicleModal from "./AddVehicleModal";
 import SellVehicleModal from "./SellVehicleModal";
+import ReserveVehicleModal from "./ReserveVehicleModal";
 import VehicleDetailDrawer from "./VehicleDetailDrawer";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 import type { DealershipVehicle } from "@/types/concesionario";
-import type { VehicleSaleInput } from "@/lib/api/concesionario";
+import type { VehicleReservationInput, VehicleSaleInput } from "@/lib/api/concesionario";
 
 export default function VehicleCatalogView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
-  const { vehicles, loading, addVehicle, editVehicle } = useVehicles(filialId, search || undefined);
+  const { vehicles, loading, error, addVehicle, editVehicle, reserveVehicle, refresh } = useVehicles(filialId, search || undefined);
+  const { clients } = useClients(filialId);
+  const { users } = useUserDirectory({ filialId });
   const [addOpen, setAddOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<DealershipVehicle | null>(null);
   const [sellTarget, setSellTarget] = useState<DealershipVehicle | null>(null);
+  const [reserveTarget, setReserveTarget] = useState<DealershipVehicle | null>(null);
   const visibleVehicles = useMemo(() => vehicles.filter((vehicle) => vehicle.status !== "vendido"), [vehicles]);
   const summary = useMemo(() => ({
     nuevos: visibleVehicles.filter((vehicle) => vehicle.condition === "nuevo").length,
@@ -35,6 +42,10 @@ export default function VehicleCatalogView() {
       setSellTarget(selectedVehicle);
       return;
     }
+    if (status === "reservado") {
+      setReserveTarget(selectedVehicle);
+      return;
+    }
     const updated = await editVehicle(selectedVehicle.id, { status });
     setSelectedVehicle(updated);
   }
@@ -44,6 +55,13 @@ export default function VehicleCatalogView() {
     const updated = await editVehicle(sellTarget.id, { status: "vendido", sale });
     setSelectedVehicle(updated);
     setSellTarget(null);
+  }
+
+  async function confirmReservation(reservation: VehicleReservationInput) {
+    if (!reserveTarget) return;
+    const updated = await reserveVehicle(reserveTarget.id, reservation);
+    setSelectedVehicle(updated);
+    setReserveTarget(null);
   }
 
   if (!filialId) return null;
@@ -85,6 +103,8 @@ export default function VehicleCatalogView() {
         <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center text-sm text-steel">
           Cargando catálogo...
         </div>
+      ) : error ? (
+        <ErrorState error={error} onRetry={refresh} compact />
       ) : visibleVehicles.length === 0 ? (
         <EmptyState
           compact
@@ -93,14 +113,28 @@ export default function VehicleCatalogView() {
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {visibleVehicles.map((v) => (
-            <VehicleCard key={v.id} vehicle={v} onClick={() => setSelectedVehicle(v)} />
+            <VehicleCard
+              key={v.id}
+              vehicle={v}
+              onClick={() => setSelectedVehicle(v)}
+              onSell={() => setSellTarget(v)}
+              reservedClientName={clients.find((c) => c.id === v.reserved_client_id)?.full_name}
+              reservedByName={users.find((u) => u.id === v.reserved_by_user_id)?.full_name}
+            />
           ))}
         </div>
       )}
 
       <AddVehicleModal open={addOpen} onClose={() => setAddOpen(false)} filialId={filialId} onSubmit={addVehicle} />
-      <VehicleDetailDrawer vehicle={selectedVehicle} onClose={() => setSelectedVehicle(null)} onStatusChange={changeStatus} />
+      <VehicleDetailDrawer
+        vehicle={selectedVehicle}
+        onClose={() => setSelectedVehicle(null)}
+        onStatusChange={changeStatus}
+        reservedClientName={clients.find((c) => c.id === selectedVehicle?.reserved_client_id)?.full_name}
+        reservedByName={users.find((u) => u.id === selectedVehicle?.reserved_by_user_id)?.full_name}
+      />
       <SellVehicleModal open={sellTarget != null} onClose={() => setSellTarget(null)} filialId={filialId} vehicle={sellTarget} onConfirm={confirmSale} />
+      <ReserveVehicleModal open={reserveTarget != null} onClose={() => setReserveTarget(null)} filialId={filialId} vehicle={reserveTarget} onConfirm={confirmReservation} />
     </div>
   );
 }

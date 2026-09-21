@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVehicles } from "@/hooks/useVehicles";
-import { useUsers } from "@/hooks/useUser";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { listVehicleSales } from "@/lib/api/concesionario";
 import type { VehicleSale } from "@/types/concesionario";
 import VehicleSaleDetailDrawer from "./VehicleSaleDetailDrawer";
@@ -16,7 +16,7 @@ export default function VehicleSalesView() {
   const deepLinkSaleId = searchParams.get("sale");
 
   const { vehicles } = useVehicles(filialId);
-  const { users } = useUsers({ filialId });
+  const { users } = useUserDirectory({ filialId });
   const [sales, setSales] = useState<VehicleSale[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSale, setSelectedSale] = useState<VehicleSale | null>(null);

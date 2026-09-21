@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   listVehicleWarranties,
   createVehicleWarranty,
@@ -9,26 +9,19 @@ import {
   type BulkVehicleWarrantyItem,
 } from "@/lib/api/vehicleWarranties";
 import type { VehicleWarranty } from "@/types/vehicleWarranty";
+import { useListLoader } from "./useListLoader";
 
 export function useVehicleWarranties(filialId: string | null, search?: string) {
-  const [warranties, setWarranties] = useState<VehicleWarranty[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setWarranties([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listVehicleWarranties(filialId, search);
-    setWarranties(data);
-    setLoading(false);
-  }, [filialId, search]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: warranties,
+    setData: setWarranties,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<VehicleWarranty>(
+    () => (filialId ? listVehicleWarranties(filialId, search) : Promise.resolve([])),
+    [filialId, search]
+  );
 
   const addWarranty = useCallback(
     async (input: Omit<CreateVehicleWarrantyInput, "filial_id">) => {
@@ -37,7 +30,7 @@ export function useVehicleWarranties(filialId: string | null, search?: string) {
       setWarranties((prev) => [created, ...prev]);
       return created;
     },
-    [filialId]
+    [filialId, setWarranties]
   );
 
   const importBulk = useCallback(
@@ -47,8 +40,8 @@ export function useVehicleWarranties(filialId: string | null, search?: string) {
       setWarranties((prev) => [...result.created, ...prev]);
       return result;
     },
-    [filialId]
+    [filialId, setWarranties]
   );
 
-  return { warranties, loading, addWarranty, importBulk, refresh: load };
+  return { warranties, loading, error, addWarranty, importBulk, refresh };
 }

@@ -9,7 +9,7 @@ export default function PartMeasuresView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
   const { canEdit } = useModuleAccess("ajustes");
-  const { measures, loading, addMeasure, editMeasure, toggleMeasureActive } = usePartMeasures(
+  const { measures, loading, error, refresh, addMeasure, editMeasure, toggleMeasureActive } = usePartMeasures(
     filialId,
     true
   );
@@ -19,6 +19,8 @@ export default function PartMeasuresView() {
       description="Catálogo compartido por todo el holding — alimenta el selector de medida al agregar un repuesto."
       items={measures}
       loading={loading}
+      fetchError={error}
+      onRetry={refresh}
       canEdit={canEdit}
       addPlaceholder="Nombre de la medida"
       addButtonLabel="Agregar medida"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   listWarrantySubmissions,
   createWarrantySubmission,
@@ -10,26 +10,19 @@ import {
   deleteWarrantySubmission,
 } from "@/lib/api/administracion";
 import type { WarrantySubmission, WarrantySubmissionPayInput } from "@/types/administracion";
+import { useListLoader } from "./useListLoader";
 
 export function useWarrantySubmissions(filialId: string | null) {
-  const [submissions, setSubmissions] = useState<WarrantySubmission[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setSubmissions([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listWarrantySubmissions(filialId);
-    setSubmissions(data);
-    setLoading(false);
-  }, [filialId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: submissions,
+    setData: setSubmissions,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<WarrantySubmission>(
+    () => (filialId ? listWarrantySubmissions(filialId) : Promise.resolve([])),
+    [filialId]
+  );
 
   const addSubmission = useCallback(
     async (input: { period_year: number; period_month: number; currency: string }) => {
@@ -38,12 +31,15 @@ export function useWarrantySubmissions(filialId: string | null) {
       setSubmissions((prev) => [created, ...prev]);
       return created;
     },
-    [filialId]
+    [filialId, setSubmissions]
   );
 
-  const replace = useCallback((updated: WarrantySubmission) => {
-    setSubmissions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-  }, []);
+  const replace = useCallback(
+    (updated: WarrantySubmission) => {
+      setSubmissions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    },
+    [setSubmissions]
+  );
 
   const refreshOne = useCallback(
     async (id: string) => {
@@ -72,19 +68,23 @@ export function useWarrantySubmissions(filialId: string | null) {
     [replace]
   );
 
-  const removeOne = useCallback(async (id: string) => {
-    await deleteWarrantySubmission(id);
-    setSubmissions((prev) => prev.filter((s) => s.id !== id));
-  }, []);
+  const removeOne = useCallback(
+    async (id: string) => {
+      await deleteWarrantySubmission(id);
+      setSubmissions((prev) => prev.filter((s) => s.id !== id));
+    },
+    [setSubmissions]
+  );
 
   return {
     submissions,
     loading,
+    error,
     addSubmission,
     refreshOne,
     submitOne,
     payOne,
     removeOne,
-    refresh: load,
+    refresh,
   };
 }

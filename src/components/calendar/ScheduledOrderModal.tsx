@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Search } from "lucide-react";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import type { Bay } from "@/types/serviceOrder";
-import type { AppUser } from "@/types/user";
+import type { UserDirectoryEntry } from "@/types/user";
 import type { CreateServiceOrderInput } from "@/lib/api/serviceOrders";
 
 interface ScheduleOrderModalProps {
@@ -16,8 +16,8 @@ interface ScheduleOrderModalProps {
   defaultBayId?: string;
   hours: number[];
   bays: Bay[];
-  technicians: AppUser[];
-  advisors: AppUser[];
+  technicians: UserDirectoryEntry[];
+  advisors: UserDirectoryEntry[];
   onSubmit: (input: CreateServiceOrderInput) => Promise<void>;
 }
 
@@ -76,13 +76,13 @@ export default function ScheduleOrderModal({
     for (const client of clients) {
       for (const vehicle of client.vehicles) {
         const matches =
-          vehicle.plate.toLowerCase().includes(term) ||
+          (vehicle.plate ?? "").toLowerCase().includes(term) ||
           (vehicle.vin ?? "").toLowerCase().includes(term) ||
           client.full_name.toLowerCase().includes(term);
         if (matches) {
           entries.push({
             vehicleId: vehicle.id,
-            label: `${vehicle.brand} ${vehicle.model} · ${vehicle.plate}`,
+            label: `${vehicle.brand} ${vehicle.model} · ${vehicle.plate ?? "Sin placa"}`,
             sub: client.full_name,
           });
         }

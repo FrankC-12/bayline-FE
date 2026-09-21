@@ -206,10 +206,13 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
             })}
           </tbody>
         </table>
-        <div className="mt-4 flex justify-end border-t border-navy/10 pt-4">
-          <span className="font-display text-lg font-bold text-navy">
-            Total: ${sale.total.toFixed(2)}
-          </span>
+        <div className="mt-4 space-y-1 border-t border-navy/10 pt-4 text-right text-sm">
+          <p className="text-steel">Subtotal: ${sale.total.toFixed(2)}</p>
+          <p className="text-steel">IVA ({sale.iva_percentage}%): ${sale.iva_amount.toFixed(2)}</p>
+          <p className="text-steel">IGTF ({sale.igtf_percentage}%): ${sale.igtf_amount.toFixed(2)}</p>
+          <p className="font-display text-lg font-bold text-navy">
+            Total: ${sale.total_with_taxes.toFixed(2)}
+          </p>
         </div>
       </div>
 

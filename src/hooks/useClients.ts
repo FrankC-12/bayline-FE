@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   listClients,
   createClient,
@@ -9,38 +9,34 @@ import {
   type UpdateClientInput,
 } from "@/lib/api/clients";
 import type { Client } from "@/types/client";
+import { useListLoader } from "./useListLoader";
 
 export function useClients(filialId: string | null, search?: string) {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: clients,
+    setData: setClients,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<Client>(() => (filialId ? listClients(filialId, search) : Promise.resolve([])), [filialId, search]);
 
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setClients([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listClients(filialId, search);
-    setClients(data);
-    setLoading(false);
-  }, [filialId, search]);
+  const addClient = useCallback(
+    async (input: CreateClientInput) => {
+      const created = await createClient(input);
+      setClients((prev) => [created, ...prev]);
+      return created;
+    },
+    [setClients]
+  );
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const editClient = useCallback(
+    async (id: string, input: UpdateClientInput) => {
+      const updated = await updateClient(id, input);
+      setClients((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      return updated;
+    },
+    [setClients]
+  );
 
-  const addClient = useCallback(async (input: CreateClientInput) => {
-    const created = await createClient(input);
-    setClients((prev) => [created, ...prev]);
-    return created;
-  }, []);
-
-  const editClient = useCallback(async (id: string, input: UpdateClientInput) => {
-    const updated = await updateClient(id, input);
-    setClients((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-    return updated;
-  }, []);
-
-  return { clients, loading, addClient, editClient, refresh: load };
+  return { clients, loading, error, addClient, editClient, refresh };
 }

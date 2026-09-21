@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   listTransfers,
   createTransfer,
@@ -8,26 +8,16 @@ import {
   type TransferLineInput,
 } from "@/lib/api/warehouse";
 import type { Transfer } from "@/types/warehouse";
+import { useListLoader } from "./useListLoader";
 
 export function useTransfers(filialId: string | null) {
-  const [transfers, setTransfers] = useState<Transfer[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setTransfers([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listTransfers(filialId);
-    setTransfers(data);
-    setLoading(false);
-  }, [filialId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: transfers,
+    setData: setTransfers,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<Transfer>(() => (filialId ? listTransfers(filialId) : Promise.resolve([])), [filialId]);
 
   const addTransfer = useCallback(
     async (originWarehouseId: string, destinationWarehouseId: string, lines: TransferLineInput[], note?: string) => {
@@ -42,14 +32,17 @@ export function useTransfers(filialId: string | null) {
       setTransfers((prev) => [created, ...prev]);
       return created;
     },
-    [filialId]
+    [filialId, setTransfers]
   );
 
-  const setStatus = useCallback(async (transferId: string, status: string) => {
-    const updated = await updateTransferStatus(transferId, status);
-    setTransfers((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-    return updated;
-  }, []);
+  const setStatus = useCallback(
+    async (transferId: string, status: string) => {
+      const updated = await updateTransferStatus(transferId, status);
+      setTransfers((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      return updated;
+    },
+    [setTransfers]
+  );
 
-  return { transfers, loading, addTransfer, setStatus, refresh: load };
+  return { transfers, loading, error, addTransfer, setStatus, refresh };
 }

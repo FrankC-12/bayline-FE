@@ -34,6 +34,11 @@ export interface ModuleCardData {
   badge: string;
   tint: string;
   href?: string;
+  /** Matches a key in the caller's access map (GET /auth/access) — see
+   * app/scripts/seed_roles.py's ALL_MODULES on the backend for the
+   * authoritative list. A card with no moduleId (the mobile-only
+   * "Técnico de Servicio" placeholder) is never filtered out. */
+  moduleId?: string;
 }
 
 export const modules: ModuleCardData[] = [
@@ -44,6 +49,7 @@ export const modules: ModuleCardData[] = [
     badge: moduleBadge(SERVICE_ORDERS_ITEMS.length),
     tint: "bg-indigo-100 text-indigo-600",
     href: "/dashboard/servicios",
+    moduleId: "asesor-servicios",
   },
   {
     icon: Smartphone,
@@ -51,6 +57,7 @@ export const modules: ModuleCardData[] = [
     description: "Acceso móvil: tareas asignadas, cronómetro, inspección minuciosa y upsells.",
     badge: "VISTA MÓVIL",
     tint: "bg-amber-100 text-amber-600",
+    moduleId: "tecnico-servicio",
   },
   {
     icon: ClipboardList,
@@ -59,6 +66,7 @@ export const modules: ModuleCardData[] = [
     badge: moduleBadge(ADMIN_ITEMS.length + FINANCE_ITEMS.length),
     tint: "bg-emerald-100 text-emerald-700",
     href: "/dashboard/administracion",
+    moduleId: "administracion",
   },
   {
     icon: ShieldCheck,
@@ -68,6 +76,7 @@ export const modules: ModuleCardData[] = [
     badge: "SÚPER ADMIN",
     tint: "bg-violet-100 text-violet-700",
     href: "/dashboard/usuarios",
+    moduleId: "usuarios-accesos",
   },
   {
     icon: Clock,
@@ -77,6 +86,7 @@ export const modules: ModuleCardData[] = [
     badge: moduleBadge(POST_VENTAS_ITEMS.length),
     tint: "bg-rose-100 text-rose-600",
     href: "/dashboard/post-ventas",
+    moduleId: "post-ventas",
   },
   {
     icon: BarChart3,
@@ -85,6 +95,7 @@ export const modules: ModuleCardData[] = [
     badge: moduleBadge(KPIS_ITEMS.length),
     tint: "bg-violet-100 text-violet-700",
     href: "/dashboard/kpis",
+    moduleId: "kpis",
   },
   {
     icon: User,
@@ -94,6 +105,7 @@ export const modules: ModuleCardData[] = [
     badge: "1 MÓDULO",
     tint: "bg-rose-100 text-rose-600",
     href: "/dashboard/clientes",
+    moduleId: "clientes-vehiculos",
   },
   {
     icon: ShoppingCart,
@@ -102,6 +114,7 @@ export const modules: ModuleCardData[] = [
     badge: moduleBadge(PARTS_ITEMS.length),
     tint: "bg-slate-100 text-slate-600",
     href: "/dashboard/repuestos",
+    moduleId: "repuestos",
   },
   {
     icon: Package,
@@ -111,6 +124,7 @@ export const modules: ModuleCardData[] = [
     badge: moduleBadge(WAREHOUSE_ITEMS.length),
     tint: "bg-blue-light text-blue",
     href: "/dashboard/almacen",
+    moduleId: "almacen",
   },
   {
     icon: Car,
@@ -119,6 +133,7 @@ export const modules: ModuleCardData[] = [
     badge: moduleBadge(CONCESIONARIO_ITEMS.length),
     tint: "bg-orange-100 text-orange-700",
     href: "/dashboard/concesionario",
+    moduleId: "concesionario",
   },
   {
     icon: TrendingUp,
@@ -127,6 +142,7 @@ export const modules: ModuleCardData[] = [
     badge: moduleBadge(VENTAS_ITEMS.length),
     tint: "bg-emerald-100 text-emerald-700",
     href: "/dashboard/ventas",
+    moduleId: "ventas",
   },
   {
     icon: Settings,
@@ -135,5 +151,6 @@ export const modules: ModuleCardData[] = [
     badge: "1 MÓDULO",
     tint: "bg-slate-100 text-slate-600",
     href: "/dashboard/ajustes",
+    moduleId: "ajustes",
   },
 ];

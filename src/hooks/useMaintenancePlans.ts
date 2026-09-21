@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   listMaintenancePlans,
   createMaintenancePlan,
@@ -9,38 +9,37 @@ import {
   type UpdateMaintenancePlanInput,
 } from "@/lib/api/maintenancePlans";
 import type { MaintenancePlan } from "@/types/maintenancePlan";
+import { useListLoader } from "./useListLoader";
 
 export function useMaintenancePlans(filialId: string | null, search?: string) {
-  const [plans, setPlans] = useState<MaintenancePlan[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: plans,
+    setData: setPlans,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<MaintenancePlan>(
+    () => (filialId ? listMaintenancePlans(filialId, search) : Promise.resolve([])),
+    [filialId, search]
+  );
 
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setPlans([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listMaintenancePlans(filialId, search);
-    setPlans(data);
-    setLoading(false);
-  }, [filialId, search]);
+  const addPlan = useCallback(
+    async (input: CreateMaintenancePlanInput) => {
+      const created = await createMaintenancePlan(input);
+      setPlans((prev) => [...prev, created]);
+      return created;
+    },
+    [setPlans]
+  );
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const editPlan = useCallback(
+    async (id: string, input: UpdateMaintenancePlanInput) => {
+      const updated = await updateMaintenancePlan(id, input);
+      setPlans((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      return updated;
+    },
+    [setPlans]
+  );
 
-  const addPlan = useCallback(async (input: CreateMaintenancePlanInput) => {
-    const created = await createMaintenancePlan(input);
-    setPlans((prev) => [...prev, created]);
-    return created;
-  }, []);
-
-  const editPlan = useCallback(async (id: string, input: UpdateMaintenancePlanInput) => {
-    const updated = await updateMaintenancePlan(id, input);
-    setPlans((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-    return updated;
-  }, []);
-
-  return { plans, loading, addPlan, editPlan, refresh: load };
+  return { plans, loading, error, addPlan, editPlan, refresh };
 }

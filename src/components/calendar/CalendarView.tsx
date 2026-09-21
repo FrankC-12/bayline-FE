@@ -8,9 +8,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBays } from "@/hooks/useBays";
 import { useScheduledOrders } from "@/hooks/useScheduledOrders";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
-import { useUsers } from "@/hooks/useUser";
-import { useRoles } from "@/hooks/useRoles";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
+import { useRoleDirectory } from "@/hooks/useRoleDirectory";
 import { capitalizeFirst } from "@/lib/format";
+import ErrorState from "@/components/common/ErrorState";
 import ConfigureBaysModal from "./ConfigureBaysModal";
 import ScheduleOrderModal from "./ScheduledOrderModal";
 
@@ -27,10 +28,10 @@ export default function CalendarView() {
 
   const [selectedDate, setSelectedDate] = useState(() => toDateInputValue(new Date()));
   const { bays, addBay, toggleActive, renameBay } = useBays(filialId);
-  const { orders, loading, addOrder, rescheduleOrder } = useScheduledOrders(filialId, selectedDate);
+  const { orders, loading, error, addOrder, rescheduleOrder, refresh } = useScheduledOrders(filialId, selectedDate);
   const { vehicleMap } = useVehicleLookup(filialId);
-  const { users } = useUsers({ filialId });
-  const { roles } = useRoles("filial");
+  const { users } = useUserDirectory({ filialId });
+  const { roles } = useRoleDirectory("filial");
 
   const technicianRoleId = roles.find((r) => r.slug === "tecnico")?.id;
   const technicians = users.filter((u) => u.role_id === technicianRoleId);
@@ -266,6 +267,8 @@ export default function CalendarView() {
           <p className="mb-3 font-display font-bold text-navy">Citas de Hoy</p>
           {loading ? (
             <p className="text-sm text-steel">Cargando...</p>
+          ) : error ? (
+            <ErrorState error={error} onRetry={refresh} compact />
           ) : orders.length === 0 ? (
             <p className="text-sm italic text-steel">No hay citas programadas para hoy.</p>
           ) : (

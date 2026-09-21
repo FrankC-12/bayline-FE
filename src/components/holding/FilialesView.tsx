@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { Receipt } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFiliales } from "@/hooks/useFiliales";
 import type { Filial } from "@/types/filial";
@@ -14,7 +12,7 @@ import CreateFilialUserPanel from "./CreateFilialUserPanel";
 export default function FilialesView() {
   const { currentUser } = useAuth();
   const holdingId = currentUser?.holdingId ?? null;
-  const { filiales, loading, addFilial, editFilial, toggleActive } = useFiliales(holdingId);
+  const { filiales, loading, error, addFilial, editFilial, toggleActive, refresh } = useFiliales(holdingId);
 
   const [search, setSearch] = useState("");
   const [panelOpen, setPanelOpen] = useState(false);
@@ -50,20 +48,11 @@ export default function FilialesView() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-12">
-      <div className="mb-8 flex items-start justify-between gap-4">
-        <div>
-          <span className="font-mono text-xs uppercase tracking-[0.2em] text-blue">Holding</span>
-          <h1 className="mt-2 font-display text-3xl font-bold text-navy">Filiales</h1>
-          <p className="mt-1 text-sm text-steel">Administra los talleres y concesionarios de tu holding.</p>
-        </div>
-        <Link
-          href="/holding/garantias-consolidado"
-          className="mt-1 inline-flex items-center gap-2 rounded-full border border-navy/15 px-4 py-2 text-sm font-semibold text-navy transition hover:border-blue hover:text-blue"
-        >
-          <Receipt className="h-4 w-4" />
-          Garantías Consolidado
-        </Link>
+    <div>
+      <div className="mb-8">
+        <span className="font-mono text-xs uppercase tracking-[0.2em] text-blue">Holding</span>
+        <h1 className="mt-2 font-display text-3xl font-bold text-navy">Filiales</h1>
+        <p className="mt-1 text-sm text-steel">Administra los talleres y concesionarios de tu holding.</p>
       </div>
 
       <div className="mb-6">
@@ -73,6 +62,8 @@ export default function FilialesView() {
       <FilialesTable
         filiales={filtered}
         loading={loading}
+        error={error}
+        onRetry={refresh}
         onEdit={openEdit}
         onToggleActive={handleToggleActive}
         onCreateUser={(filial) => setCreatingUserFor(filial)}

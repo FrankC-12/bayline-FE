@@ -1,12 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Lock, Unlock } from "lucide-react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { AlertTriangle, ChevronDown, ChevronUp, Lock, Unlock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFiliales } from "@/hooks/useFiliales";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { getProfitability } from "@/lib/api/administracion";
 import { getHoldingProfitability } from "@/lib/api/holding";
-import type { ProfitabilityReport } from "@/types/administracion";
+import type { ProfitabilityLineItem, ProfitabilityReport } from "@/types/administracion";
+
+const DOCUMENT_LINK: Record<ProfitabilityLineItem["document_type"], (id: string) => string | null> = {
+  service_order_invoice: (id) => `/dashboard/servicios/${id}`,
+  part_sale: (id) => `/dashboard/repuestos/ventas/${id}`,
+  // No standalone detail page for a vehicle sale — its causing document is
+  // shown inline instead (see the expanded row below).
+  vehicle_sale: () => null,
+};
 
 function monthBounds(monthValue: string): { from: string; to: string } {
   const [year, month] = monthValue.split("-").map(Number);
@@ -28,12 +38,14 @@ export default function RentabilidadView() {
   const holdingId = currentUser?.holdingId ?? null;
   const filialId = currentUser?.filialId ?? null;
   const { filiales } = useFiliales(isHoldingUser ? holdingId : null);
+  const { users } = useUserDirectory({ filialId: isHoldingUser ? null : filialId });
 
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [selectedFilial, setSelectedFilial] = useState<string>(isHoldingUser ? ALL_FILIALES : (filialId ?? ""));
   const [currencyDisplay, setCurrencyDisplay] = useState<"usd" | "bs">("usd");
   const [report, setReport] = useState<ProfitabilityReport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expandedLineId, setExpandedLineId] = useState<string | null>(null);
 
   useEffect(() => {
     const { from, to } = monthBounds(month);
@@ -187,6 +199,85 @@ export default function RentabilidadView() {
               </tbody>
             </table>
           </div>
+
+          {report.negative_margin_lines.length > 0 && (
+            <div className="mt-6 overflow-x-auto rounded-2xl border border-red-200 bg-white">
+              <p className="border-b border-red-100 bg-red-50 px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-red-600">
+                Márgenes negativos ({report.negative_margin_lines.length})
+              </p>
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-navy/10 bg-ash">
+                  <tr>
+                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Documento</th>
+                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Descripción</th>
+                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Fecha</th>
+                    <th className="px-6 py-3 text-right font-mono text-[11px] uppercase tracking-widest text-steel">Margen</th>
+                    <th className="px-6 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-navy/5">
+                  {report.negative_margin_lines.map((line) => {
+                    const lineKey = `${line.document_type}-${line.document_id}`;
+                    const expanded = expandedLineId === lineKey;
+                    const link = DOCUMENT_LINK[line.document_type](line.document_id);
+                    return (
+                      <Fragment key={lineKey}>
+                        <tr
+                          onClick={() => setExpandedLineId(expanded ? null : lineKey)}
+                          className="cursor-pointer transition hover:bg-ash/60"
+                        >
+                          <td className="px-6 py-4 font-mono text-xs text-blue">{line.document_code}</td>
+                          <td className="px-6 py-4 text-navy">{line.description}</td>
+                          <td className="px-6 py-4 text-steel">{new Date(`${line.date}T12:00:00`).toLocaleDateString("es-VE")}</td>
+                          <td className="px-6 py-4 text-right font-semibold text-red-600">{fmt(line.margin)}</td>
+                          <td className="px-6 py-4 text-right text-steel">
+                            {expanded ? <ChevronUp className="ml-auto h-4 w-4" /> : <ChevronDown className="ml-auto h-4 w-4" />}
+                          </td>
+                        </tr>
+                        {expanded && (
+                          <tr className="bg-ash/40">
+                            <td colSpan={5} className="px-6 py-4 text-sm text-steel">
+                              <dl className="grid gap-2 sm:grid-cols-3">
+                                <div>
+                                  <dt className="font-mono text-[10px] uppercase tracking-widest text-steel">Ventas netas</dt>
+                                  <dd className="font-medium text-navy">{fmt(line.net_sales)}</dd>
+                                </div>
+                                <div>
+                                  <dt className="font-mono text-[10px] uppercase tracking-widest text-steel">Costo directo</dt>
+                                  <dd className="font-medium text-navy">{fmt(line.direct_cost)}</dd>
+                                </div>
+                                <div>
+                                  <dt className="font-mono text-[10px] uppercase tracking-widest text-steel">Margen</dt>
+                                  <dd className="font-semibold text-red-600">{fmt(line.margin)}</dd>
+                                </div>
+                              </dl>
+                              {line.note && (
+                                <p className="mt-3">
+                                  <span className="font-semibold text-navy">Motivo de autorización:</span> {line.note}
+                                </p>
+                              )}
+                              {line.authorized_by_user_id && (
+                                <p className="mt-1">
+                                  <span className="font-semibold text-navy">Autorizado por:</span>{" "}
+                                  {users.find((u) => u.id === line.authorized_by_user_id)?.full_name ?? "—"}
+                                  {line.authorized_at && ` el ${new Date(line.authorized_at).toLocaleString("es-VE")}`}
+                                </p>
+                              )}
+                              {link && (
+                                <Link href={link} className="mt-3 inline-block text-sm font-semibold text-blue hover:underline">
+                                  Ver documento completo →
+                                </Link>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <div className="mt-6 overflow-x-auto rounded-2xl border border-navy/10 bg-white">
             <p className="border-b border-navy/10 px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-blue">

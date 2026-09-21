@@ -1,9 +1,13 @@
 import { Pencil, Power, PowerOff, UserPlus } from "lucide-react";
 import type { Holding } from "@/types/holding";
+import type { ListErrorInfo } from "@/lib/api/listError";
+import ErrorState from "@/components/common/ErrorState";
 
 interface HoldingsTableProps {
   holdings: Holding[];
   loading: boolean;
+  error: ListErrorInfo | null;
+  onRetry: () => void;
   onEdit: (holding: Holding) => void;
   onToggleActive: (holding: Holding) => void;
   onCreateUser: (holding: Holding) => void;
@@ -12,6 +16,8 @@ interface HoldingsTableProps {
 export default function HoldingsTable({
   holdings,
   loading,
+  error,
+  onRetry,
   onEdit,
   onToggleActive,
   onCreateUser,
@@ -22,6 +28,10 @@ export default function HoldingsTable({
         Cargando holdings...
       </div>
     );
+  }
+
+  if (error) {
+    return <ErrorState error={error} onRetry={onRetry} />;
   }
 
   if (holdings.length === 0) {

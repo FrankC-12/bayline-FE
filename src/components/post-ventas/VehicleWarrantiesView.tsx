@@ -7,6 +7,7 @@ import { useVehicleWarranties } from "@/hooks/useVehicleWarranties";
 import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 import type { VehicleWarrantyStatus } from "@/types/vehicleWarranty";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 import BrandModelSelect from "@/components/common/BrandModelSelect";
 import BulkImportWarrantiesModal from "./BulkImportWarrantiesModal";
 
@@ -30,7 +31,7 @@ export default function VehicleWarrantiesView() {
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
-  const { warranties, loading, addWarranty, importBulk } = useVehicleWarranties(filialId, search || undefined);
+  const { warranties, loading, error, addWarranty, importBulk, refresh } = useVehicleWarranties(filialId, search || undefined);
   const [createOpen, setCreateOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
 
@@ -72,6 +73,8 @@ export default function VehicleWarrantiesView() {
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando garantías...</div>
+        ) : error ? (
+          <ErrorState error={error} onRetry={refresh} compact />
         ) : warranties.length === 0 ? (
           <EmptyState compact title={search ? "Sin resultados." : "No hay garantías registradas todavía."} />
         ) : (

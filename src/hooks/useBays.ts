@@ -1,28 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { listBays, createBay, updateBay } from "@/lib/api/serviceOrders";
 import type { Bay } from "@/types/serviceOrder";
+import { useListLoader } from "./useListLoader";
 
 export function useBays(filialId: string | null) {
-  const [bays, setBays] = useState<Bay[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setBays([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listBays(filialId);
-    setBays(data);
-    setLoading(false);
-  }, [filialId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: bays,
+    setData: setBays,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<Bay>(() => (filialId ? listBays(filialId) : Promise.resolve([])), [filialId]);
 
   const addBay = useCallback(
     async (name: string) => {
@@ -31,20 +21,26 @@ export function useBays(filialId: string | null) {
       setBays((prev) => [...prev, created]);
       return created;
     },
-    [filialId]
+    [filialId, setBays]
   );
 
-  const toggleActive = useCallback(async (bay: Bay) => {
-    const updated = await updateBay(bay.id, { is_active: !bay.is_active });
-    setBays((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
-    return updated;
-  }, []);
+  const toggleActive = useCallback(
+    async (bay: Bay) => {
+      const updated = await updateBay(bay.id, { is_active: !bay.is_active });
+      setBays((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+      return updated;
+    },
+    [setBays]
+  );
 
-  const renameBay = useCallback(async (bay: Bay, name: string) => {
-    const updated = await updateBay(bay.id, { name });
-    setBays((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
-    return updated;
-  }, []);
+  const renameBay = useCallback(
+    async (bay: Bay, name: string) => {
+      const updated = await updateBay(bay.id, { name });
+      setBays((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+      return updated;
+    },
+    [setBays]
+  );
 
-  return { bays, loading, addBay, toggleActive, renameBay, refresh: load };
+  return { bays, loading, error, addBay, toggleActive, renameBay, refresh };
 }

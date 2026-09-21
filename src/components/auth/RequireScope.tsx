@@ -7,7 +7,7 @@ import type { RoleScope } from "@/types/auth";
 
 const LANDING_BY_SCOPE: Record<RoleScope, string> = {
   platform: "/platform/holdings",
-  holding: "/holding/filiales",
+  holding: "/holding",
   filial: "/dashboard",
 };
 

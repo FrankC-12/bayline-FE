@@ -40,6 +40,9 @@ export interface Tempario {
   parts_margin: number;
   labor_cost: number;
   total_price: number;
+  iva_percentage: number;
+  iva_amount: number;
+  total_with_iva: number;
   created_at: string;
   updated_at: string;
 }

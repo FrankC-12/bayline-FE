@@ -30,6 +30,14 @@ export interface ServiceOrder {
   closed_at: string | null;
   total_amount: number | null;
   invoiced_at: string | null;
+  cancel_reason: string | null;
+  cancelled_by_user_id: string | null;
+  cancelled_at: string | null;
+  reopened_by_user_id: string | null;
+  reopened_at: string | null;
+  completed_with_pending_items: boolean;
+  completed_override_by_user_id: string | null;
+  completed_override_at: string | null;
 }
 
 export interface Bay {

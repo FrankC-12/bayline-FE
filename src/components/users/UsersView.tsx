@@ -17,7 +17,7 @@ export default function UsersView() {
   const filialId = currentUser?.filialId ?? null;
   const canManage = currentUser?.roleSlug === "filial-admin";
 
-  const { users, loading, addUser, editUser } = useUsers({ filialId });
+  const { users, loading, error, addUser, editUser, refresh } = useUsers({ filialId });
   const { roles } = useRoles("filial");
 
   const [search, setSearch] = useState("");
@@ -113,6 +113,8 @@ export default function UsersView() {
         users={filteredUsers}
         roles={roles}
         loading={loading}
+        error={error}
+        onRetry={refresh}
         canManage={canManage}
         currentUserId={currentUser?.userId}
         onEdit={openEdit}

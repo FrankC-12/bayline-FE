@@ -2,6 +2,14 @@
 
 import { X } from "lucide-react";
 
+interface ConfirmDialogReason {
+  label: string;
+  placeholder?: string;
+  value: string;
+  onChange: (value: string) => void;
+  minLength?: number;
+}
+
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
@@ -11,6 +19,9 @@ interface ConfirmDialogProps {
   confirming?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  /** When set, renders a mandatory textarea (e.g. "motivo de cancelación")
+   * and keeps the confirm button disabled until it meets `minLength`. */
+  reason?: ConfirmDialogReason;
 }
 
 /** Shared confirmation dialog for actions that are hard or impossible to
@@ -25,8 +36,11 @@ export default function ConfirmDialog({
   confirming = false,
   onConfirm,
   onCancel,
+  reason,
 }: ConfirmDialogProps) {
   if (!open) return null;
+
+  const reasonTooShort = !!reason && reason.value.trim().length < (reason.minLength ?? 1);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -46,6 +60,19 @@ export default function ConfirmDialog({
 
         <p className="mt-4 text-[15px] leading-relaxed text-steel">{description}</p>
 
+        {reason && (
+          <label className="mt-4 block text-sm text-navy">
+            {reason.label}
+            <textarea
+              value={reason.value}
+              onChange={(e) => reason.onChange(e.target.value)}
+              placeholder={reason.placeholder}
+              rows={3}
+              className="mt-1.5 w-full rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+            />
+          </label>
+        )}
+
         <div className="mt-8 flex justify-end gap-3">
           <button
             type="button"
@@ -58,7 +85,7 @@ export default function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={confirming}
+            disabled={confirming || reasonTooShort}
             className="rounded-full bg-navy px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue disabled:opacity-50"
           >
             {confirming ? "Enviando..." : confirmLabel}

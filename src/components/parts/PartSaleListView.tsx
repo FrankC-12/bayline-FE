@@ -7,6 +7,7 @@ import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePartSales } from "@/hooks/usePartSales";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Pendiente",
@@ -35,7 +36,7 @@ export default function PartSalesListView() {
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
-  const { sales, loading } = usePartSales(filialId, search || undefined);
+  const { sales, loading, error, refresh } = usePartSales(filialId, search || undefined);
 
   return (
     <div>
@@ -66,6 +67,8 @@ export default function PartSalesListView() {
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando ventas...</div>
+        ) : error ? (
+          <ErrorState error={error} onRetry={refresh} compact />
         ) : sales.length === 0 ? (
           <EmptyState
             compact
@@ -107,7 +110,7 @@ export default function PartSalesListView() {
                   <td className="px-6 py-4 text-steel">
                     {new Date(s.created_at).toLocaleDateString("es-VE")}
                   </td>
-                  <td className="px-6 py-4 font-semibold text-navy">${s.total.toFixed(2)}</td>
+                  <td className="px-6 py-4 font-semibold text-navy">${s.total_with_taxes.toFixed(2)}</td>
                   <td className="px-6 py-4">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${STATUS_STYLES[s.status]}`}

@@ -14,3 +14,12 @@ export interface AppUser {
   created_at: string;
   updated_at: string;
 }
+
+/** Minimal id/name/role shape for "asignar técnico/asesor" pickers — see
+ * GET /users/directory, which any authenticated user can read (unlike
+ * AppUser's email/permission_overrides, which are admin-only). */
+export interface UserDirectoryEntry {
+  id: string;
+  full_name: string;
+  role_id: string;
+}

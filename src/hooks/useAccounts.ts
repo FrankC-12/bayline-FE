@@ -1,28 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { listAccounts, createAccount, updateAccount } from "@/lib/api/administracion";
 import type { Account } from "@/types/administracion";
+import { useListLoader } from "./useListLoader";
 
 export function useAccounts(filialId: string | null) {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setAccounts([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listAccounts(filialId);
-    setAccounts(data);
-    setLoading(false);
-  }, [filialId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: accounts,
+    setData: setAccounts,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<Account>(() => (filialId ? listAccounts(filialId) : Promise.resolve([])), [filialId]);
 
   const addAccount = useCallback(
     async (input: { name: string; bank?: string | null; currency: string; account_type: string; opening_balance?: number }) => {
@@ -31,14 +21,17 @@ export function useAccounts(filialId: string | null) {
       setAccounts((prev) => [...prev, created]);
       return created;
     },
-    [filialId]
+    [filialId, setAccounts]
   );
 
-  const editAccount = useCallback(async (id: string, input: { name?: string; bank?: string | null; is_active?: boolean }) => {
-    const updated = await updateAccount(id, input);
-    setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
-    return updated;
-  }, []);
+  const editAccount = useCallback(
+    async (id: string, input: { name?: string; bank?: string | null; is_active?: boolean }) => {
+      const updated = await updateAccount(id, input);
+      setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+      return updated;
+    },
+    [setAccounts]
+  );
 
-  return { accounts, loading, addAccount, editAccount, refresh: load };
+  return { accounts, loading, error, addAccount, editAccount, refresh };
 }

@@ -1,28 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { listSupplierClaims, createSupplierClaim, updateSupplierClaim, resolveSupplierClaim } from "@/lib/api/administracion";
 import type { SupplierClaim, SupplierClaimResolveInput } from "@/types/administracion";
+import { useListLoader } from "./useListLoader";
 
 export function useSupplierClaims(filialId: string | null) {
-  const [claims, setClaims] = useState<SupplierClaim[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setClaims([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listSupplierClaims(filialId);
-    setClaims(data);
-    setLoading(false);
-  }, [filialId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: claims,
+    setData: setClaims,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<SupplierClaim>(() => (filialId ? listSupplierClaims(filialId) : Promise.resolve([])), [filialId]);
 
   const addClaim = useCallback(
     async (input: {
@@ -39,7 +29,7 @@ export function useSupplierClaims(filialId: string | null) {
       setClaims((prev) => [created, ...prev]);
       return created;
     },
-    [filialId]
+    [filialId, setClaims]
   );
 
   const editClaim = useCallback(
@@ -57,14 +47,17 @@ export function useSupplierClaims(filialId: string | null) {
       setClaims((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
       return updated;
     },
-    []
+    [setClaims]
   );
 
-  const resolveClaim = useCallback(async (id: string, input: SupplierClaimResolveInput) => {
-    const updated = await resolveSupplierClaim(id, input);
-    setClaims((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-    return updated;
-  }, []);
+  const resolveClaim = useCallback(
+    async (id: string, input: SupplierClaimResolveInput) => {
+      const updated = await resolveSupplierClaim(id, input);
+      setClaims((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      return updated;
+    },
+    [setClaims]
+  );
 
-  return { claims, loading, addClaim, editClaim, resolveClaim, refresh: load };
+  return { claims, loading, error, addClaim, editClaim, resolveClaim, refresh };
 }

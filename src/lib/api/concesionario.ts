@@ -43,7 +43,22 @@ export interface VehicleSaleInput {
   client_document?: string | null;
   advisor_user_id?: string | null;
   sale_type: string;
-  final_price: number;
+  // Only for sale_type="contado" — how the payment splits between foreign
+  // currency and bolívares. The server computes IGTF/final_price from this;
+  // it never trusts a client-submitted total.
+  payment_method?: "usd" | "bs" | "mixed" | null;
+  usd_base?: number | null;
+  // Only meaningful when the price comes out below the vehicle's cost —
+  // the server decides that, this just carries the authorized override.
+  below_cost_override?: boolean;
+  below_cost_override_note?: string | null;
+}
+
+export interface VehicleReservationInput {
+  client_id: string;
+  advisor_user_id: string;
+  deposit_amount: number;
+  expires_at: string;
 }
 
 export interface UpdateVehicleInput {
@@ -79,6 +94,16 @@ export async function createVehicle(input: CreateVehicleInput): Promise<Dealersh
 export async function updateVehicle(id: string, input: UpdateVehicleInput): Promise<DealershipVehicle> {
   return apiFetch<DealershipVehicle>(`/dealership-vehicles/${id}`, {
     method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function reserveVehicle(
+  id: string,
+  input: VehicleReservationInput
+): Promise<DealershipVehicle> {
+  return apiFetch<DealershipVehicle>(`/dealership-vehicles/${id}/reserve`, {
+    method: "POST",
     body: JSON.stringify(input),
   });
 }

@@ -6,9 +6,10 @@ import { Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInspections } from "@/hooks/useInspections";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
-import { useUsers } from "@/hooks/useUser";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
 import CreateInspectionPanel from "./CreateInspectionPanel";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 
 const STATUS_LABELS: Record<string, string> = { en_proceso: "En proceso", completada: "Completada" };
 const STATUS_STYLES: Record<string, string> = {
@@ -24,9 +25,9 @@ export default function InspectionsView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
-  const { inspections, loading, addInspection, removeInspection } = useInspections(filialId);
+  const { inspections, loading, error, addInspection, removeInspection, refresh } = useInspections(filialId);
   const { vehicleMap } = useVehicleLookup(filialId);
-  const { users } = useUsers({ filialId });
+  const { users } = useUserDirectory({ filialId });
 
   const [onlyToday, setOnlyToday] = useState(true);
   const [search, setSearch] = useState("");
@@ -86,6 +87,8 @@ export default function InspectionsView() {
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando inspecciones...</div>
+        ) : error ? (
+          <ErrorState error={error} onRetry={refresh} compact />
         ) : filtered.length === 0 ? (
           <EmptyState
             compact

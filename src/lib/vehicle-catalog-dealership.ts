@@ -31,3 +31,23 @@ export const STATUS_STYLES: Record<VehicleStatus, string> = {
 export function statusLabel(status: VehicleStatus): string {
   return STATUS_LABELS[status] ?? status;
 }
+
+// Mirrors the backend's ConcesionarioService.ALLOWED_TRANSITIONS — kept in
+// sync so the dropdown only ever offers a transition the server will
+// actually accept; the server still re-validates and is the source of truth.
+export const ALLOWED_STATUS_TRANSITIONS: Record<VehicleStatus, VehicleStatus[]> = {
+  en_transito: ["disponible", "en_preparacion"],
+  en_preparacion: ["disponible"],
+  disponible: ["en_preparacion", "reservado", "vendido"],
+  reservado: ["disponible", "vendido"],
+  vendido: [],
+};
+
+/** The current status plus whatever it can legally move to — always
+ * includes the current value so a <select> can show it as selected. */
+export function availableStatusOptions(
+  current: VehicleStatus
+): { value: VehicleStatus; label: string }[] {
+  const targets = new Set([current, ...ALLOWED_STATUS_TRANSITIONS[current]]);
+  return STATUS_OPTIONS.filter((option) => targets.has(option.value));
+}

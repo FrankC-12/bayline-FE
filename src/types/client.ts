@@ -14,7 +14,7 @@ export interface Vehicle {
   mileage: number | null;
   purchase_date: string | null;
   body_type: string | null;
-  plate: string;
+  plate: string | null;
   color: string | null;
   upholstery: string | null;
   fuel_type: FuelType | null;

@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTemparios } from "@/hooks/useTemparios";
 import { useLaborSettings } from "@/hooks/useLaborSettings";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 import TemparioCard from "./TemparioCard";
 import CreateTemparioModal from "./CreateTemparioModal";
 import type { Tempario } from "@/types/tempario";
@@ -15,7 +16,7 @@ export default function TemparioListView() {
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
-  const { temparios, loading, addTempario, editTempario } = useTemparios(filialId, search || undefined);
+  const { temparios, loading, error, addTempario, editTempario, refresh } = useTemparios(filialId, search || undefined);
   // Editing these settings now lives in the standalone Ajustes module — kept
   // here read-only, just to feed the live price preview below.
   const { settings } = useLaborSettings(filialId);
@@ -84,6 +85,8 @@ export default function TemparioListView() {
         <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center text-sm text-steel">
           Cargando temparios...
         </div>
+      ) : error ? (
+        <ErrorState error={error} onRetry={refresh} />
       ) : temparios.length === 0 ? (
         <EmptyState
           title={search ? `Sin resultados para "${search}"` : "No hay temparios todavía"}

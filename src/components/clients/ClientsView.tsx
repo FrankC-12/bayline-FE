@@ -8,6 +8,7 @@ import { useClients } from "@/hooks/useClients";
 import type { Client } from "@/types/client";
 import type { CreateClientInput } from "@/lib/api/clients";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 import ClientsToolbar from "./ClientToolbar";
 import ClientCard from "./ClientCard";
 import ClientFormPanel from "./ClientFormPanel";
@@ -17,7 +18,7 @@ export default function ClientsView() {
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
-  const { clients, loading, addClient, editClient } = useClients(filialId, search || undefined);
+  const { clients, loading, error, addClient, editClient, refresh } = useClients(filialId, search || undefined);
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -75,6 +76,8 @@ export default function ClientsView() {
         <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center text-sm text-steel">
           Cargando clientes...
         </div>
+      ) : error ? (
+        <ErrorState error={error} onRetry={refresh} />
       ) : clients.length === 0 ? (
         <EmptyState
           title={search ? `Sin resultados para "${search}"` : "No hay clientes todavía"}

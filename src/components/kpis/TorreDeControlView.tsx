@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Calendar, Trophy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUsers } from "@/hooks/useUser";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { getKpiReport, getManualMovementsRate, getReworkReport, type KpiCategory } from "@/lib/api/kpis";
 import type { KpiReport, ManualMovementsRate, ReworkReport } from "@/types/kpis";
 import MaintenanceDueCard from "./MaintenanceDueCard";
@@ -37,7 +37,7 @@ function formatHours(hours: number): string {
 export default function TorreDeControlView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
-  const { users } = useUsers({ filialId });
+  const { users } = useUserDirectory({ filialId });
 
   const [tab, setTab] = useState<Tab>("mantenimientos");
   const [dateFrom, setDateFrom] = useState("");

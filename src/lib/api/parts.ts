@@ -221,6 +221,11 @@ export async function createPartReturn(input: CreatePartReturnInput): Promise<Pa
 
 export interface PartSaleQuote {
   total: number;
+  iva_percentage: number;
+  iva_amount: number;
+  igtf_percentage: number;
+  igtf_amount: number;
+  total_with_taxes: number;
   lines: { part_id: string; warehouse_id: string; quantity: number; unit_price: number;
     unit_cost: number; line_total: number;
     allocations: { lot_id: string; quantity: number; unit_cost: number }[] }[];

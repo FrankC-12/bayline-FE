@@ -37,3 +37,25 @@ export function formatVenezuelanPhone(raw: string): string {
   if (digits.length <= 7) return `(${digits.slice(0, 4)}) ${digits.slice(4)}`;
   return `(${digits.slice(0, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
 }
+
+/** Renders a date-only "YYYY-MM-DD" value (e.g. an income/expense entry's
+ * entry_date) as a calendar date, always in Venezuela's timezone rather than
+ * whatever the browser happens to be set to — matching how the backend
+ * computed the date in the first place. `new Date("YYYY-MM-DD")` parses as
+ * UTC midnight, which a UTC-negative browser (like one in Venezuela) then
+ * renders as the previous day; anchoring to noon UTC sidesteps that. */
+export function formatEntryDate(dateOnly: string): string {
+  return new Date(`${dateOnly}T12:00:00Z`).toLocaleDateString("es-VE", {
+    timeZone: "America/Caracas",
+  });
+}
+
+/** Renders a full timestamp (e.g. an entry's created_at) as date + time in
+ * Venezuela's timezone, explicitly — not the browser's. */
+export function formatEntryDateTime(isoTimestamp: string): string {
+  return new Date(isoTimestamp).toLocaleString("es-VE", {
+    timeZone: "America/Caracas",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}

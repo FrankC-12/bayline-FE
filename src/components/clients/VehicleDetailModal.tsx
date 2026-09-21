@@ -8,6 +8,7 @@ import { getVehicleWarrantyByVin } from "@/lib/api/vehicleWarranties";
 import { useMaintenancePlans } from "@/hooks/useMaintenancePlans";
 import { useVehicleMileageHistory } from "@/hooks/useVehicleMileageHistory";
 import { ApiError } from "@/lib/api/client";
+import ErrorState from "@/components/common/ErrorState";
 import type { Vehicle } from "@/types/client";
 import type { VehiclePlanStatus } from "@/types/maintenancePlan";
 import type { VehicleWarranty } from "@/types/vehicleWarranty";
@@ -52,7 +53,12 @@ export default function VehicleDetailModal({ open, onClose, vehicle, filialId }:
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { history: mileageHistory, loading: mileageLoading } = useVehicleMileageHistory(open ? vehicle.id : null);
+  const {
+    history: mileageHistory,
+    loading: mileageLoading,
+    error: mileageError,
+    refresh: refreshMileage,
+  } = useVehicleMileageHistory(open ? vehicle.id : null);
 
   const [warranty, setWarranty] = useState<VehicleWarranty | null>(null);
   const [warrantyLoading, setWarrantyLoading] = useState(true);
@@ -312,6 +318,8 @@ export default function VehicleDetailModal({ open, onClose, vehicle, filialId }:
 
             {mileageLoading ? (
               <div className="p-10 text-center text-sm text-steel">Cargando historial...</div>
+            ) : mileageError ? (
+              <ErrorState error={mileageError} onRetry={refreshMileage} compact />
             ) : mileageHistory.length === 0 ? (
               <p className="rounded-xl bg-ash px-4 py-6 text-center text-sm text-steel">
                 Este vehículo aún no tiene lecturas de kilometraje registradas.

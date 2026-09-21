@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { AppUser, UserStatus } from "@/types/user";
+import type { AppUser, UserDirectoryEntry, UserStatus } from "@/types/user";
 import type { ModulePermission } from "@/types/role";
 
 export interface CreateUserInput {
@@ -34,6 +34,17 @@ export async function getUsers(params?: {
 
 export async function getUser(id: string): Promise<AppUser> {
   return apiFetch<AppUser>(`/users/${id}`);
+}
+
+export async function getUsersDirectory(params?: {
+  holding_id?: string;
+  filial_id?: string;
+}): Promise<UserDirectoryEntry[]> {
+  const query = new URLSearchParams();
+  if (params?.holding_id) query.set("holding_id", params.holding_id);
+  if (params?.filial_id) query.set("filial_id", params.filial_id);
+  const qs = query.toString();
+  return apiFetch<UserDirectoryEntry[]>(`/users/directory${qs ? `?${qs}` : ""}`);
 }
 
 export async function createUser(input: CreateUserInput): Promise<AppUser> {

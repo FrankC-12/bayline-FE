@@ -5,6 +5,7 @@ import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMaintenancePlans } from "@/hooks/useMaintenancePlans";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 import MaintenancePlanCard from "./MaintenancePlanCard";
 import CreateMaintenancePlanModal from "./CreateMaintenancePlanModal";
 import type { MaintenancePlan } from "@/types/maintenancePlan";
@@ -14,7 +15,7 @@ export default function MaintenancePlanListView() {
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
-  const { plans, loading, addPlan, editPlan } = useMaintenancePlans(filialId, search || undefined);
+  const { plans, loading, error, addPlan, editPlan, refresh } = useMaintenancePlans(filialId, search || undefined);
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<MaintenancePlan | null>(null);
@@ -73,6 +74,8 @@ export default function MaintenancePlanListView() {
         <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center text-sm text-steel">
           Cargando planes...
         </div>
+      ) : error ? (
+        <ErrorState error={error} onRetry={refresh} />
       ) : plans.length === 0 ? (
         <EmptyState
           title={search ? `Sin resultados para "${search}"` : "No hay planes de mantenimiento todavía"}

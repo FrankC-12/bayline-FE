@@ -34,6 +34,10 @@ export interface UpdateServiceOrderInput {
   clear_technician?: boolean;
   clear_advisor?: boolean;
   clear_bay?: boolean;
+  // Only meaningful when status="completado" while a task or ODT isn't
+  // finished — the server decides that, this just carries the explicit
+  // confirmation to go ahead anyway.
+  confirm_incomplete_completion?: boolean;
 }
 
 export async function listServiceOrders(
@@ -62,6 +66,17 @@ export async function updateServiceOrder(
     method: "PATCH",
     body: JSON.stringify(input),
   });
+}
+
+export async function cancelServiceOrder(id: string, reason: string): Promise<ServiceOrder> {
+  return apiFetch<ServiceOrder>(`/service-orders/${id}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function reopenServiceOrder(id: string): Promise<ServiceOrder> {
+  return apiFetch<ServiceOrder>(`/service-orders/${id}/reopen`, { method: "POST" });
 }
 
 export async function listBays(filialId: string): Promise<Bay[]> {

@@ -10,8 +10,10 @@ import { useClients } from "@/hooks/useClients";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useLaborSettings } from "@/hooks/useLaborSettings";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 import type { CreateIncomeEntryInput } from "@/lib/api/administracion";
 import type { CounterpartyType, IncomeConcept, IncomeEntry } from "@/types/administracion";
+import { formatEntryDate, formatEntryDateTime } from "@/lib/format";
 
 const CONCEPT_OPTIONS: { value: IncomeConcept; label: string }[] = [
   { value: "cobro_cliente", label: "Cobro de cliente" },
@@ -46,7 +48,7 @@ export default function IncomeView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
   const [search, setSearch] = useState("");
-  const { entries, loading, addEntry, reverseEntry } = useIncomeEntries(filialId, search || undefined);
+  const { entries, loading, error, addEntry, reverseEntry, refresh } = useIncomeEntries(filialId, search || undefined);
   const { accounts } = useAccounts(filialId);
   const { clients } = useClients(filialId);
   const { suppliers } = useSuppliers(filialId);
@@ -115,6 +117,8 @@ export default function IncomeView() {
       <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando ingresos...</div>
+        ) : error ? (
+          <ErrorState error={error} onRetry={refresh} compact />
         ) : entries.length === 0 ? (
           <EmptyState
             compact
@@ -136,7 +140,12 @@ export default function IncomeView() {
             <tbody className="divide-y divide-navy/5">
               {entries.map((e) => (
                 <tr key={e.id} className="transition hover:bg-ash/60">
-                  <td className="px-6 py-4 text-steel">{new Date(e.entry_date).toLocaleDateString("es-VE")}</td>
+                  <td className="px-6 py-4 text-steel">
+                    {/* Automático = generado por una venta/documento real,
+                    donde la hora exacta importa; manual solo tiene una
+                    fecha elegida a mano. */}
+                    {e.source === "automatico" ? formatEntryDateTime(e.created_at) : formatEntryDate(e.entry_date)}
+                  </td>
                   <td className="px-6 py-4">
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-semibold ${e.source === "automatico" ? "bg-blue-light text-blue" : "bg-amber-100 text-amber-700"}`}

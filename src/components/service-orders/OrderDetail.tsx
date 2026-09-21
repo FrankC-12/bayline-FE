@@ -8,9 +8,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useServiceOrder } from "@/hooks/useServiceOrder";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
-import { useUsers } from "@/hooks/useUser";
-import { useRoles } from "@/hooks/useRoles";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
+import { useRoleDirectory } from "@/hooks/useRoleDirectory";
 import { useBays } from "@/hooks/useBays";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useInspectionForOrder } from "@/hooks/useInspectionForOrder";
 import { useInspections } from "@/hooks/useInspections";
 import { useOrderSummary } from "@/hooks/useOrderSummary";
@@ -24,6 +25,8 @@ import WarrantyClaimModal from "./WarrantyClaimModal";
 import { closeServiceOrder } from "@/lib/api/serviceOrderBilling";
 import { formatElapsed } from "@/lib/time";
 import LiveDot from "@/components/common/LiveDot";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { ApiError } from "@/lib/api/client";
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Pendiente",
@@ -53,11 +56,12 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const filialId = currentUser?.filialId ?? null;
   const toast = useToast();
 
-  const { order, loading, error, update, refresh: refreshOrder } = useServiceOrder(orderId);
+  const { order, loading, error, update, cancel, reopen, refresh: refreshOrder } = useServiceOrder(orderId);
   const { vehicleMap } = useVehicleLookup(filialId);
-  const { users } = useUsers({ filialId });
-  const { roles } = useRoles("filial");
+  const { users } = useUserDirectory({ filialId });
+  const { roles } = useRoleDirectory("filial");
   const { bays } = useBays(filialId);
+  const { canEdit: canReopen } = useModuleAccess("administracion");
   const { inspection, link } = useInspectionForOrder(order?.id ?? null);
   const { inspections: unlinkedInspections } = useInspections(filialId, true);
   const {
@@ -77,6 +81,9 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const [claimModalOpen, setClaimModalOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [closePanelOpen, setClosePanelOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [incompleteCompletionWarning, setIncompleteCompletionWarning] = useState<string | null>(null);
   const [nextMaintenanceDate, setNextMaintenanceDate] = useState("");
   const [temparioSearch, setTemparioSearch] = useState("");
   const [nextMaintenanceTempario, setNextMaintenanceTempario] = useState<{ id: string; code: string; name: string } | null>(null);
@@ -155,7 +162,6 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const STATUS_TRANSITION_TOAST: Record<string, string> = {
     en_progreso: "Orden iniciada.",
     completado: "Orden marcada como completada.",
-    cancelado: "Orden cancelada.",
   };
 
   async function transition(status: string) {
@@ -165,6 +171,56 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
       await update({ status });
       await refreshSummary();
       if (STATUS_TRANSITION_TOAST[status]) toast.success(STATUS_TRANSITION_TOAST[status]);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function markCompleted(confirmIncomplete = false) {
+    if (readOnly) return;
+    setSaving(true);
+    try {
+      await update({ status: "completado", confirm_incomplete_completion: confirmIncomplete });
+      await refreshSummary();
+      toast.success("Orden marcada como completada.");
+      setIncompleteCompletionWarning(null);
+    } catch (err) {
+      if (err instanceof ApiError && err.errorCode === "order_incomplete") {
+        setIncompleteCompletionWarning(err.message);
+      } else {
+        throw err;
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmCancel() {
+    if (cancelReason.trim().length < 3) return;
+    setSaving(true);
+    setActionError(null);
+    try {
+      await cancel(cancelReason.trim());
+      await refreshSummary();
+      toast.success("Orden cancelada.");
+      setCancelDialogOpen(false);
+      setCancelReason("");
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "No se pudo cancelar la orden.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function reopenOrder() {
+    setSaving(true);
+    setActionError(null);
+    try {
+      await reopen();
+      await refreshSummary();
+      toast.success("Orden reabierta.");
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "No se pudo reabrir la orden.");
     } finally {
       setSaving(false);
     }
@@ -222,6 +278,18 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           <span className="rounded-full bg-ash px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-steel">
             {TYPE_LABELS[order.order_type]}
           </span>
+          {order.completed_with_pending_items && (
+            <span
+              title={
+                order.completed_override_at
+                  ? `Confirmado por ${users.find((u) => u.id === order.completed_override_by_user_id)?.full_name ?? "—"} el ${new Date(order.completed_override_at).toLocaleString("es-VE")}`
+                  : undefined
+              }
+              className="rounded-full bg-amber-100 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-amber-700"
+            >
+              Completada con pendientes
+            </span>
+          )}
           <span className="flex items-center gap-1.5 rounded-full border border-navy/15 px-2.5 py-1 font-mono text-xs text-navy">
             {!order.closed_at && <LiveDot />}
             <Clock className="h-3.5 w-3.5" />
@@ -233,7 +301,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           {info ? `${info.vehicle.brand} ${info.vehicle.model} ${info.vehicle.year ?? ""}` : "Vehículo"}
         </h1>
         <p className="text-sm text-steel">
-          {info?.vehicle.plate} · {info?.client.full_name} · Técnico: {users.find((u) => u.id === order.technician_user_id)?.full_name ?? "Sin asignar"}
+          {info?.vehicle.plate ?? "Sin placa"} · {info?.client.full_name} · Técnico: {users.find((u) => u.id === order.technician_user_id)?.full_name ?? "Sin asignar"}
         </p>
 
         {inspection && <p className="mt-4 inline-flex rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800">✓ Inspección preliminar vinculada</p>}
@@ -250,7 +318,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           )}
           {order.status === "en_progreso" && (
             <button
-              onClick={() => transition("completado")}
+              onClick={() => markCompleted(false)}
               disabled={saving || readOnly}
               className="rounded-full bg-blue px-5 py-2 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-60"
             >
@@ -275,16 +343,58 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             Reclamos de garantía
           </button>}
           {actionError && <p role="alert" className="w-full text-sm text-red-600">{actionError}</p>}
-          {(order.status === "pendiente" || order.status === "en_progreso") && (
+        </div>
+
+        {(order.status === "pendiente" || order.status === "en_progreso") && (
+          <div className="mt-3 flex justify-end border-t border-red-100 pt-3">
             <button
-              onClick={() => transition("cancelado")}
+              onClick={() => setCancelDialogOpen(true)}
               disabled={saving || readOnly}
               className="rounded-full border border-red-200 px-5 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
             >
               Cancelar orden
             </button>
-          )}
-        </div>
+          </div>
+        )}
+
+        {order.status === "cancelado" && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-red-100 pt-3">
+            <div className="text-sm text-steel">
+              <p>
+                Cancelada por{" "}
+                <span className="font-semibold text-navy">
+                  {users.find((u) => u.id === order.cancelled_by_user_id)?.full_name ?? "—"}
+                </span>{" "}
+                el{" "}
+                <span className="font-semibold text-navy">
+                  {order.cancelled_at ? new Date(order.cancelled_at).toLocaleString("es-VE") : "—"}
+                </span>
+                {order.cancel_reason && <> — &ldquo;{order.cancel_reason}&rdquo;</>}
+              </p>
+              {order.reopened_at && (
+                <p className="mt-1">
+                  Reabierta por{" "}
+                  <span className="font-semibold text-navy">
+                    {users.find((u) => u.id === order.reopened_by_user_id)?.full_name ?? "—"}
+                  </span>{" "}
+                  el{" "}
+                  <span className="font-semibold text-navy">
+                    {new Date(order.reopened_at).toLocaleString("es-VE")}
+                  </span>
+                </p>
+              )}
+            </div>
+            {canReopen && (
+              <button
+                onClick={reopenOrder}
+                disabled={saving}
+                className="rounded-full border border-navy/15 px-5 py-2 text-sm font-semibold text-navy transition hover:border-blue hover:text-blue disabled:opacity-60"
+              >
+                Reabrir orden
+              </button>
+            )}
+          </div>
+        )}
 
         {closePanelOpen && (
           <div className="mt-5 rounded-xl bg-ash p-4">
@@ -597,6 +707,36 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           onClose={() => setClaimModalOpen(false)}
         />
       )}
+      <ConfirmDialog
+        open={cancelDialogOpen}
+        title="Cancelar orden"
+        description={`Esta acción cancelará la orden ${order.code}. Quedará registrado quién y cuándo la canceló, y podrá reabrirse después si corresponde.`}
+        confirmLabel="Cancelar orden"
+        cancelLabel="Volver"
+        confirming={saving}
+        reason={{
+          label: "Motivo de la cancelación",
+          placeholder: "Ej. El cliente desistió del servicio.",
+          value: cancelReason,
+          onChange: setCancelReason,
+          minLength: 3,
+        }}
+        onConfirm={confirmCancel}
+        onCancel={() => {
+          setCancelDialogOpen(false);
+          setCancelReason("");
+        }}
+      />
+      <ConfirmDialog
+        open={incompleteCompletionWarning != null}
+        title="Completar orden con pendientes"
+        description={`${incompleteCompletionWarning ?? ""} ¿Completar la orden de todas formas? Quedará registrado quién lo confirmó y cuándo.`}
+        confirmLabel="Completar de todas formas"
+        cancelLabel="Volver"
+        confirming={saving}
+        onConfirm={() => markCompleted(true)}
+        onCancel={() => setIncompleteCompletionWarning(null)}
+      />
     </div>
   );
 }

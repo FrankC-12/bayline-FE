@@ -7,7 +7,8 @@ import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useServiceOrders } from "@/hooks/useServiceOrders";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
-import { useUsers } from "@/hooks/useUser";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
+import ErrorState from "@/components/common/ErrorState";
 import type { ServiceOrder, ServiceOrderStatus } from "@/types/serviceOrder";
 import OrderCard from "./OrderCard";
 import CreateOrderPanel, { type CreateOrderExtra } from "./CreateOrderPanel";
@@ -23,9 +24,9 @@ export default function OrdersBoard() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
-  const { orders, loading, addOrder } = useServiceOrders(filialId, "active");
+  const { orders, loading, error, addOrder, refresh } = useServiceOrders(filialId, "active");
   const { vehicleMap } = useVehicleLookup(filialId);
-  const { users } = useUsers({ filialId });
+  const { users } = useUserDirectory({ filialId });
   const [panelOpen, setPanelOpen] = useState(false);
 
   const technicianName = (id: string | null) => users.find((u) => u.id === id)?.full_name ?? "";
@@ -77,6 +78,8 @@ export default function OrdersBoard() {
         <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center text-sm text-steel">
           Cargando órdenes...
         </div>
+      ) : error ? (
+        <ErrorState error={error} onRetry={refresh} />
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
           {COLUMNS.map((col) => (

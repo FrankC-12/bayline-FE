@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   createPartMeasure,
   listPartMeasures,
@@ -8,28 +8,20 @@ import {
   setPartMeasureActive,
 } from "@/lib/api/parts";
 import type { PartMeasure } from "@/types/parts";
+import { useListLoader } from "./useListLoader";
 
 /** The holding-wide part-measure catalog (Ajustes → Medidas de Repuestos).
  * Pass includeInactive=true only for the management screen. */
 export function usePartMeasures(filialId: string | null, includeInactive = false) {
-  const [measures, setMeasures] = useState<PartMeasure[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setMeasures([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listPartMeasures(filialId, includeInactive);
-    setMeasures(data);
-    setLoading(false);
-  }, [filialId, includeInactive]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: measures,
+    loading,
+    error,
+    refresh: load,
+  } = useListLoader<PartMeasure>(
+    () => (filialId ? listPartMeasures(filialId, includeInactive) : Promise.resolve([])),
+    [filialId, includeInactive]
+  );
 
   const addMeasure = useCallback(
     async (name: string) => {
@@ -60,5 +52,5 @@ export function usePartMeasures(filialId: string | null, includeInactive = false
     [filialId, load]
   );
 
-  return { measures, loading, refresh: load, addMeasure, editMeasure, toggleMeasureActive };
+  return { measures, loading, error, refresh: load, addMeasure, editMeasure, toggleMeasureActive };
 }

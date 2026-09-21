@@ -11,6 +11,7 @@ import { useAccounts } from "@/hooks/useAccounts";
 import { useClients } from "@/hooks/useClients";
 import type { ClaimStatus, ClaimResolution, SupplierClaim } from "@/types/administracion";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 
 const STATUS_OPTIONS: { value: ClaimStatus; label: string }[] = [
   { value: "pendiente_envio", label: "Pendiente de envío" },
@@ -45,7 +46,7 @@ export default function SupplierClaimsView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
-  const { claims, loading, addClaim, editClaim, resolveClaim } = useSupplierClaims(filialId);
+  const { claims, loading, error, addClaim, editClaim, resolveClaim, refresh } = useSupplierClaims(filialId);
   const { suppliers } = useSuppliers(filialId);
   const { parts } = useParts(filialId);
 
@@ -118,6 +119,8 @@ export default function SupplierClaimsView() {
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando reclamos...</div>
+        ) : error ? (
+          <ErrorState error={error} onRetry={refresh} compact />
         ) : filtered.length === 0 ? (
           <EmptyState
             compact

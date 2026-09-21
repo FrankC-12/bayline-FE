@@ -8,10 +8,21 @@ import { getLatestExchangeRates, type CreateVehicleInput } from "@/lib/api/conce
 import CreatableSelect from "./CreatableSelect";
 import BrandModelSelect from "@/components/common/BrandModelSelect";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
+import { useToast } from "@/contexts/ToastContext";
 import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 
+interface FieldErrors {
+  brand?: string;
+  model?: string;
+  year?: string;
+  vin?: string;
+  sku?: string;
+  costPrice?: string;
+}
+
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: 10 }, (_, i) => CURRENT_YEAR + 1 - i);
+const MIN_YEAR = 1990;
+const YEARS = Array.from({ length: CURRENT_YEAR + 1 - MIN_YEAR + 1 }, (_, i) => CURRENT_YEAR + 1 - i);
 
 interface AddVehicleModalProps {
   open: boolean;
@@ -20,24 +31,26 @@ interface AddVehicleModalProps {
   onSubmit: (input: CreateVehicleInput) => Promise<unknown>;
 }
 
-function suggestSku(brand: string, model: string, year: number, color: string): string {
+function suggestSku(brand: string, model: string, year: number | "", color: string): string {
   const b = brand.slice(0, 3).toUpperCase();
   const m = model.slice(0, 3).toUpperCase();
-  const y = String(year).slice(-2);
+  const y = year === "" ? "" : String(year).slice(-2);
   const c = color.slice(0, 3).toUpperCase();
   return [b, m, y, c].filter(Boolean).join("-");
 }
 
 export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: AddVehicleModalProps) {
   const { canEdit } = useModuleAccess("concesionario");
+  const toast = useToast();
   const { brands } = useVehicleCatalog(filialId);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [status, setStatus] = useState("en_transito");
   const [years, setYears] = useState(YEARS);
   const [colors, setColors] = useState(VEHICLE_COLORS);
   const [condition, setCondition] = useState("nuevo");
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
-  const [year, setYear] = useState(CURRENT_YEAR);
+  const [year, setYear] = useState<number | "">("");
   const [color, setColor] = useState("");
   const [fuelType, setFuelType] = useState("gasolina");
   const [transmission, setTransmission] = useState("automatica");
@@ -109,7 +122,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
     setCondition("nuevo");
     setBrand("");
     setModel("");
-    setYear(CURRENT_YEAR);
+    setYear("");
     setColor("");
     setFuelType("gasolina");
     setTransmission("automatica");
@@ -126,6 +139,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
     setIgtfPercentage("3");
     setLuxuryTaxPercentage("0");
     setError(null);
+    setFieldErrors({});
     void getLatestExchangeRates().then((rates) => {
       const usd = rates.find((rate) => rate.currency === "USD");
       if (usd) { setBcvRate(usd.rate_ves); setBcvDate(usd.value_date); }
@@ -137,16 +151,28 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
   const cash = Number(priceCash) || 0;
   const ivaAmount = cash * (Number(ivaPercentage) || 0) / 100;
   // IGTF taxes the actual payment amount, which already includes IVA — not
-  // just the pre-tax base. Mirrors DealershipVehicle.igtf_amount.
-  const igtfAmount = priceCurrency === "USD" ? (cash + ivaAmount) * (Number(igtfPercentage) || 0) / 100 : 0;
+  // just the pre-tax base. Mirrors DealershipVehicle.igtf_amount. Shown
+  // here only as an estimate ("if paid fully in USD") — it's deliberately
+  // NOT part of cashTotal, since the real IGTF is computed at sale time on
+  // whatever portion actually lands in foreign currency (see SellVehicleModal).
+  const igtfEstimate = priceCurrency === "USD" ? (cash + ivaAmount) * (Number(igtfPercentage) || 0) / 100 : 0;
   const luxuryAmount = cash * (Number(luxuryTaxPercentage) || 0) / 100;
-  const cashTotal = cash + ivaAmount + igtfAmount + luxuryAmount;
+  const cashTotal = cash + ivaAmount + luxuryAmount;
 
   async function handleSubmit() {
-    if (!brand || !model || !vin.trim() || !sku.trim() || !(Number(costPrice) > 0)) {
-      setError("Marca, modelo, VIN, SKU y costo de adquisición son obligatorios.");
+    const nextFieldErrors: FieldErrors = {};
+    if (!brand) nextFieldErrors.brand = "Selecciona la marca.";
+    if (!model) nextFieldErrors.model = "Selecciona el modelo.";
+    if (year === "") nextFieldErrors.year = "Selecciona el año.";
+    if (!vin.trim()) nextFieldErrors.vin = "El VIN es obligatorio.";
+    if (!sku.trim()) nextFieldErrors.sku = "El SKU es obligatorio.";
+    if (!(Number(costPrice) > 0)) nextFieldErrors.costPrice = "Indica el costo de adquisición.";
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
+      toast.error("Completa los campos obligatorios resaltados.");
       return;
     }
+    setFieldErrors({});
     setSubmitting(true);
     setError(null);
     try {
@@ -156,7 +182,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
         condition,
         brand,
         model,
-        year,
+        year: Number(year),
         color: color || null,
         fuel_type: fuelType || null,
         transmission: transmission || null,
@@ -227,11 +253,39 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <BrandModelSelect brands={brands} brand={brand} model={model} onBrandChange={setBrand} onModelChange={setModel} />
+            <BrandModelSelect
+              brands={brands}
+              brand={brand}
+              model={model}
+              onBrandChange={(value) => {
+                setBrand(value);
+                setFieldErrors((prev) => ({ ...prev, brand: undefined }));
+              }}
+              onModelChange={(value) => {
+                setModel(value);
+                setFieldErrors((prev) => ({ ...prev, model: undefined }));
+              }}
+              brandError={fieldErrors.brand}
+              modelError={fieldErrors.model}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <CreatableSelect label="Año" required canAdd={canEdit} value={year} options={years} onChange={setYear} onAdd={addYear} inputMode="numeric" />
+            <CreatableSelect
+              label="Año"
+              required
+              canAdd={canEdit}
+              value={year}
+              options={years}
+              onChange={(value) => {
+                setYear(value);
+                setFieldErrors((prev) => ({ ...prev, year: undefined }));
+              }}
+              onAdd={addYear}
+              inputMode="numeric"
+              placeholder="Selecciona un año..."
+              error={fieldErrors.year}
+            />
             <CreatableSelect label="Color" canAdd={canEdit} value={color} options={["", ...colors]} onChange={setColor} onAdd={addColor} />
           </div>
 
@@ -267,10 +321,16 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
               <label className="mb-1.5 block text-sm font-medium text-navy">VIN * ({vin.length}/17)</label>
               <input
                 value={vin}
-                onChange={(e) => setVin(e.target.value.slice(0, 17))}
+                onChange={(e) => {
+                  setVin(e.target.value.slice(0, 17));
+                  setFieldErrors((prev) => ({ ...prev, vin: undefined }));
+                }}
                 placeholder="8AJHA3CD1K0000000"
-                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+                className={`w-full rounded-xl border px-4 py-2.5 text-sm outline-none focus:border-blue ${
+                  fieldErrors.vin ? "border-red-400" : "border-navy/15"
+                }`}
               />
+              {fieldErrors.vin && <p className="mt-1 text-xs text-red-600">{fieldErrors.vin}</p>}
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Placa (máx. 7)</label>
@@ -291,9 +351,13 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
                 onChange={(e) => {
                   setSku(e.target.value);
                   setSkuTouched(true);
+                  setFieldErrors((prev) => ({ ...prev, sku: undefined }));
                 }}
-                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+                className={`w-full rounded-xl border px-4 py-2.5 text-sm outline-none focus:border-blue ${
+                  fieldErrors.sku ? "border-red-400" : "border-navy/15"
+                }`}
               />
+              {fieldErrors.sku && <p className="mt-1 text-xs text-red-600">{fieldErrors.sku}</p>}
             </div>
             <div>
               <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -343,11 +407,17 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
               <input
                 inputMode="decimal"
                 value={costPrice}
-                onChange={(e) => setCostPrice(formatMoneyInput(e.target.value))}
+                onChange={(e) => {
+                  setCostPrice(formatMoneyInput(e.target.value));
+                  setFieldErrors((prev) => ({ ...prev, costPrice: undefined }));
+                }}
                 placeholder="0.00"
-                className="w-full rounded-xl border border-navy/15 py-2.5 pl-12 pr-4 text-sm outline-none focus:border-blue"
+                className={`w-full rounded-xl border py-2.5 pl-12 pr-4 text-sm outline-none focus:border-blue ${
+                  fieldErrors.costPrice ? "border-red-400" : "border-navy/15"
+                }`}
               />
             </div>
+            {fieldErrors.costPrice && <p className="mt-1.5 text-xs text-red-600">{fieldErrors.costPrice}</p>}
             <p className="mt-1.5 text-xs text-steel">Lo que pagó el concesionario por el vehículo — se usa para calcular la rentabilidad, no se muestra al cliente.</p>
             <label className="mt-2 flex items-center gap-2 text-sm text-steel">
               <input
@@ -367,7 +437,8 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
               <label className="text-xs text-steel">IGTF %<input inputMode="decimal" disabled={priceCurrency !== "USD"} value={igtfPercentage} onChange={(e) => setIgtfPercentage(formatMoneyInput(e.target.value))} className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy disabled:opacity-50" /></label>
               <label className="text-xs text-steel">Lujo % (manual)<input inputMode="decimal" value={luxuryTaxPercentage} onChange={(e) => setLuxuryTaxPercentage(formatMoneyInput(e.target.value))} className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy" /></label>
             </div>
-            <dl className="mt-4 space-y-1 border-t border-navy/10 pt-3 text-sm"><div className="flex justify-between"><dt>IVA</dt><dd>{ivaAmount.toFixed(2)}</dd></div>{priceCurrency === "USD" && <div className="flex justify-between"><dt>IGTF</dt><dd>{igtfAmount.toFixed(2)}</dd></div>}<div className="flex justify-between"><dt>Impuesto al lujo</dt><dd>{luxuryAmount.toFixed(2)}</dd></div><div className="flex justify-between pt-1 font-bold text-navy"><dt>Total</dt><dd>{priceCurrency === "USD" ? "$" : "Bs."} {cashTotal.toFixed(2)}</dd></div>{priceCurrency === "USD" && bcvRate && <div className="flex justify-between text-xs text-steel"><dt>Equivalente BCV</dt><dd>Bs. {(cashTotal * bcvRate).toFixed(2)}</dd></div>}</dl>
+            <dl className="mt-4 space-y-1 border-t border-navy/10 pt-3 text-sm"><div className="flex justify-between"><dt>IVA</dt><dd>{ivaAmount.toFixed(2)}</dd></div><div className="flex justify-between"><dt>Impuesto al lujo</dt><dd>{luxuryAmount.toFixed(2)}</dd></div><div className="flex justify-between pt-1 font-bold text-navy"><dt>Precio de lista</dt><dd>{priceCurrency === "USD" ? "$" : "Bs."} {cashTotal.toFixed(2)}</dd></div>{priceCurrency === "USD" && bcvRate && <div className="flex justify-between text-xs text-steel"><dt>Equivalente BCV</dt><dd>Bs. {(cashTotal * bcvRate).toFixed(2)}</dd></div>}{priceCurrency === "USD" && <div className="flex justify-between text-xs text-steel"><dt>IGTF estimado si se cobra todo en USD</dt><dd>{igtfEstimate.toFixed(2)}</dd></div>}</dl>
+            <p className="mt-2 text-xs text-steel">El IGTF real se calcula al vender, según cuánto se cobre en divisas — no forma parte del precio de lista.</p>
           </div>
 
           <p className="rounded-xl bg-ash px-4 py-3 text-xs text-steel">

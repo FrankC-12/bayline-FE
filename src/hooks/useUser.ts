@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   getUsers,
   createUser,
@@ -9,6 +9,7 @@ import {
   type UpdateUserInput,
 } from "@/lib/api/user";
 import type { AppUser } from "@/types/user";
+import { useListLoader } from "./useListLoader";
 
 interface UseUsersParams {
   holdingId?: string | null;
@@ -16,34 +17,40 @@ interface UseUsersParams {
 }
 
 export function useUsers(params: UseUsersParams = {}) {
-  const [users, setUsers] = useState<AppUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { holdingId, filialId } = params;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const data = await getUsers({
-      holding_id: params.holdingId ?? undefined,
-      filial_id: params.filialId ?? undefined,
-    });
-    setUsers(data);
-    setLoading(false);
-  }, [params.holdingId, params.filialId]);
+  const {
+    data: users,
+    setData: setUsers,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<AppUser>(
+    () =>
+      getUsers({
+        holding_id: holdingId ?? undefined,
+        filial_id: filialId ?? undefined,
+      }),
+    [holdingId, filialId]
+  );
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const addUser = useCallback(
+    async (input: CreateUserInput) => {
+      const created = await createUser(input);
+      setUsers((prev) => [created, ...prev]);
+      return created;
+    },
+    [setUsers]
+  );
 
-  const addUser = useCallback(async (input: CreateUserInput) => {
-    const created = await createUser(input);
-    setUsers((prev) => [created, ...prev]);
-    return created;
-  }, []);
+  const editUser = useCallback(
+    async (id: string, input: UpdateUserInput) => {
+      const updated = await updateUser(id, input);
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+      return updated;
+    },
+    [setUsers]
+  );
 
-  const editUser = useCallback(async (id: string, input: UpdateUserInput) => {
-    const updated = await updateUser(id, input);
-    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-    return updated;
-  }, []);
-
-  return { users, loading, addUser, editUser, refresh: load };
+  return { users, loading, error, addUser, editUser, refresh };
 }

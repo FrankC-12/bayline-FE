@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   listServiceOrders,
   createServiceOrder,
@@ -9,33 +9,30 @@ import {
   type UpdateServiceOrderInput,
 } from "@/lib/api/serviceOrders";
 import type { ServiceOrder } from "@/types/serviceOrder";
+import { useListLoader } from "./useListLoader";
 
 /** dateStr: "YYYY-MM-DD" */
 export function useScheduledOrders(filialId: string | null, dateStr: string) {
-  const [orders, setOrders] = useState<ServiceOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setOrders([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listServiceOrders(filialId, "all", dateStr);
-    setOrders(data.filter((o) => o.scheduled_at));
-    setLoading(false);
-  }, [filialId, dateStr]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: orders,
+    setData: setOrders,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<ServiceOrder>(
+    async () => {
+      if (!filialId) return [];
+      const data = await listServiceOrders(filialId, "all", dateStr);
+      return data.filter((o) => o.scheduled_at);
+    },
+    [filialId, dateStr]
+  );
 
   const addOrder = useCallback(async (input: CreateServiceOrderInput) => {
     const created = await createServiceOrder(input);
     setOrders((prev) => [...prev, created]);
     return created;
-  }, []);
+  }, [setOrders]);
 
   const rescheduleOrder = useCallback(async (id: string, input: UpdateServiceOrderInput) => {
     const updated = await updateServiceOrder(id, input);
@@ -47,7 +44,7 @@ export function useScheduledOrders(filialId: string | null, dateStr: string) {
       return prev.map((o) => (o.id === updated.id ? updated : o));
     });
     return updated;
-  }, [dateStr]);
+  }, [dateStr, setOrders]);
 
-  return { orders, loading, addOrder, rescheduleOrder, refresh: load };
+  return { orders, loading, error, addOrder, rescheduleOrder, refresh };
 }

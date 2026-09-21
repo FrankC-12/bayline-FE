@@ -11,6 +11,7 @@ import { useParts } from "@/hooks/useParts";
 import { downloadWarrantySubmissionCsv } from "@/lib/api/administracion";
 import type { WarrantySubmission, WarrantySubmissionStatus } from "@/types/administracion";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 
 const MONTH_LABELS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -37,7 +38,7 @@ export default function WarrantySubmissionsView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
-  const { submissions, loading, addSubmission, refreshOne, submitOne, payOne, removeOne } =
+  const { submissions, loading, error: loadError, addSubmission, refreshOne, submitOne, payOne, removeOne, refresh } =
     useWarrantySubmissions(filialId);
 
   const searchParams = useSearchParams();
@@ -124,6 +125,8 @@ export default function WarrantySubmissionsView() {
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando presentaciones...</div>
+        ) : loadError ? (
+          <ErrorState error={loadError} onRetry={refresh} compact />
         ) : submissions.length === 0 ? (
           <EmptyState compact title="No hay presentaciones registradas." />
         ) : (

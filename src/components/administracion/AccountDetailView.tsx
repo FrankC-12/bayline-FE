@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, ChevronLeft, ExternalLink, Paperclip, Undo2, X } from "lucide-react";
 import { getAccount, getAccountMovements } from "@/lib/api/administracion";
 import type { Account, AccountMovement, CounterpartyType, ExpenseCategory, IncomeConcept } from "@/types/administracion";
+import { formatEntryDate, formatEntryDateTime } from "@/lib/format";
+
+/** source_type is only ever set on rows generated automatically from a real
+ * document (a vehicle sale, a part sale, an invoice collection...) — a
+ * manual entry never has one, so it's the right signal for "show the exact
+ * closing time, not just the calendar date." */
+function movementDateLabel(m: AccountMovement): string {
+  return m.source_type ? formatEntryDateTime(m.created_at) : formatEntryDate(m.entry_date);
+}
 
 const TYPE_LABELS: Record<string, string> = { corriente: "Corriente", ahorro: "Ahorro", caja: "Caja" };
 
@@ -196,7 +205,7 @@ export default function AccountDetailView({ accountId }: AccountDetailViewProps)
                 const hasSource = sourceHref(m) !== null;
                 return (
                   <tr key={m.id} onClick={() => handleRowClick(m)} className="cursor-pointer transition hover:bg-ash/60">
-                    <td className="px-6 py-4 text-steel">{new Date(m.entry_date).toLocaleDateString("es-VE")}</td>
+                    <td className="px-6 py-4 text-steel">{movementDateLabel(m)}</td>
                     <td className="px-6 py-4">
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -250,7 +259,7 @@ function MovementDetailModal({ movement, onClose }: { movement: AccountMovement;
           </button>
         </div>
         <div className="space-y-3 p-6 text-sm">
-          <Row label="Fecha" value={new Date(movement.entry_date).toLocaleDateString("es-VE")} />
+          <Row label="Fecha" value={movementDateLabel(movement)} />
           <Row label={movement.movement_type === "ingreso" ? "Concepto" : "Categoría"} value={movementLabel(movement)} />
           <Row label="Descripción" value={movement.description} />
           <Row label="Contraparte" value={counterpartyLabel(movement)} />

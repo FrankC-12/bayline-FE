@@ -10,8 +10,10 @@ import { useClients } from "@/hooks/useClients";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useLaborSettings } from "@/hooks/useLaborSettings";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 import type { CreateExpenseEntryInput } from "@/lib/api/administracion";
 import type { CounterpartyType, ExpenseCategory, ExpenseEntry } from "@/types/administracion";
+import { formatEntryDate } from "@/lib/format";
 
 const CATEGORY_OPTIONS: { value: ExpenseCategory; label: string }[] = [
   { value: "nomina_comisiones", label: "Nómina y Comisiones" },
@@ -58,7 +60,7 @@ export default function ExpenseView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
   const [search, setSearch] = useState("");
-  const { entries, loading, addEntry, reverseEntry } = useExpenseEntries(filialId, search || undefined);
+  const { entries, loading, error, addEntry, reverseEntry, refresh } = useExpenseEntries(filialId, search || undefined);
   const { accounts } = useAccounts(filialId);
   const { clients } = useClients(filialId);
   const { suppliers } = useSuppliers(filialId);
@@ -127,6 +129,8 @@ export default function ExpenseView() {
       <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando egresos...</div>
+        ) : error ? (
+          <ErrorState error={error} onRetry={refresh} compact />
         ) : entries.length === 0 ? (
           <EmptyState
             compact
@@ -149,7 +153,7 @@ export default function ExpenseView() {
             <tbody className="divide-y divide-navy/5">
               {entries.map((e) => (
                 <tr key={e.id} className="transition hover:bg-ash/60">
-                  <td className="px-6 py-4 text-steel">{new Date(e.entry_date).toLocaleDateString("es-VE")}</td>
+                  <td className="px-6 py-4 text-steel">{formatEntryDate(e.entry_date)}</td>
                   <td className="px-6 py-4">
                     <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${CATEGORY_STYLES[e.category]}`}>
                       {categoryLabel(e.category)}

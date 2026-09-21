@@ -7,8 +7,9 @@ import { usePartSales } from "@/hooks/usePartSales";
 import { useVehicleSales } from "@/hooks/useVehicleSales";
 import { useParts } from "@/hooks/useParts";
 import { useVehicles } from "@/hooks/useVehicles";
-import { useUsers } from "@/hooks/useUser";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
 
 export default function VentasView() {
   const { currentUser } = useAuth();
@@ -19,12 +20,17 @@ export default function VentasView() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const { sales: partSales, loading: loadingPartSales } = usePartSales(filialId);
+  const { sales: partSales, loading: loadingPartSales, error: partSalesError, refresh: refreshPartSales } = usePartSales(filialId);
   const { parts } = useParts(filialId);
 
-  const { sales: vehicleSales, loading: loadingVehicleSales } = useVehicleSales(filialId);
+  const {
+    sales: vehicleSales,
+    loading: loadingVehicleSales,
+    error: vehicleSalesError,
+    refresh: refreshVehicleSales,
+  } = useVehicleSales(filialId);
   const { vehicles } = useVehicles(filialId);
-  const { users } = useUsers({ filialId });
+  const { users } = useUserDirectory({ filialId });
 
   const partName = (id: string) => parts.find((p) => p.id === id)?.name ?? "—";
   const vehicleLabel = (id: string) => {
@@ -122,6 +128,8 @@ export default function VentasView() {
         <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
           {loadingPartSales ? (
             <div className="p-12 text-center text-sm text-steel">Cargando ventas...</div>
+          ) : partSalesError ? (
+            <ErrorState error={partSalesError} onRetry={refreshPartSales} compact />
           ) : filteredPartSales.length === 0 ? (
             <EmptyState
               compact
@@ -173,6 +181,8 @@ export default function VentasView() {
         <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
           {loadingVehicleSales ? (
             <div className="p-12 text-center text-sm text-steel">Cargando ventas...</div>
+          ) : vehicleSalesError ? (
+            <ErrorState error={vehicleSalesError} onRetry={refreshVehicleSales} compact />
           ) : filteredVehicleSales.length === 0 ? (
             <EmptyState
               compact

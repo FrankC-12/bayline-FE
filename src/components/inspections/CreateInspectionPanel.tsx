@@ -35,13 +35,13 @@ export default function CreateInspectionPanel({
     for (const client of clients) {
       for (const vehicle of client.vehicles) {
         const matches =
-          vehicle.plate.toLowerCase().includes(term) ||
+          (vehicle.plate ?? "").toLowerCase().includes(term) ||
           (vehicle.vin ?? "").toLowerCase().includes(term) ||
           client.full_name.toLowerCase().includes(term);
         if (matches) {
           entries.push({
             vehicleId: vehicle.id,
-            label: `${vehicle.brand} ${vehicle.model} · ${vehicle.plate}`,
+            label: `${vehicle.brand} ${vehicle.model} · ${vehicle.plate ?? "Sin placa"}`,
             sub: client.full_name,
           });
         }

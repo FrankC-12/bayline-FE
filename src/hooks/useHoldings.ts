@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   listHoldings,
   createHolding,
@@ -10,39 +10,43 @@ import {
   type UpdateHoldingInput,
 } from "@/lib/api/holding";
 import type { Holding } from "@/types/holding";
+import { useListLoader } from "./useListLoader";
 
 export function useHoldings() {
-  const [holdings, setHoldings] = useState<Holding[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: holdings,
+    setData: setHoldings,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<Holding>(() => listHoldings(), []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const data = await listHoldings();
-    setHoldings(data);
-    setLoading(false);
-  }, []);
+  const addHolding = useCallback(
+    async (input: CreateHoldingInput) => {
+      const created = await createHolding(input);
+      setHoldings((prev) => [created, ...prev]);
+      return created;
+    },
+    [setHoldings]
+  );
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const editHolding = useCallback(
+    async (id: string, input: UpdateHoldingInput) => {
+      const updated = await updateHolding(id, input);
+      setHoldings((prev) => prev.map((h) => (h.id === updated.id ? updated : h)));
+      return updated;
+    },
+    [setHoldings]
+  );
 
-  const addHolding = useCallback(async (input: CreateHoldingInput) => {
-    const created = await createHolding(input);
-    setHoldings((prev) => [created, ...prev]);
-    return created;
-  }, []);
+  const toggleActive = useCallback(
+    async (id: string, isActive: boolean) => {
+      const updated = await setHoldingActive(id, isActive);
+      setHoldings((prev) => prev.map((h) => (h.id === updated.id ? updated : h)));
+      return updated;
+    },
+    [setHoldings]
+  );
 
-  const editHolding = useCallback(async (id: string, input: UpdateHoldingInput) => {
-    const updated = await updateHolding(id, input);
-    setHoldings((prev) => prev.map((h) => (h.id === updated.id ? updated : h)));
-    return updated;
-  }, []);
-
-  const toggleActive = useCallback(async (id: string, isActive: boolean) => {
-    const updated = await setHoldingActive(id, isActive);
-    setHoldings((prev) => prev.map((h) => (h.id === updated.id ? updated : h)));
-    return updated;
-  }, []);
-
-  return { holdings, loading, addHolding, editHolding, toggleActive, refresh: load };
+  return { holdings, loading, error, addHolding, editHolding, toggleActive, refresh };
 }

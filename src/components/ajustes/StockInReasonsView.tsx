@@ -9,13 +9,15 @@ export default function StockInReasonsView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
   const { canEdit } = useModuleAccess("ajustes");
-  const { reasons, loading, addReason, editReason, toggleReasonActive } = useStockInReasons(filialId, true);
+  const { reasons, loading, error, refresh, addReason, editReason, toggleReasonActive } = useStockInReasons(filialId, true);
 
   return (
     <SimpleCatalogView
       description="Catálogo compartido por todo el holding — alimenta el selector de motivo al registrar una entrada de repuestos en Almacén."
       items={reasons}
       loading={loading}
+      fetchError={error}
+      onRetry={refresh}
       canEdit={canEdit}
       addPlaceholder="Nombre del motivo"
       addButtonLabel="Agregar motivo"

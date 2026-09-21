@@ -5,13 +5,14 @@ import Link from "next/link";
 import { Plus, X, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccounts } from "@/hooks/useAccounts";
+import ErrorState from "@/components/common/ErrorState";
 
 const TYPE_LABELS: Record<string, string> = { corriente: "Corriente", ahorro: "Ahorro", caja: "Caja" };
 
 export default function AccountsView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
-  const { accounts, loading, addAccount, editAccount } = useAccounts(filialId);
+  const { accounts, loading, error, addAccount, editAccount, refresh } = useAccounts(filialId);
   const [createOpen, setCreateOpen] = useState(false);
 
   return (
@@ -31,6 +32,8 @@ export default function AccountsView() {
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando cuentas...</div>
+        ) : error ? (
+          <ErrorState error={error} onRetry={refresh} compact />
         ) : accounts.length === 0 ? (
           <div className="p-12 text-center text-sm text-steel">No hay cuentas registradas.</div>
         ) : (

@@ -12,7 +12,7 @@ export interface KpiReport {
 
 export interface MaintenanceDueRow {
   vehicle_id: string;
-  plate: string;
+  plate: string | null;
   brand: string;
   model: string;
   client_id: string;

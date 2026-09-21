@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/serviceOrderBilling";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClients } from "@/hooks/useClients";
+import { useSuppliers } from "@/hooks/useSuppliers";
 
 const usd = (value: number | null | undefined) => `$${(value ?? 0).toFixed(2)}`;
 const bs = (value: number) => `Bs. ${value.toLocaleString("es-VE", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
@@ -26,6 +27,7 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
   const [reference, setReference] = useState("");
   const [billToOther, setBillToOther] = useState(false);
   const [billedClientId, setBilledClientId] = useState("");
+  const [billedSupplierId, setBilledSupplierId] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [clientConfirmed, setClientConfirmed] = useState(false);
   const [clientConfirmedNote, setClientConfirmedNote] = useState("");
@@ -34,8 +36,14 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
   const [retentionDefaultsApplied, setRetentionDefaultsApplied] = useState(false);
   const { currentUser } = useAuth();
   const { clients } = useClients(currentUser?.filialId ?? null);
+  const { suppliers } = useSuppliers(currentUser?.filialId ?? null);
   const clientResults = clientSearch
     ? clients.filter((c) => c.full_name.toLowerCase().includes(clientSearch.toLowerCase())).slice(0, 6)
+    : [];
+  const supplierResults = clientSearch
+    ? suppliers
+        .filter((s) => (s.trade_name ?? s.business_name).toLowerCase().includes(clientSearch.toLowerCase()))
+        .slice(0, 6)
     : [];
   const [quote, setQuote] = useState<{ key: string; value: BillingQuote } | null>(null);
   const [revision, setRevision] = useState(0);
@@ -46,7 +54,7 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const requestRef = useRef<{key: string; id: string} | null>(null);
-  const key = JSON.stringify([orderId, method, usdBase, revision, billedClientId, ivaRetentionPct, islrRetentionPct]);
+  const key = JSON.stringify([orderId, method, usdBase, revision, billedClientId, billedSupplierId, ivaRetentionPct, islrRetentionPct]);
   const current = quote?.key === key ? quote.value : null;
 
   useEffect(() => {
@@ -89,6 +97,7 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
       quoteBilling(orderId, {
         payment_method: method, usd_base: method === "mixed" ? usdBase : "0",
         billed_client_id: billToOther && billedClientId ? billedClientId : null,
+        billed_supplier_id: billToOther && billedSupplierId ? billedSupplierId : null,
         iva_retention_percentage: Number(ivaRetentionPct) || 0,
         islr_retention_percentage: Number(islrRetentionPct) || 0,
       })
@@ -96,7 +105,7 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
         .catch((err) => { if (active) setQuoteError({key, message: err instanceof Error ? err.message : "No se pudo calcular el cobro."}); });
     }, 200);
     return () => { active = false; clearTimeout(timer); };
-  }, [context, invoice, invoiced, orderId, method, usdBase, key, billToOther, billedClientId, ivaRetentionPct, islrRetentionPct]);
+  }, [context, invoice, invoiced, orderId, method, usdBase, key, billToOther, billedClientId, billedSupplierId, ivaRetentionPct, islrRetentionPct]);
 
   async function updateRate() {
     setBusy(true); setError(null);
@@ -112,6 +121,7 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
       paid_bs: current.due_bs > 0 ? (paidBs || "0") : "0", usd_account_id: current.due_usd > 0 ? usdAccount : null,
       bs_account_id: current.due_bs > 0 ? bsAccount : null, payment_reference: reference,
       billed_client_id: billToOther && billedClientId ? billedClientId : null,
+      billed_supplier_id: billToOther && billedSupplierId ? billedSupplierId : null,
       client_confirmed: billToOther && clientConfirmed,
       client_confirmed_note: billToOther && clientConfirmedNote ? clientConfirmedNote : null,
       iva_retention_percentage: Number(ivaRetentionPct) || 0,
@@ -152,7 +162,7 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
   }
   const exact = (received: string, expected: number) => /^\d+(\.\d{1,2})?$/.test(received) && Number.isFinite(Number(received)) && Math.round(Number(received) * 100) === Math.round(expected * 100);
   const atMost = (received: string, expected: number) => received === "" || (/^\d+(\.\d{1,2})?$/.test(received) && Number.isFinite(Number(received)) && Number(received) <= expected + 0.001);
-  const billingOverride = billToOther && !!billedClientId;
+  const billingOverride = billToOther && (!!billedClientId || !!billedSupplierId);
   const canIssue = !!current && (billingOverride
     ? (current.due_usd === 0 || atMost(paidUsd, current.due_usd) && (paidUsd === "" || paidUsd === "0" || !!usdAccount)) &&
       (current.due_bs === 0 || atMost(paidBs, current.due_bs) && (paidBs === "" || paidBs === "0" || !!bsAccount))
@@ -186,13 +196,16 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
           {method === "mixed" && <label className="block text-sm font-medium text-navy">USD aplicado a la factura, antes de IGTF<input type="number" min="0.01" step="0.01" value={usdBase} disabled={busy} onChange={(e) => {setUsdBase(e.target.value); setPaidUsd(""); setPaidBs("");}} className={inputClass} /><span className="mt-1 block text-xs font-normal text-steel">El IGTF se suma a este aporte en USD. El resto de la factura se cobra en Bs.</span></label>}
           <fieldset disabled={busy} className="rounded-xl border border-navy/10 p-4">
             <label className="flex items-center gap-2 text-sm font-semibold text-navy">
-              <input type="checkbox" checked={billToOther} onChange={(e) => { setBillToOther(e.target.checked); if (!e.target.checked) { setBilledClientId(""); setClientSearch(""); setClientConfirmed(false); setClientConfirmedNote(""); } setPaidUsd(""); setPaidBs(""); }} className="h-4 w-4 rounded border-navy/30 text-blue focus:ring-blue" />
-              Facturar a un cliente distinto (garantía de fábrica)
+              <input type="checkbox" checked={billToOther} onChange={(e) => { setBillToOther(e.target.checked); if (!e.target.checked) { setBilledClientId(""); setBilledSupplierId(""); setClientSearch(""); setClientConfirmed(false); setClientConfirmedNote(""); } setPaidUsd(""); setPaidBs(""); }} className="h-4 w-4 rounded border-navy/30 text-blue focus:ring-blue" />
+              Facturar a un cliente, proveedor u holding distinto (garantía de fábrica, repuesto cubierto, etc.)
             </label>
             {billToOther && <div className="mt-3 space-y-3">
               <div className="relative">
-                <input value={clientSearch} onChange={(e) => { setClientSearch(e.target.value); setBilledClientId(""); }} placeholder="Busca por nombre..." className={inputClass} />
-                {clientResults.length > 0 && !billedClientId && <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">{clientResults.map((c) => <button type="button" key={c.id} onClick={() => { setBilledClientId(c.id); setClientSearch(c.full_name); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-ash">{c.full_name}{c.is_holding_billing && <span className="ml-2 rounded-full bg-blue-light px-2 py-0.5 text-[10px] font-semibold uppercase text-blue">Holding</span>}</button>)}</div>}
+                <input value={clientSearch} onChange={(e) => { setClientSearch(e.target.value); setBilledClientId(""); setBilledSupplierId(""); }} placeholder="Busca por nombre de cliente o proveedor..." className={inputClass} />
+                {(clientResults.length > 0 || supplierResults.length > 0) && !billedClientId && !billedSupplierId && <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">
+                  {clientResults.map((c) => <button type="button" key={c.id} onClick={() => { setBilledClientId(c.id); setClientSearch(c.full_name); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-ash">{c.full_name}{c.is_holding_billing && <span className="ml-2 rounded-full bg-blue-light px-2 py-0.5 text-[10px] font-semibold uppercase text-blue">Holding</span>}</button>)}
+                  {supplierResults.map((s) => <button type="button" key={s.id} onClick={() => { setBilledSupplierId(s.id); setClientSearch(s.trade_name ?? s.business_name); }} className="block w-full px-4 py-2 text-left text-sm hover:bg-ash">{s.trade_name ?? s.business_name}<span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-700">{s.supplier_type === "fabricante" ? "Fabricante" : "Proveedor"}</span></button>)}
+                </div>}
               </div>
               <label className="flex items-start gap-2 text-sm text-steel">
                 <input type="checkbox" checked={clientConfirmed} onChange={(e) => setClientConfirmed(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-navy/30 text-blue focus:ring-blue" />

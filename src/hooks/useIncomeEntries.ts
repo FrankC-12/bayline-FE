@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   listIncomeEntries,
   createIncomeEntry,
@@ -8,26 +8,19 @@ import {
   type CreateIncomeEntryInput,
 } from "@/lib/api/administracion";
 import type { IncomeEntry } from "@/types/administracion";
+import { useListLoader } from "./useListLoader";
 
 export function useIncomeEntries(filialId: string | null, search?: string) {
-  const [entries, setEntries] = useState<IncomeEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setEntries([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listIncomeEntries(filialId, search);
-    setEntries(data);
-    setLoading(false);
-  }, [filialId, search]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: entries,
+    setData: setEntries,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<IncomeEntry>(
+    () => (filialId ? listIncomeEntries(filialId, search) : Promise.resolve([])),
+    [filialId, search]
+  );
 
   const addEntry = useCallback(
     async (input: Omit<CreateIncomeEntryInput, "filial_id">) => {
@@ -36,14 +29,17 @@ export function useIncomeEntries(filialId: string | null, search?: string) {
       setEntries((prev) => [created, ...prev]);
       return created;
     },
-    [filialId]
+    [filialId, setEntries]
   );
 
-  const reverseEntry = useCallback(async (id: string) => {
-    const reversal = await reverseIncomeEntry(id);
-    setEntries((prev) => [reversal, ...prev]);
-    return reversal;
-  }, []);
+  const reverseEntry = useCallback(
+    async (id: string) => {
+      const reversal = await reverseIncomeEntry(id);
+      setEntries((prev) => [reversal, ...prev]);
+      return reversal;
+    },
+    [setEntries]
+  );
 
-  return { entries, loading, addEntry, reverseEntry, refresh: load };
+  return { entries, loading, error, addEntry, reverseEntry, refresh };
 }

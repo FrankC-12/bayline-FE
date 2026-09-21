@@ -5,6 +5,10 @@ export type PaymentMethod = "usd" | "bs" | "mixed";
 export interface BillingInput {
   payment_method: PaymentMethod; usd_base: string;
   billed_client_id?: string | null;
+  // Bills a Supplier instead (e.g. the manufacturer or a parts supplier
+  // covering a warranty claim) — resolved server-side to its linked billing
+  // Client. At most one of billed_client_id/billed_supplier_id may be set.
+  billed_supplier_id?: string | null;
   iva_retention_percentage?: number; islr_retention_percentage?: number;
 }
 export interface BillingContext {
@@ -37,10 +41,12 @@ export interface InvoiceInput extends BillingInput {
   client_confirmed?: boolean; client_confirmed_note?: string | null;
 }
 export interface Receivable {
-  invoice_id: string; code: string; service_order_id: string; order_code: string; filial_id: string;
-  billed_client_id: string; billed_client_name: string; total_usd: number;
+  document_type: "service_order_invoice" | "part_sale";
+  invoice_id: string; code: string; service_order_id: string | null; order_code: string | null; filial_id: string;
+  billed_client_id: string | null; billed_client_name: string; total_usd: number;
   iva_retention_amount: number; islr_retention_amount: number; net_expected: number;
   amount_paid_at_issuance: number; pending_amount: number; issued_at: string;
+  days_outstanding: number; aging_bucket: "0-30" | "31-60" | "61-90" | "90+";
 }
 export interface CollectInvoicePaymentInput {
   account_id: string; withholding_amount: number; net_collected_amount: number;

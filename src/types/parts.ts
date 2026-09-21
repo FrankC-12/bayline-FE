@@ -23,6 +23,10 @@ export interface Part {
   is_active: boolean;
   stock_total: number;
   reference_price: number | null;
+  /** Real cost from the latest received lot — not marked up. Use this,
+   * never reference_price, when applying your own margin (e.g. a
+   * tempario's parts cost), or the margin gets baked in twice. */
+  latest_cost: number | null;
   location: string | null;
   created_at: string;
   updated_at: string;
@@ -77,6 +81,11 @@ export interface PartSale {
   discount_label: string;
   status: PartSaleStatus;
   total: number;
+  iva_percentage: number;
+  iva_amount: number;
+  igtf_percentage: number;
+  igtf_amount: number;
+  total_with_taxes: number;
   lines: PartSaleLine[];
   created_at: string;
   updated_at: string;

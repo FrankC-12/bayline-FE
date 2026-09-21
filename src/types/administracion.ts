@@ -280,6 +280,21 @@ export interface ProfitabilityAdjustmentRow {
   amount: number;
 }
 
+export interface ProfitabilityLineItem {
+  department_key: string;
+  document_type: "vehicle_sale" | "part_sale" | "service_order_invoice";
+  document_id: string;
+  document_code: string;
+  description: string;
+  date: string;
+  net_sales: number;
+  direct_cost: number;
+  margin: number;
+  note: string | null;
+  authorized_by_user_id: string | null;
+  authorized_at: string | null;
+}
+
 export interface ProfitabilityReport {
   period_label: string;
   filial_id: string | null;
@@ -296,6 +311,7 @@ export interface ProfitabilityReport {
   adjustments: ProfitabilityAdjustmentRow[];
   net_profit: number;
   net_margin: number;
+  negative_margin_lines: ProfitabilityLineItem[];
   vehicles_sold_count: number;
   vehicles_with_estimated_cost_count: number;
   manual_movements_rate: number;

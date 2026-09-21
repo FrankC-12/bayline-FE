@@ -48,26 +48,63 @@ export async function refreshSession(): Promise<void> {
   try { await refreshPromise; } finally { refreshPromise = null; }
 }
 
+/** One entry per invalid field on a 422 — `field` is the plain field name
+ * (dotted for nested, e.g. "lines.0.quantity"), already in Spanish. `field`
+ * is null for a whole-payload validation error with no single field to
+ * anchor to (e.g. a cross-field model validator). */
+export interface ApiFieldError {
+  field: string | null;
+  message: string;
+}
+
 export interface ApiErrorBody {
   statusCode: number;
   errorCode: string;
   message: string;
   path: string;
   timestamp: string;
-  details?: unknown;
+  details?: ApiFieldError[] | unknown;
 }
 
-/** Mirrors the DomainError shape returned by the FastAPI backend. */
+function isFieldErrorList(details: unknown): details is ApiFieldError[] {
+  return (
+    Array.isArray(details) &&
+    details.every((d) => d && typeof d === "object" && "field" in d && "message" in d)
+  );
+}
+
+/** Mirrors the DomainError shape returned by the FastAPI backend. On a 422
+ * from a Pydantic validation failure, `fieldErrors` lets a form highlight
+ * the exact input that caused it instead of just showing `.message` —
+ * e.g. `err.fieldErrors.find(f => f.field === "vin")?.message`. */
 export class ApiError extends Error {
   statusCode: number;
   errorCode: string;
+  fieldErrors: ApiFieldError[];
 
   constructor(body: ApiErrorBody) {
     super(body.message);
     this.statusCode = body.statusCode;
     this.errorCode = body.errorCode;
+    this.fieldErrors = isFieldErrorList(body.details) ? body.details : [];
   }
 }
+
+/** Thrown when the request never got a response at all — the connection
+ * timed out, or failed outright (offline, DNS, refused). There's no
+ * statusCode to inspect here, unlike ApiError, which is exactly why a list
+ * screen needs to check for this case separately (see classifyListError). */
+export class ApiTimeoutError extends Error {
+  constructor() {
+    super("No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.");
+  }
+}
+
+// Generous on purpose — this guards against a genuinely hung connection
+// (dead server, dropped network), not against ordinary slow requests like a
+// multipart photo upload or a PDF render, both of which go through this same
+// client and can legitimately take a while.
+const REQUEST_TIMEOUT_MS = 30000;
 
 interface ApiFetchOptions extends RequestInit {
   /** Disable automatic session renewal for login/logout endpoints. */
@@ -91,14 +128,36 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     finalHeaders.set("Content-Type", "application/json");
   }
   finalHeaders.set("X-CSRF-Protection", "1");
-  const request = () => fetch(`${API_BASE_URL}${path}`, {
-    ...rest, headers: finalHeaders, credentials: "same-origin", cache: "no-store",
-  });
-  let response = await request();
-  if (auth && response.status === 401) {
-    await refreshSession();
+  const request = async (): Promise<Response> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      return await fetch(`${API_BASE_URL}${path}`, {
+        ...rest, headers: finalHeaders, credentials: "same-origin", cache: "no-store",
+        signal: controller.signal,
+      });
+    } catch {
+      // Either the abort above (a real timeout) or fetch itself failing
+      // outright (offline, DNS, connection refused) — neither has a
+      // response/status to work with, unlike an ApiError.
+      throw new ApiTimeoutError();
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  let response: Response;
+  try {
     response = await request();
-    if (response.status === 401) expireSession();
+    if (auth && response.status === 401) {
+      await refreshSession();
+      response = await request();
+      if (response.status === 401) expireSession();
+    }
+  } catch (err) {
+    if (err instanceof ApiTimeoutError && shouldToast) {
+      notifyToast("error", err.message);
+    }
+    throw err;
   }
   if (!response.ok) {
     const body = await response.json().catch(() => null);

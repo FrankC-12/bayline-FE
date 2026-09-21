@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { useWarehouseScope } from "@/contexts/WarehouseContext";
 import { useParts } from "@/hooks/useParts";
-import { useUsers } from "@/hooks/useUser";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { listMovements } from "@/lib/api/warehouse";
 import type { MovementType, StockMovement } from "@/types/warehouse";
 import EmptyState from "@/components/common/EmptyState";
@@ -41,7 +41,7 @@ function signedQuantity(movement: StockMovement): string {
 export default function MovementsHistoryView() {
   const { filialId, warehouses, activeWarehouse, activeWarehouseId } = useWarehouseScope();
   const { parts } = useParts(filialId);
-  const { users } = useUsers({ filialId });
+  const { users } = useUserDirectory({ filialId });
 
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);

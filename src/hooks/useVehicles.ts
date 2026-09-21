@@ -1,52 +1,74 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   listVehicles,
   createVehicle,
   updateVehicle,
+  reserveVehicle,
   deleteVehicle,
   type CreateVehicleInput,
   type UpdateVehicleInput,
+  type VehicleReservationInput,
 } from "@/lib/api/concesionario";
 import type { DealershipVehicle } from "@/types/concesionario";
+import { useListLoader } from "./useListLoader";
 
 export function useVehicles(filialId: string | null, search?: string) {
-  const [vehicles, setVehicles] = useState<DealershipVehicle[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: vehicles,
+    setData: setVehicles,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<DealershipVehicle>(
+    () => (filialId ? listVehicles(filialId, search) : Promise.resolve([])),
+    [filialId, search]
+  );
 
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setVehicles([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listVehicles(filialId, search);
-    setVehicles(data);
-    setLoading(false);
-  }, [filialId, search]);
+  const addVehicle = useCallback(
+    async (input: CreateVehicleInput) => {
+      const created = await createVehicle(input);
+      setVehicles((prev) => [created, ...prev]);
+      return created;
+    },
+    [setVehicles]
+  );
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const editVehicle = useCallback(
+    async (id: string, input: UpdateVehicleInput) => {
+      const updated = await updateVehicle(id, input);
+      setVehicles((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
+      return updated;
+    },
+    [setVehicles]
+  );
 
-  const addVehicle = useCallback(async (input: CreateVehicleInput) => {
-    const created = await createVehicle(input);
-    setVehicles((prev) => [created, ...prev]);
-    return created;
-  }, []);
+  const reserveVehicleAction = useCallback(
+    async (id: string, input: VehicleReservationInput) => {
+      const updated = await reserveVehicle(id, input);
+      setVehicles((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
+      return updated;
+    },
+    [setVehicles]
+  );
 
-  const editVehicle = useCallback(async (id: string, input: UpdateVehicleInput) => {
-    const updated = await updateVehicle(id, input);
-    setVehicles((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
-    return updated;
-  }, []);
+  const removeVehicle = useCallback(
+    async (id: string) => {
+      await deleteVehicle(id);
+      setVehicles((prev) => prev.filter((v) => v.id !== id));
+    },
+    [setVehicles]
+  );
 
-  const removeVehicle = useCallback(async (id: string) => {
-    await deleteVehicle(id);
-    setVehicles((prev) => prev.filter((v) => v.id !== id));
-  }, []);
-
-  return { vehicles, loading, addVehicle, editVehicle, removeVehicle, refresh: load };
+  return {
+    vehicles,
+    loading,
+    error,
+    addVehicle,
+    editVehicle,
+    reserveVehicle: reserveVehicleAction,
+    removeVehicle,
+    refresh,
+  };
 }

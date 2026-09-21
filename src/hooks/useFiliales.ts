@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   listFiliales,
   createFilial,
@@ -10,44 +10,46 @@ import {
   type UpdateFilialInput,
 } from "@/lib/api/filiales";
 import type { Filial } from "@/types/filial";
+import { useListLoader } from "./useListLoader";
 
 export function useFiliales(holdingId?: string | null) {
-  const [filiales, setFiliales] = useState<Filial[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: filiales,
+    setData: setFiliales,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<Filial>(
+    () => (holdingId === null ? Promise.resolve([]) : listFiliales(holdingId ?? undefined)),
+    [holdingId]
+  );
 
-  const load = useCallback(async () => {
-    if (holdingId === null) {
-      setFiliales([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listFiliales(holdingId ?? undefined);
-    setFiliales(data);
-    setLoading(false);
-  }, [holdingId]);
+  const addFilial = useCallback(
+    async (input: CreateFilialInput) => {
+      const created = await createFilial(input);
+      setFiliales((prev) => [created, ...prev]);
+      return created;
+    },
+    [setFiliales]
+  );
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const editFilial = useCallback(
+    async (id: string, input: UpdateFilialInput) => {
+      const updated = await updateFilial(id, input);
+      setFiliales((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+      return updated;
+    },
+    [setFiliales]
+  );
 
-  const addFilial = useCallback(async (input: CreateFilialInput) => {
-    const created = await createFilial(input);
-    setFiliales((prev) => [created, ...prev]);
-    return created;
-  }, []);
+  const toggleActive = useCallback(
+    async (id: string, isActive: boolean) => {
+      const updated = await setFilialActive(id, isActive);
+      setFiliales((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+      return updated;
+    },
+    [setFiliales]
+  );
 
-  const editFilial = useCallback(async (id: string, input: UpdateFilialInput) => {
-    const updated = await updateFilial(id, input);
-    setFiliales((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
-    return updated;
-  }, []);
-
-  const toggleActive = useCallback(async (id: string, isActive: boolean) => {
-    const updated = await setFilialActive(id, isActive);
-    setFiliales((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
-    return updated;
-  }, []);
-
-  return { filiales, loading, addFilial, editFilial, toggleActive, refresh: load };
+  return { filiales, loading, error, addFilial, editFilial, toggleActive, refresh };
 }

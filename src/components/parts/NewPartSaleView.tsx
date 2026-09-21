@@ -14,7 +14,9 @@ import type { CreateClientInput } from "@/lib/api/clients";
 
 import { listWarehouses } from "@/lib/api/warehouse";
 import { quotePartSale, type PartSaleQuote } from "@/lib/api/parts";
+import { ApiError } from "@/lib/api/client";
 import type { Warehouse } from "@/types/warehouse";
+import PartAvailabilityHint from "@/components/warehouse/PartAvailabilityHint";
 
 import { DISCOUNT_OPTIONS, type DiscountLabel } from "@/lib/partsPricing";
 import { formatDocumentId } from "@/lib/format";
@@ -27,6 +29,21 @@ interface LineDraft {
 
 function emptyLine(): LineDraft {
   return { partId: "", search: "", quantity: "1" };
+}
+
+/** The server anchors a sobreventa (insufficient stock) error to the part_id
+ * it's about, not a line index — a sale can have several lines for
+ * different parts, so this matches each fieldError back to the line(s) that
+ * reference that part. */
+function lineErrorsFromApiError(err: unknown, lines: LineDraft[]): Record<number, string> {
+  if (!(err instanceof ApiError) || err.fieldErrors.length === 0) return {};
+  const messageByPartId = new Map(err.fieldErrors.map((fe) => [fe.field, fe.message]));
+  const result: Record<number, string> = {};
+  lines.forEach((line, i) => {
+    const message = messageByPartId.get(line.partId);
+    if (message) result[i] = message;
+  });
+  return result;
 }
 
 export default function NewPartSaleView() {
@@ -52,6 +69,7 @@ export default function NewPartSaleView() {
   const [warehouseId, setWarehouseId] = useState("");
   const [quote, setQuote] = useState<{ key: string; value: PartSaleQuote } | null>(null);
   const [quoteError, setQuoteError] = useState<{ key: string; message: string } | null>(null);
+  const [lineErrors, setLineErrors] = useState<Record<number, string>>({});
   const quoteKey = JSON.stringify({ filialId, warehouseId, lines, discountLabel });
   const currentQuote = quote?.key === quoteKey ? quote.value : null;
   const validDraft = lines.length > 0 && lines.every(
@@ -79,9 +97,16 @@ export default function NewPartSaleView() {
         filial_id: filialId, warehouse_id: warehouseId, discount_label: discountLabel,
         lines: lines.map((line) => ({ part_id: line.partId, quantity: Number(line.quantity) })),
       }).then((value) => {
-        if (active) { setQuote({ key: quoteKey, value }); setQuoteError(null); }
+        if (active) { setQuote({ key: quoteKey, value }); setQuoteError(null); setLineErrors({}); }
       }).catch((err) => {
-        if (active) setQuoteError({ key: quoteKey, message: err instanceof Error ? err.message : "No se pudo cotizar." });
+        if (!active) return;
+        const fromLines = lineErrorsFromApiError(err, lines);
+        setLineErrors(fromLines);
+        if (Object.keys(fromLines).length === 0) {
+          setQuoteError({ key: quoteKey, message: err instanceof Error ? err.message : "No se pudo cotizar." });
+        } else {
+          setQuoteError(null);
+        }
       });
     }, 250);
     return () => { active = false; clearTimeout(timer); };
@@ -137,6 +162,7 @@ export default function NewPartSaleView() {
     }
     setSubmitting(true);
     setError(null);
+    setLineErrors({});
     try {
       await addSale({
         filial_id: filialId,
@@ -148,7 +174,11 @@ export default function NewPartSaleView() {
       });
       router.push("/dashboard/repuestos/ventas");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo crear la venta.");
+      const fromLines = lineErrorsFromApiError(err, lines);
+      setLineErrors(fromLines);
+      if (Object.keys(fromLines).length === 0) {
+        setError(err instanceof Error ? err.message : "No se pudo crear la venta.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -256,47 +286,62 @@ export default function NewPartSaleView() {
             </p>
             <div className="space-y-3">
               {lines.map((line, i) => (
-                <div key={i} className="flex gap-2">
-                  <div className="relative flex-1">
+                <div key={i}>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        value={line.search}
+                        onChange={(e) => updateLine(i, { search: e.target.value, partId: "" })}
+                        placeholder="Buscar por código o nombre..."
+                        className={`w-full rounded-xl border px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 ${
+                          lineErrors[i] ? "border-red-400" : "border-navy/15"
+                        }`}
+                      />
+                      {line.search && !line.partId && resultsFor(line.search).length > 0 && (
+                        <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">
+                          {resultsFor(line.search).map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => updateLine(i, { partId: p.id, search: `${p.code} · ${p.name}` })}
+                              className="block w-full px-4 py-2 text-left text-sm hover:bg-ash"
+                            >
+                              <p className="font-medium text-navy">{p.name}</p>
+                              <p className="text-xs text-steel">
+                                {p.code}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <input
-                      value={line.search}
-                      onChange={(e) => updateLine(i, { search: e.target.value, partId: "" })}
-                      placeholder="Buscar por código o nombre..."
-                      className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={line.quantity}
+                      onChange={(e) => updateLine(i, { quantity: e.target.value })}
+                      className={`w-24 rounded-xl border px-3 py-2.5 text-center text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 ${
+                        lineErrors[i] ? "border-red-400" : "border-navy/15"
+                      }`}
                     />
-                    {line.search && !line.partId && resultsFor(line.search).length > 0 && (
-                      <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">
-                        {resultsFor(line.search).map((p) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => updateLine(i, { partId: p.id, search: `${p.code} · ${p.name}` })}
-                            className="block w-full px-4 py-2 text-left text-sm hover:bg-ash"
-                          >
-                            <p className="font-medium text-navy">{p.name}</p>
-                            <p className="text-xs text-steel">
-                              {p.code}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeLine(i)}
+                      className="rounded-xl border border-navy/15 p-2.5 text-red-500 transition hover:bg-red-50"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={line.quantity}
-                    onChange={(e) => updateLine(i, { quantity: e.target.value })}
-                    className="w-24 rounded-xl border border-navy/15 px-3 py-2.5 text-center text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeLine(i)}
-                    className="rounded-xl border border-navy/15 p-2.5 text-red-500 transition hover:bg-red-50"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  {lineErrors[i] && <p className="mt-1 text-xs text-red-600">{lineErrors[i]}</p>}
+                  {line.partId && filialId && (
+                    <PartAvailabilityHint
+                      filialId={filialId}
+                      partId={line.partId}
+                      warehouses={warehouses}
+                      originWarehouseId={warehouseId || undefined}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -330,10 +375,31 @@ export default function NewPartSaleView() {
             </select>
 
             <div className="mt-4 rounded-xl bg-blue-light px-4 py-3">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-navy">Total</span>
-                <span className="font-display text-lg font-bold text-blue">{currentQuote ? `$${currentQuote.total.toFixed(2)}` : "—"}</span>
-              </div>
+              {currentQuote ? (
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex items-center justify-between text-steel">
+                    <span>Subtotal</span>
+                    <span className="font-medium text-navy">${currentQuote.total.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-steel">
+                    <span>IVA ({currentQuote.iva_percentage}%)</span>
+                    <span className="font-medium text-navy">${currentQuote.iva_amount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-steel">
+                    <span>IGTF ({currentQuote.igtf_percentage}% sobre subtotal + IVA)</span>
+                    <span className="font-medium text-navy">${currentQuote.igtf_amount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-navy/10 pt-1.5">
+                    <span className="font-medium text-navy">Total</span>
+                    <span className="font-display text-lg font-bold text-blue">${currentQuote.total_with_taxes.toFixed(2)}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-navy">Total</span>
+                  <span className="font-display text-lg font-bold text-blue">—</span>
+                </div>
+              )}
             </div>
           </div>
 

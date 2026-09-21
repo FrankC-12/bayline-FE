@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Check, Pencil, Plus } from "lucide-react";
 import ActiveToggle from "@/components/common/ActiveToggle";
 import EmptyState from "@/components/common/EmptyState";
+import ErrorState from "@/components/common/ErrorState";
+import type { ListErrorInfo } from "@/lib/api/listError";
 
 interface CatalogItem {
   id: string;
@@ -95,6 +97,8 @@ interface SimpleCatalogViewProps {
   description: string;
   items: CatalogItem[];
   loading: boolean;
+  fetchError?: ListErrorInfo | null;
+  onRetry?: () => void;
   canEdit: boolean;
   addPlaceholder: string;
   addButtonLabel: string;
@@ -110,6 +114,8 @@ export default function SimpleCatalogView({
   description,
   items,
   loading,
+  fetchError,
+  onRetry,
   canEdit,
   addPlaceholder,
   addButtonLabel,
@@ -159,6 +165,8 @@ export default function SimpleCatalogView({
           <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center text-sm text-steel">
             Cargando catálogo...
           </div>
+        ) : fetchError ? (
+          <ErrorState error={fetchError} onRetry={onRetry ?? (() => {})} />
         ) : items.length === 0 ? (
           <EmptyState title={emptyTitle} description="Agrega el primero abajo." />
         ) : (

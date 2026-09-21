@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   createPartCategory,
   listPartCategories,
@@ -8,28 +8,20 @@ import {
   setPartCategoryActive,
 } from "@/lib/api/parts";
 import type { PartCategory } from "@/types/parts";
+import { useListLoader } from "./useListLoader";
 
 /** The holding-wide part-category catalog (Ajustes → Categorías de
  * Repuestos). Pass includeInactive=true only for the management screen. */
 export function usePartCategories(filialId: string | null, includeInactive = false) {
-  const [categories, setCategories] = useState<PartCategory[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setCategories([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await listPartCategories(filialId, includeInactive);
-    setCategories(data);
-    setLoading(false);
-  }, [filialId, includeInactive]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data: categories,
+    loading,
+    error,
+    refresh: load,
+  } = useListLoader<PartCategory>(
+    () => (filialId ? listPartCategories(filialId, includeInactive) : Promise.resolve([])),
+    [filialId, includeInactive]
+  );
 
   const addCategory = useCallback(
     async (name: string) => {
@@ -60,5 +52,5 @@ export function usePartCategories(filialId: string | null, includeInactive = fal
     [filialId, load]
   );
 
-  return { categories, loading, refresh: load, addCategory, editCategory, toggleCategoryActive };
+  return { categories, loading, error, refresh: load, addCategory, editCategory, toggleCategoryActive };
 }

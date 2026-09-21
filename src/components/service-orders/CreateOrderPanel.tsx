@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Search } from "lucide-react";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useInspections } from "@/hooks/useInspections";
-import { useUsers } from "@/hooks/useUser";
-import { useRoles } from "@/hooks/useRoles";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
+import { useRoleDirectory } from "@/hooks/useRoleDirectory";
 
 export interface CreateOrderExtra {
   customer_reason: string;
@@ -28,8 +28,8 @@ interface CreateOrderPanelProps {
 export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: CreateOrderPanelProps) {
   const { clients } = useVehicleLookup(filialId);
   const { inspections: unlinkedInspections } = useInspections(filialId, true);
-  const { users } = useUsers({ filialId });
-  const { roles } = useRoles("filial");
+  const { users } = useUserDirectory({ filialId });
+  const { roles } = useRoleDirectory("filial");
   const advisorRoleId = roles.find((r) => r.slug === "asesor")?.id;
   const advisors = users.filter((u) => u.role_id === advisorRoleId);
 
@@ -49,13 +49,13 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
     for (const client of clients) {
       for (const vehicle of client.vehicles) {
         const matches =
-          vehicle.plate.toLowerCase().includes(term) ||
+          (vehicle.plate ?? "").toLowerCase().includes(term) ||
           (vehicle.vin ?? "").toLowerCase().includes(term) ||
           client.full_name.toLowerCase().includes(term);
         if (matches) {
           entries.push({
             vehicleId: vehicle.id,
-            label: `${vehicle.brand} ${vehicle.model} · ${vehicle.plate}`,
+            label: `${vehicle.brand} ${vehicle.model} · ${vehicle.plate ?? "Sin placa"}`,
             sub: client.full_name,
           });
         }

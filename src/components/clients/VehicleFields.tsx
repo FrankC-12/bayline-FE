@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { X } from "lucide-react";
 import { formatThousands, stripThousands } from "@/lib/format";
-import type { VehicleFormValue } from "@/types/client-form";
+import { isPlateTouched, type VehicleFormValue } from "@/types/client-form";
 import type { VehicleBrandOption } from "@/types/vehicleCatalog";
 import { normalizeVenezuelaPlate, validateVenezuelaPlate } from "@/lib/venezuela-plate";
 import BrandModelSelect from "@/components/common/BrandModelSelect";
@@ -47,7 +47,11 @@ export default function VehicleFields({ index, value, brands, onChange, onRemove
   const vinLength = value.vin.length;
   const vinInvalid = vinLength > 0 && vinLength !== 17;
   const normalizedPlate = normalizeVenezuelaPlate(value.plate);
-  const plateInvalid = normalizedPlate.length > 0 && !validateVenezuelaPlate(value.plate).valid;
+  // A plate loaded from an existing vehicle is never re-validated unless
+  // the user actually edits it — a plate saved before the current format
+  // rules existed must not block re-saving the rest of the form.
+  const plateInvalid =
+    !value.noPlate && isPlateTouched(value) && normalizedPlate.length > 0 && !validateVenezuelaPlate(value.plate).valid;
 
   return (
     <div className="rounded-2xl border border-dashed border-navy/20 bg-ash/50 p-6">
@@ -167,14 +171,29 @@ export default function VehicleFields({ index, value, brands, onChange, onRemove
           </label>
           <input
             value={value.plate}
+            disabled={value.noPlate}
             onChange={(e) => onChange(index, { plate: e.target.value.toUpperCase().replace(/[^A-Z0-9 .-]/g, "").slice(0, 10) })}
             placeholder="AB123CD"
-            className={`w-full rounded-lg border px-3 py-2 font-mono text-sm uppercase outline-none focus:ring-2 ${
+            className={`w-full rounded-lg border px-3 py-2 font-mono text-sm uppercase outline-none focus:ring-2 disabled:bg-ash disabled:text-steel ${
               plateInvalid
                 ? "border-red-400 focus:border-red-500 focus:ring-red-100"
                 : "border-navy/15 focus:border-blue focus:ring-blue/20"
             }`}
           />
+          {plateInvalid && (
+            <p className="mt-1 text-[11px] text-red-600">
+              Ejemplo de formato válido: AB123CD (particular), 01 (poder público), TT12345 (tránsito)...
+            </p>
+          )}
+          <label className="mt-1.5 flex items-center gap-1.5 text-[11px] text-steel">
+            <input
+              type="checkbox"
+              checked={value.noPlate}
+              onChange={(e) => onChange(index, { noPlate: e.target.checked, plate: e.target.checked ? "" : value.plate })}
+              className="h-3.5 w-3.5 rounded border-navy/30 text-blue focus:ring-blue"
+            />
+            Sin placa (vehículo aún no registrado)
+          </label>
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-navy">Color</label>

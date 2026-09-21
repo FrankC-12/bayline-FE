@@ -7,7 +7,7 @@ import { normalizeVenezuelaPlate, validateVenezuelaPlate } from "@/lib/venezuela
 import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 import type { Client } from "@/types/client";
 import type { CreateClientInput, VehicleInput as ApiVehicleInput } from "@/lib/api/clients";
-import { emptyVehicle, type VehicleFormValue } from "@/types/client-form";
+import { emptyVehicle, isPlateTouched, type VehicleFormValue } from "@/types/client-form";
 import VehicleFields from "./VehicleFields";
 
 const CONTACT_PREFERENCES = [
@@ -78,7 +78,9 @@ export default function ClientFormPanel({
               mileage: v.mileage?.toString() ?? "",
               purchaseDate: v.purchase_date ?? "",
               bodyType: v.body_type ?? "",
-              plate: v.plate,
+              plate: v.plate ?? "",
+              noPlate: !v.plate,
+              originalPlate: v.plate ?? "",
               color: v.color ?? "",
               upholstery: v.upholstery ?? "",
               fuelType: v.fuel_type ?? "",
@@ -151,7 +153,7 @@ export default function ClientFormPanel({
       if (!v.brand.trim() || !v.model.trim()) {
         issues.push(`Vehículo ${i + 1}: marca y modelo son obligatorios.`);
       }
-      if (!validateVenezuelaPlate(v.plate).valid) {
+      if (v.plate && isPlateTouched(v) && !validateVenezuelaPlate(v.plate).valid) {
         issues.push(`Vehículo ${i + 1}: la placa venezolana no tiene un formato válido.`);
       }
       if (v.vin && v.vin.length !== 17) {
@@ -164,6 +166,11 @@ export default function ClientFormPanel({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Guards against a double-click/double-Enter submitting twice before
+    // the disabled attribute below has a chance to re-render — synchronous
+    // and independent of any render timing, unlike relying on `disabled`
+    // alone.
+    if (submitting) return;
     const issues = validate();
     if (issues.length > 0) {
       setErrors(issues);
@@ -182,7 +189,7 @@ export default function ClientFormPanel({
         mileage: v.mileage ? Number(stripThousands(v.mileage)) : null,
         purchase_date: v.purchaseDate || null,
         body_type: v.bodyType || null,
-        plate: normalizeVenezuelaPlate(v.plate),
+        plate: v.plate ? normalizeVenezuelaPlate(v.plate) : null,
         color: v.color || null,
         upholstery: v.upholstery || null,
         fuel_type: v.fuelType || null,

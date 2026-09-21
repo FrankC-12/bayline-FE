@@ -1,28 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { getVehicleMileageHistory } from "@/lib/api/clients";
 import type { VehicleMileageHistoryEntry } from "@/types/client";
+import { useListLoader } from "./useListLoader";
 
 export function useVehicleMileageHistory(vehicleId: string | null) {
-  const [history, setHistory] = useState<VehicleMileageHistoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: history,
+    loading,
+    error,
+    refresh,
+  } = useListLoader<VehicleMileageHistoryEntry>(
+    () => (vehicleId ? getVehicleMileageHistory(vehicleId) : Promise.resolve([])),
+    [vehicleId]
+  );
 
-  const load = useCallback(async () => {
-    if (!vehicleId) {
-      setHistory([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const data = await getVehicleMileageHistory(vehicleId);
-    setHistory(data);
-    setLoading(false);
-  }, [vehicleId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  return { history, loading, refresh: load };
+  return { history, loading, error, refresh };
 }

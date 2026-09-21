@@ -10,7 +10,7 @@ import CreateHoldingPanel from "./CreateHoldingPanel";
 import CreateHoldingUserPanel from "./CreateHoldingUserPanel";
 
 export default function HoldingsView() {
-  const { holdings, loading, addHolding, editHolding, toggleActive } = useHoldings();
+  const { holdings, loading, error, addHolding, editHolding, toggleActive, refresh } = useHoldings();
   const [search, setSearch] = useState("");
   const [panelOpen, setPanelOpen] = useState(false);
   const [editingHolding, setEditingHolding] = useState<Holding | null>(null);
@@ -58,6 +58,8 @@ export default function HoldingsView() {
       <HoldingsTable
         holdings={filtered}
         loading={loading}
+        error={error}
+        onRetry={refresh}
         onEdit={openEdit}
         onToggleActive={handleToggleActive}
         onCreateUser={(holding) => setCreatingUserFor(holding)}

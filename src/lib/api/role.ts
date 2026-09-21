@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { Role } from "@/types/role";
+import type { Role, RoleDirectoryEntry } from "@/types/role";
 import type { RoleScope } from "@/types/auth";
 
 export async function getRoles(scope?: RoleScope): Promise<Role[]> {
@@ -9,4 +9,9 @@ export async function getRoles(scope?: RoleScope): Promise<Role[]> {
 
 export async function getRole(id: string): Promise<Role> {
   return apiFetch<Role>(`/roles/${id}`);
+}
+
+export async function getRolesDirectory(scope?: RoleScope): Promise<RoleDirectoryEntry[]> {
+  const query = scope ? `?scope=${scope}` : "";
+  return apiFetch<RoleDirectoryEntry[]>(`/roles/directory${query}`);
 }
