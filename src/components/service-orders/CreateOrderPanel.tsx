@@ -6,6 +6,7 @@ import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useInspections } from "@/hooks/useInspections";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { useRoleDirectory } from "@/hooks/useRoleDirectory";
+import type { Inspection } from "@/types/inspection";
 
 export interface CreateOrderExtra {
   customer_reason: string;
@@ -17,6 +18,11 @@ interface CreateOrderPanelProps {
   open: boolean;
   onClose: () => void;
   filialId: string;
+  // When set, the panel skips vehicle search/matching entirely and creates
+  // the ODS for this exact inspection — used by the "Crear ODS" action on a
+  // specific finished inspection, so it never accidentally links a
+  // *different* unlinked inspection for the same vehicle.
+  presetInspection?: Inspection | null;
   onSubmit: (
     vehicleId: string,
     orderType: "regular" | "mpt",
@@ -25,9 +31,15 @@ interface CreateOrderPanelProps {
   ) => Promise<void>;
 }
 
-export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: CreateOrderPanelProps) {
+export default function CreateOrderPanel({
+  open,
+  onClose,
+  filialId,
+  presetInspection = null,
+  onSubmit,
+}: CreateOrderPanelProps) {
   const { clients } = useVehicleLookup(filialId);
-  const { inspections: unlinkedInspections } = useInspections(filialId, true);
+  const { inspections: unlinkedInspections } = useInspections(presetInspection ? null : filialId, true);
   const { users } = useUserDirectory({ filialId });
   const { roles } = useRoleDirectory("filial");
   const advisorRoleId = roles.find((r) => r.slug === "asesor")?.id;
@@ -65,12 +77,32 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
   }, [search, clients, selectedVehicleId]);
 
   const matchedInspection = useMemo(() => {
+    if (presetInspection) return presetInspection;
     if (!selectedVehicleId) return null;
     const candidates = unlinkedInspections
       .filter((i) => i.vehicle_id === selectedVehicleId)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return candidates[0] ?? null;
-  }, [unlinkedInspections, selectedVehicleId]);
+  }, [presetInspection, unlinkedInspections, selectedVehicleId]);
+
+  const inheritedReason = matchedInspection?.notes?.trim() || null;
+
+  const presetVehicleLabel = useMemo(() => {
+    if (!presetInspection) return null;
+    for (const client of clients) {
+      const vehicle = client.vehicles.find((v) => v.id === presetInspection.vehicle_id);
+      if (vehicle) {
+        return `${vehicle.brand} ${vehicle.model} · ${vehicle.plate ?? "Sin placa"} — ${client.full_name}`;
+      }
+    }
+    return null;
+  }, [presetInspection, clients]);
+
+  useEffect(() => {
+    if (open && presetInspection) {
+      setSelectedVehicleId(presetInspection.vehicle_id);
+    }
+  }, [open, presetInspection]);
 
   useEffect(() => {
     if (matchedInspection) {
@@ -162,19 +194,25 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
         <div className="flex-1 space-y-5 p-8">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Cliente / vehículo</label>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
-              <input
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setSelectedVehicleId(null);
-                }}
-                placeholder="Buscar por placa, VIN o cliente..."
-                className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-              />
-            </div>
-            {results.length > 0 && (
+            {presetInspection ? (
+              <p className="w-full rounded-xl border border-navy/10 bg-ash px-4 py-2.5 text-sm font-semibold text-navy">
+                {presetVehicleLabel ?? "—"}
+              </p>
+            ) : (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
+                <input
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setSelectedVehicleId(null);
+                  }}
+                  placeholder="Buscar por placa, VIN o cliente..."
+                  className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+                />
+              </div>
+            )}
+            {!presetInspection && results.length > 0 && (
               <div className="mt-2 divide-y divide-navy/5 rounded-xl border border-navy/10">
                 {results.map((r) => (
                   <button
@@ -211,7 +249,7 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
           {selectedVehicleId && matchedInspection ? (
             <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
               Kilometraje y motivo heredados de la Inspección Preliminar del{" "}
-              {new Date(matchedInspection.created_at).toLocaleDateString("es-VE")} — el motivo puedes editarlo.
+              {new Date(matchedInspection.created_at).toLocaleDateString("es-VE")}.
             </p>
           ) : selectedVehicleId ? (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
@@ -262,13 +300,19 @@ export default function CreateOrderPanel({ open, onClose, filialId, onSubmit }: 
             <label className="mb-1.5 block text-sm font-medium text-navy">
               Motivo o síntoma reportado por el cliente
             </label>
-            <textarea
-              value={customerReason}
-              onChange={(e) => setCustomerReason(e.target.value)}
-              rows={3}
-              placeholder="Ej: Ruido en frenos delanteros al frenar..."
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-            />
+            {inheritedReason ? (
+              <p className="w-full whitespace-pre-wrap rounded-xl border border-navy/10 bg-ash px-4 py-2.5 text-sm text-navy">
+                {inheritedReason}
+              </p>
+            ) : (
+              <textarea
+                value={customerReason}
+                onChange={(e) => setCustomerReason(e.target.value)}
+                rows={3}
+                placeholder="Ej: Ruido en frenos delanteros al frenar..."
+                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+              />
+            )}
           </div>
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}

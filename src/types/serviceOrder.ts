@@ -48,7 +48,7 @@ export interface Bay {
 }
 
 export type TaskStatus = "pendiente" | "completada";
-export type TransferStatus = "pendiente" | "pedido";
+export type TransferStatus = "pendiente" | "pedido" | "completado";
 export type ServiceOrderPayer =
   | "cliente"
   | "garantia_taller"

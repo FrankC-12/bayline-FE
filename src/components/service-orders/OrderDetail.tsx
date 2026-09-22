@@ -73,6 +73,8 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     removeTask,
     addTransferLine,
     changeLinePayer,
+    changeLineQuantity,
+    removeLine,
     markOrdered,
     dismissWarnings,
   } = useOrderSummary(order?.id ?? null);
@@ -691,6 +693,8 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             filialId={filialId}
             transfers={summary?.transfers ?? []}
             onAddLine={addTransferLine}
+            onChangeQuantity={changeLineQuantity}
+            onRemoveLine={removeLine}
             onMarkOrdered={markOrdered}
           />
           {summary && <CoverageBreakdownCard summary={summary} filialId={filialId} readOnly={readOnly || saving} onChangeTaskPayer={changeTaskPayer} onChangeLinePayer={changeLinePayer} />}

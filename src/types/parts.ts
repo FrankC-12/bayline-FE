@@ -80,6 +80,8 @@ export interface PartSale {
   request_reason: string;
   discount_label: string;
   status: PartSaleStatus;
+  warehouse_id: string | null;
+  warehouse_name: string | null;
   total: number;
   iva_percentage: number;
   iva_amount: number;

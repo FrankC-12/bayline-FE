@@ -2,6 +2,7 @@ export interface VehicleModelOption {
   id: string;
   brand_id: string;
   name: string;
+  vehicle_type: string | null;
   is_active: boolean;
 }
 

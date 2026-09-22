@@ -157,6 +157,23 @@ export async function updateTransferLinePayer(
   });
 }
 
+export async function updateTransferLineQuantity(
+  orderId: string,
+  lineId: string,
+  quantity: number
+): Promise<OrderSummary> {
+  return apiFetch<OrderSummary>(`/service-orders/${orderId}/transfers/lines/${lineId}/quantity`, {
+    method: "PATCH",
+    body: JSON.stringify({ quantity }),
+  });
+}
+
+export async function removeTransferLine(orderId: string, lineId: string): Promise<OrderSummary> {
+  return apiFetch<OrderSummary>(`/service-orders/${orderId}/transfers/lines/${lineId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function markTransferOrdered(transferId: string): Promise<void> {
   await apiFetch(`/service-order-transfers/${transferId}/mark-ordered`, { method: "POST" });
 }

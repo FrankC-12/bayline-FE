@@ -2,12 +2,16 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Trash2, Wrench } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInspections } from "@/hooks/useInspections";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
+import { createServiceOrder } from "@/lib/api/serviceOrders";
+import type { Inspection } from "@/types/inspection";
 import CreateInspectionPanel from "./CreateInspectionPanel";
+import CreateOrderPanel, { type CreateOrderExtra } from "@/components/service-orders/CreateOrderPanel";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 
@@ -22,6 +26,7 @@ function isToday(iso: string) {
 }
 
 export default function InspectionsView() {
+  const router = useRouter();
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
@@ -32,6 +37,24 @@ export default function InspectionsView() {
   const [onlyToday, setOnlyToday] = useState(true);
   const [search, setSearch] = useState("");
   const [panelOpen, setPanelOpen] = useState(false);
+  const [orderInspection, setOrderInspection] = useState<Inspection | null>(null);
+
+  async function handleCreateOrder(
+    vehicleId: string,
+    orderType: "regular" | "mpt",
+    extra: CreateOrderExtra,
+    inspectionId: string
+  ) {
+    if (!filialId) return;
+    const created = await createServiceOrder({
+      filial_id: filialId,
+      vehicle_id: vehicleId,
+      order_type: orderType,
+      inspection_id: inspectionId,
+      ...extra,
+    });
+    router.push(`/dashboard/servicios/${created.id}`);
+  }
 
   const inspectorName = (id: string) => users.find((u) => u.id === id)?.full_name ?? "—";
 
@@ -138,6 +161,14 @@ export default function InspectionsView() {
                         >
                           Ver ODS
                         </Link>
+                      ) : i.status === "completada" ? (
+                        <button
+                          onClick={() => setOrderInspection(i)}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-blue/30 bg-blue-light px-3 py-1.5 text-xs font-semibold text-blue transition hover:border-blue hover:bg-blue hover:text-white"
+                        >
+                          <Wrench className="h-3.5 w-3.5" />
+                          Crear ODS
+                        </button>
                       ) : (
                         <span className="text-steel">Sin ODS</span>
                       )}
@@ -193,6 +224,14 @@ export default function InspectionsView() {
         onClose={() => setPanelOpen(false)}
         filialId={filialId}
         onSubmit={addInspection}
+      />
+
+      <CreateOrderPanel
+        open={orderInspection !== null}
+        onClose={() => setOrderInspection(null)}
+        filialId={filialId}
+        presetInspection={orderInspection}
+        onSubmit={handleCreateOrder}
       />
     </div>
   );

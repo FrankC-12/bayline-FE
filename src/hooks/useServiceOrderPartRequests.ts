@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { acknowledgeServiceOrderRequest, listServiceOrderRequests } from "@/lib/api/warehouse";
+import {
+  acknowledgeServiceOrderRequest,
+  completeServiceOrderRequest,
+  listServiceOrderRequests,
+} from "@/lib/api/warehouse";
 import type { ServiceOrderPartRequest } from "@/types/warehouse";
 
 const POLL_INTERVAL_MS = 30000;
@@ -36,7 +40,19 @@ export function useServiceOrderPartRequests(filialId: string | null) {
     [filialId]
   );
 
+  const complete = useCallback(
+    async (transferId: string) => {
+      if (!filialId) return;
+      const now = new Date().toISOString();
+      setRequests((prev) =>
+        prev.map((r) => (r.id === transferId ? { ...r, status: "completado", completed_at: now } : r))
+      );
+      await completeServiceOrderRequest(filialId, transferId);
+    },
+    [filialId]
+  );
+
   const unseenCount = requests.filter((r) => !r.warehouse_seen).length;
 
-  return { requests, loading, unseenCount, acknowledge, refresh: load };
+  return { requests, loading, unseenCount, acknowledge, complete, refresh: load };
 }

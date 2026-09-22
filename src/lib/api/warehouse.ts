@@ -3,6 +3,7 @@ import type {
   InventoryRow,
   PartLot,
   PartLotDetail,
+  PartSaleRequest,
   ServiceOrderPartRequest,
   StockInReason,
   StockMovement,
@@ -188,6 +189,16 @@ export async function acknowledgeServiceOrderRequest(filialId: string, transferI
   await apiFetch(`/almacen/service-order-requests/${transferId}/acknowledge?filial_id=${filialId}`, {
     method: "POST",
   });
+}
+
+export async function completeServiceOrderRequest(filialId: string, transferId: string): Promise<void> {
+  await apiFetch(`/almacen/service-order-requests/${transferId}/complete?filial_id=${filialId}`, {
+    method: "POST",
+  });
+}
+
+export async function listPartSaleRequests(filialId: string): Promise<PartSaleRequest[]> {
+  return apiFetch<PartSaleRequest[]>(`/almacen/part-sale-requests?filial_id=${filialId}`);
 }
 
 export async function listMovements(

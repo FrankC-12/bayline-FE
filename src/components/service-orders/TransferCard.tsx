@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { Package, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Package, Search, Trash2 } from "lucide-react";
 import { useParts } from "@/hooks/useParts";
 import { useToast } from "@/contexts/ToastContext";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
-import type { ServiceOrderTransfer, ServiceOrderPayer } from "@/types/serviceOrder";
+import type { ServiceOrderTransfer, ServiceOrderPayer, TransferLine } from "@/types/serviceOrder";
 import type { Part } from "@/types/parts";
 
 interface TransfersCardProps {
@@ -13,13 +13,107 @@ interface TransfersCardProps {
   readOnly?: boolean;
   transfers: ServiceOrderTransfer[];
   onAddLine: (partId: string, quantity: number, payer: ServiceOrderPayer) => Promise<void>;
+  onChangeQuantity: (lineId: string, quantity: number) => Promise<void>;
+  onRemoveLine: (lineId: string) => Promise<void>;
   onMarkOrdered: (transferId: string) => Promise<void>;
+}
+
+function TransferLineRow({
+  line,
+  part,
+  canEdit,
+  onChangeQuantity,
+  onRemoveLine,
+}: {
+  line: TransferLine;
+  part: Part | undefined;
+  canEdit: boolean;
+  onChangeQuantity: (lineId: string, quantity: number) => Promise<void>;
+  onRemoveLine: (lineId: string) => Promise<void>;
+}) {
+  const [quantity, setQuantity] = useState(String(line.quantity));
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setQuantity(String(line.quantity));
+  }, [line.quantity]);
+
+  async function commit() {
+    const next = Math.trunc(Number(quantity));
+    if (!Number.isFinite(next) || next < 1 || next === line.quantity) {
+      setQuantity(String(line.quantity));
+      return;
+    }
+    setBusy(true);
+    try {
+      await onChangeQuantity(line.id, next);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    setBusy(true);
+    try {
+      await onRemoveLine(line.id);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <tr>
+      <td className="py-1.5 text-navy">
+        {part?.name ?? "—"}
+        <span className="mt-1 block font-mono text-xs text-blue">{part?.code}</span>
+      </td>
+      <td className="py-1.5 text-navy">
+        {canEdit ? (
+          <input
+            type="number"
+            min={1}
+            value={quantity}
+            disabled={busy}
+            onChange={(e) => setQuantity(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            className="w-16 rounded-lg border border-navy/15 px-2 py-1 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 disabled:opacity-60"
+          />
+        ) : (
+          line.quantity
+        )}
+      </td>
+      <td className="py-1.5 text-right text-navy">
+        {line.unit_price == null ? "—" : `$${line.unit_price.toFixed(2)}`}
+      </td>
+      <td className="py-1.5 text-right font-medium text-navy">
+        {line.subtotal == null ? "—" : `$${line.subtotal.toFixed(2)}`}
+      </td>
+      {canEdit && (
+        <td className="py-1.5 pl-2 text-right">
+          <button
+            type="button"
+            onClick={remove}
+            disabled={busy}
+            aria-label={`Quitar ${part?.name ?? "repuesto"}`}
+            className="rounded-lg p-1.5 text-red-500 transition hover:bg-red-50 disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </td>
+      )}
+    </tr>
+  );
 }
 
 export default function TransfersCard({
   filialId,
   transfers,
   onAddLine,
+  onChangeQuantity,
+  onRemoveLine,
   onMarkOrdered,
   readOnly = false,
 }: TransfersCardProps) {
@@ -125,69 +219,79 @@ export default function TransfersCard({
         </p>
       ) : (
         <div className="space-y-4">
-          {transfers.map((transfer) => (
-            <div key={transfer.id} className="rounded-xl border border-navy/10 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-blue" />
-                  <span className="font-mono text-sm font-semibold text-navy">{transfer.code}</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest ${
-                      transfer.status === "pedido"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    {transfer.status === "pedido" ? "Pedido" : "Pendiente"}
-                  </span>
+          {transfers.map((transfer) => {
+            const canEditLines = !readOnly && transfer.status === "pendiente";
+            return (
+              <div key={transfer.id} className="rounded-xl border border-navy/10 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-blue" />
+                    <span className="font-mono text-sm font-semibold text-navy">{transfer.code}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest ${
+                        transfer.status === "completado"
+                          ? "bg-blue-light text-blue"
+                          : transfer.status === "pedido"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      {transfer.status === "completado" ? "Completado" : transfer.status === "pedido" ? "Pedido" : "Pendiente"}
+                    </span>
+                  </div>
+                  {transfer.status === "pendiente" && transfer.lines.length > 0 && (
+                    <button
+                      type="button"
+                      disabled={readOnly || adding}
+                      onClick={() => setConfirmingTransferId(transfer.id)}
+                      className="rounded-full bg-blue px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-navy"
+                    >
+                      Marcar como Pedido
+                    </button>
+                  )}
                 </div>
-                {transfer.status === "pendiente" && (
-                  <button
-                    type="button"
-                    disabled={readOnly || adding}
-                    onClick={() => setConfirmingTransferId(transfer.id)}
-                    className="rounded-full bg-blue px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-navy"
-                  >
-                    Marcar como Pedido
-                  </button>
+
+                {transfer.lines.length === 0 ? (
+                  <p className="rounded-lg bg-ash px-3 py-2 text-xs text-steel">
+                    Sin repuestos — se quitaron todos de esta ODT.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[520px] text-left text-sm">
+                      <thead>
+                        <tr className="text-steel">
+                          <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">Repuesto</th>
+                          <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">Cant.</th>
+                          <th className="pb-1.5 text-right font-mono text-[10px] uppercase tracking-widest">
+                            PVP
+                          </th>
+                          <th className="pb-1.5 text-right font-mono text-[10px] uppercase tracking-widest">
+                            Subtotal
+                          </th>
+                          {canEditLines && <th className="pb-1.5" />}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-navy/5">
+                        {transfer.lines.map((line) => (
+                          <TransferLineRow
+                            key={line.id}
+                            line={line}
+                            part={partById(line.part_id)}
+                            canEdit={canEditLines}
+                            onChangeQuantity={onChangeQuantity}
+                            onRemoveLine={onRemoveLine}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
+                <div className="mt-2 flex justify-end text-sm font-semibold text-navy">
+                  Subtotal: {transfer.subtotal == null ? "—" : `$${transfer.subtotal.toFixed(2)}`}
+                </div>
               </div>
-
-              <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm">
-                <thead>
-                  <tr className="text-steel">
-                    <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">Repuesto</th>
-                    <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">Cant.</th>
-                    <th className="pb-1.5 text-right font-mono text-[10px] uppercase tracking-widest">
-                      PVP
-                    </th>
-                    <th className="pb-1.5 text-right font-mono text-[10px] uppercase tracking-widest">
-                      Subtotal
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-navy/5">
-                  {transfer.lines.map((line) => {
-                    const part = partById(line.part_id);
-                    return (
-                      <tr key={line.id}>
-                        <td className="py-1.5 text-navy">{part?.name ?? "—"}<span className="mt-1 block font-mono text-xs text-blue">{part?.code}</span></td>
-                        <td className="py-1.5 text-navy">{line.quantity}</td>
-                        <td className="py-1.5 text-right text-navy">{line.unit_price == null ? "—" : `$${line.unit_price.toFixed(2)}`}</td>
-                        <td className="py-1.5 text-right font-medium text-navy">
-                          {line.subtotal == null ? "—" : `$${line.subtotal.toFixed(2)}`}
-                        </td>
-
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table></div>
-              <div className="mt-2 flex justify-end text-sm font-semibold text-navy">
-                Subtotal: {transfer.subtotal == null ? "—" : `$${transfer.subtotal.toFixed(2)}`}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

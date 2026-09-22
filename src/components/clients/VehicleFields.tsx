@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { X } from "lucide-react";
 import { formatThousands, stripThousands } from "@/lib/format";
 import { isPlateTouched, type VehicleFormValue } from "@/types/client-form";
 import type { VehicleBrandOption } from "@/types/vehicleCatalog";
+import { VEHICLE_BODY_TYPES } from "@/lib/vehicleTypes";
 import { normalizeVenezuelaPlate, validateVenezuelaPlate } from "@/lib/venezuela-plate";
 import BrandModelSelect from "@/components/common/BrandModelSelect";
 
@@ -12,7 +14,6 @@ function formatVisitDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-VE", { day: "numeric", month: "long", year: "numeric" });
 }
 
-const BODY_TYPES = ["Sedán", "Pick-up", "SUV", "Camión", "Van", "Moto", "Otro"];
 const FUEL_TYPES = [
   { value: "gasolina", label: "Gasolina" },
   { value: "diesel", label: "Diésel" },
@@ -52,6 +53,19 @@ export default function VehicleFields({ index, value, brands, onChange, onRemove
   // rules existed must not block re-saving the rest of the form.
   const plateInvalid =
     !value.noPlate && isPlateTouched(value) && normalizedPlate.length > 0 && !validateVenezuelaPlate(value.plate).valid;
+
+  // Tipo is inherited from the selected Modelo's catalog entry — it's only
+  // ever manually picked as a fallback for a model that predates the
+  // vehicle_type field (see Ajustes → Marcas y Modelos).
+  const selectedModel = brands.find((b) => b.name === value.brand)?.models.find((m) => m.name === value.model);
+  const inheritedBodyType = selectedModel?.vehicle_type ?? null;
+
+  useEffect(() => {
+    if (inheritedBodyType && value.bodyType !== inheritedBodyType) {
+      onChange(index, { bodyType: inheritedBodyType });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inheritedBodyType]);
 
   return (
     <div className="rounded-2xl border border-dashed border-navy/20 bg-ash/50 p-6">
@@ -149,18 +163,25 @@ export default function VehicleFields({ index, value, brands, onChange, onRemove
 
         <div>
           <label className="mb-1 block text-xs font-medium text-navy">Tipo</label>
-          <select
-            value={value.bodyType}
-            onChange={(e) => onChange(index, { bodyType: e.target.value })}
-            className="w-full rounded-lg border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-          >
-            <option value="">Selecciona</option>
-            {BODY_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+          {inheritedBodyType ? (
+            <p className="w-full rounded-lg border border-navy/10 bg-white px-3 py-2 text-sm font-medium text-navy">
+              {inheritedBodyType}
+            </p>
+          ) : (
+            <select
+              value={value.bodyType}
+              onChange={(e) => onChange(index, { bodyType: e.target.value })}
+              disabled={!value.model}
+              className="w-full rounded-lg border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 disabled:bg-ash disabled:text-steel"
+            >
+              <option value="">{value.model ? "Selecciona" : "Selecciona un modelo primero"}</option>
+              {VEHICLE_BODY_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div>
           <label className="mb-1 flex items-center justify-between text-xs font-medium text-navy">

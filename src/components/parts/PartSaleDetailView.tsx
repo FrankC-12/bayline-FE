@@ -138,7 +138,10 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl font-bold text-navy">{sale.code}</h1>
-          <p className="mt-1 text-sm text-steel">{sale.client_name}</p>
+          <p className="mt-1 text-sm text-steel">
+            {sale.client_name}
+            {sale.warehouse_name && ` · Almacén: ${sale.warehouse_name}`}
+          </p>
         </div>
         <span
           className={`rounded-full px-4 py-2 text-sm font-semibold ${STATUS_STYLES[sale.status]}`}

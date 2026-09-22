@@ -6,9 +6,9 @@ import {
   createVehicleModel,
   listVehicleBrands,
   renameVehicleBrand,
-  renameVehicleModel,
   setVehicleBrandActive,
   setVehicleModelActive,
+  updateVehicleModel,
 } from "@/lib/api/vehicleCatalog";
 import type { VehicleBrandOption } from "@/types/vehicleCatalog";
 import { useListLoader } from "./useListLoader";
@@ -57,9 +57,9 @@ export function useVehicleCatalog(filialId: string | null, includeInactive = fal
   );
 
   const addModel = useCallback(
-    async (brandId: string, name: string) => {
+    async (brandId: string, name: string, vehicleType: string) => {
       if (!filialId) throw new Error("Filial requerida.");
-      const created = await createVehicleModel(filialId, brandId, name);
+      const created = await createVehicleModel(filialId, brandId, name, vehicleType);
       await refresh();
       return created;
     },
@@ -67,9 +67,9 @@ export function useVehicleCatalog(filialId: string | null, includeInactive = fal
   );
 
   const editModel = useCallback(
-    async (modelId: string, name: string) => {
+    async (modelId: string, patch: { name?: string; vehicleType?: string }) => {
       if (!filialId) throw new Error("Filial requerida.");
-      const updated = await renameVehicleModel(filialId, modelId, name);
+      const updated = await updateVehicleModel(filialId, modelId, patch);
       await refresh();
       return updated;
     },

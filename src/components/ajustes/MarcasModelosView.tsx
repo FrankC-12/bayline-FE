@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, Check, Pencil, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
+import { VEHICLE_BODY_TYPES } from "@/lib/vehicleTypes";
 import type { VehicleBrandOption, VehicleModelOption } from "@/types/vehicleCatalog";
 import EmptyState from "@/components/common/EmptyState";
 import ActiveToggle from "@/components/common/ActiveToggle";
@@ -12,28 +13,36 @@ import ActiveToggle from "@/components/common/ActiveToggle";
 function ModelRow({
   model,
   canEdit,
-  onRename,
+  onSave,
   onToggleActive,
 }: {
   model: VehicleModelOption;
   canEdit: boolean;
-  onRename: (name: string) => Promise<unknown>;
+  onSave: (patch: { name?: string; vehicleType?: string }) => Promise<unknown>;
   onToggleActive: () => Promise<unknown>;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(model.name);
+  const [vehicleType, setVehicleType] = useState(model.vehicle_type ?? "");
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState(false);
 
   async function save() {
-    const trimmed = name.trim();
-    if (!trimmed || trimmed === model.name) {
+    const trimmedName = name.trim();
+    if (!trimmedName || !vehicleType) {
+      setEditing(false);
+      return;
+    }
+    if (trimmedName === model.name && vehicleType === (model.vehicle_type ?? "")) {
       setEditing(false);
       return;
     }
     setSaving(true);
     try {
-      await onRename(trimmed);
+      const patch: { name?: string; vehicleType?: string } = {};
+      if (trimmedName !== model.name) patch.name = trimmedName;
+      if (vehicleType !== (model.vehicle_type ?? "")) patch.vehicleType = vehicleType;
+      await onSave(patch);
       setEditing(false);
     } finally {
       setSaving(false);
@@ -64,9 +73,24 @@ function ModelRow({
             disabled={saving}
             className="flex-1 rounded-lg border border-navy/15 px-2 py-1 text-sm outline-none focus:border-blue disabled:opacity-60"
           />
+          <select
+            value={vehicleType}
+            onChange={(e) => setVehicleType(e.target.value)}
+            disabled={saving}
+            className="rounded-lg border border-navy/15 px-2 py-1 text-sm outline-none focus:border-blue disabled:opacity-60"
+          >
+            <option value="" disabled>
+              Tipo...
+            </option>
+            {VEHICLE_BODY_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
           <button
             onClick={save}
-            disabled={saving || !name.trim()}
+            disabled={saving || !name.trim() || !vehicleType}
             aria-label="Guardar modelo"
             className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
           >
@@ -79,6 +103,9 @@ function ModelRow({
           className={`flex flex-1 items-center gap-1.5 text-left text-navy ${canEdit ? "hover:text-blue" : ""}`}
         >
           {model.name}
+          <span className="font-mono text-[11px] uppercase tracking-wide text-steel">
+            {model.vehicle_type ?? "Sin tipo"}
+          </span>
           {canEdit && <Pencil className="h-3 w-3 opacity-40" />}
         </button>
       )}
@@ -98,15 +125,15 @@ function BrandCard({
   onRename,
   onToggleActive,
   onAddModel,
-  onRenameModel,
+  onSaveModel,
   onToggleModelActive,
 }: {
   brand: VehicleBrandOption;
   canEdit: boolean;
   onRename: (name: string) => Promise<unknown>;
   onToggleActive: () => Promise<unknown>;
-  onAddModel: (name: string) => Promise<unknown>;
-  onRenameModel: (modelId: string, name: string) => Promise<unknown>;
+  onAddModel: (name: string, vehicleType: string) => Promise<unknown>;
+  onSaveModel: (modelId: string, patch: { name?: string; vehicleType?: string }) => Promise<unknown>;
   onToggleModelActive: (modelId: string, isActive: boolean) => Promise<unknown>;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -115,6 +142,7 @@ function BrandCard({
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [newModelName, setNewModelName] = useState("");
+  const [newModelType, setNewModelType] = useState("");
   const [addingModel, setAddingModel] = useState(false);
 
   async function save() {
@@ -142,11 +170,12 @@ function BrandCard({
   }
 
   async function handleAddModel() {
-    if (!newModelName.trim()) return;
+    if (!newModelName.trim() || !newModelType) return;
     setAddingModel(true);
     try {
-      await onAddModel(newModelName.trim());
+      await onAddModel(newModelName.trim(), newModelType);
       setNewModelName("");
+      setNewModelType("");
     } finally {
       setAddingModel(false);
     }
@@ -217,7 +246,7 @@ function BrandCard({
               key={model.id}
               model={model}
               canEdit={canEdit}
-              onRename={(newName) => onRenameModel(model.id, newName)}
+              onSave={(patch) => onSaveModel(model.id, patch)}
               onToggleActive={() => onToggleModelActive(model.id, !model.is_active)}
             />
           ))}
@@ -235,9 +264,23 @@ function BrandCard({
                 placeholder="Nombre del modelo"
                 className="flex-1 rounded-lg bg-white px-2 py-1.5 text-sm outline-none"
               />
+              <select
+                value={newModelType}
+                onChange={(e) => setNewModelType(e.target.value)}
+                className="rounded-lg bg-white px-2 py-1.5 text-sm outline-none"
+              >
+                <option value="" disabled>
+                  Tipo...
+                </option>
+                {VEHICLE_BODY_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
               <button
                 onClick={handleAddModel}
-                disabled={addingModel || !newModelName.trim()}
+                disabled={addingModel || !newModelName.trim() || !newModelType}
                 className="flex items-center gap-1 rounded-lg bg-blue px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -320,8 +363,8 @@ export default function MarcasModelosView() {
               canEdit={canEdit}
               onRename={(name) => guarded(() => editBrand(brand.id, name))}
               onToggleActive={() => guarded(() => toggleBrandActive(brand.id, !brand.is_active))}
-              onAddModel={(name) => guarded(() => addModel(brand.id, name))}
-              onRenameModel={(modelId, name) => guarded(() => editModel(modelId, name))}
+              onAddModel={(name, vehicleType) => guarded(() => addModel(brand.id, name, vehicleType))}
+              onSaveModel={(modelId, patch) => guarded(() => editModel(modelId, patch))}
               onToggleModelActive={(modelId, isActive) => guarded(() => toggleModelActive(modelId, isActive))}
             />
           ))

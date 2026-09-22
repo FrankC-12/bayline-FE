@@ -13,6 +13,7 @@ export interface OdtSummary {
   total: number;
   pendiente: number;
   pedido: number;
+  completado: number;
 }
 
 export interface SalesSummary {

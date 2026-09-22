@@ -6,6 +6,7 @@ import HoldingMetricTable, { type HoldingMetricColumn } from "./HoldingMetricTab
 const COLUMNS: HoldingMetricColumn[] = [
   { key: "pendiente", label: "Pendiente", align: "right", render: (r) => r.odt.pendiente },
   { key: "pedido", label: "Pedido", align: "right", render: (r) => r.odt.pedido },
+  { key: "completado", label: "Completado", align: "right", render: (r) => r.odt.completado },
   { key: "total", label: "Total", align: "right", render: (r) => <strong>{r.odt.total}</strong> },
 ];
 

@@ -52,6 +52,12 @@ export default function CreateInspectionPanel({
 
   async function handleSubmit() {
     if (!selectedVehicleId) return;
+    if (status === "completada" && !notes.trim()) {
+      setError(
+        "Ingresa el motivo o síntoma reportado por el cliente — la ODS lo heredará de aquí al crearse."
+      );
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -146,14 +152,23 @@ export default function CreateInspectionPanel({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Notas</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Motivo o síntoma reportado por el cliente
+              {status === "completada" && <span className="text-red-500"> *</span>}
+            </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              placeholder="Ingreso por mantenimiento. Sin observaciones de carrocería..."
+              placeholder="Ruido en frenos delanteros al frenar..."
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
             />
+            {status === "completada" && (
+              <p className="mt-1 text-xs text-steel">
+                La ODS que se cree a partir de esta inspección heredará este texto como motivo — no se
+                volverá a pedir.
+              </p>
+            )}
           </div>
 
           <div>

@@ -46,11 +46,18 @@ export interface PartLotDetail extends PartLot {
   outbound_movements: LotOutboundMovement[];
 }
 
+export interface ServiceOrderPartRequestLineWarehouse {
+  warehouse_id: string;
+  warehouse_name: string;
+  quantity: number;
+}
+
 export interface ServiceOrderPartRequestLine {
   part_id: string;
   part_code: string;
   part_name: string;
   quantity: number;
+  warehouses: ServiceOrderPartRequestLineWarehouse[];
 }
 
 export interface ServiceOrderPartRequest {
@@ -59,9 +66,29 @@ export interface ServiceOrderPartRequest {
   service_order_id: string;
   service_order_code: string;
   vehicle_label: string;
+  status: "pedido" | "completado";
   fulfilled_at: string | null;
+  completed_at: string | null;
   warehouse_seen: boolean;
   lines: ServiceOrderPartRequestLine[];
+}
+
+export interface PartSaleRequestLine {
+  part_id: string;
+  part_code: string;
+  part_name: string;
+  quantity: number;
+  warehouse_id: string | null;
+  warehouse_name: string | null;
+}
+
+export interface PartSaleRequest {
+  id: string;
+  code: string;
+  client_name: string;
+  status: string;
+  created_at: string;
+  lines: PartSaleRequestLine[];
 }
 
 export type MovementType = "entrada" | "salida" | "transferencia_salida" | "transferencia_entrada" | "devolucion";

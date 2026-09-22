@@ -41,22 +41,23 @@ export async function setVehicleBrandActive(
 export async function createVehicleModel(
   filialId: string,
   brandId: string,
-  name: string
+  name: string,
+  vehicleType: string
 ): Promise<VehicleModelOption> {
   return apiFetch<VehicleModelOption>(`/vehicle-catalog/brands/${brandId}/models?filial_id=${filialId}`, {
     method: "POST",
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, vehicle_type: vehicleType }),
   });
 }
 
-export async function renameVehicleModel(
+export async function updateVehicleModel(
   filialId: string,
   modelId: string,
-  name: string
+  patch: { name?: string; vehicleType?: string }
 ): Promise<VehicleModelOption> {
   return apiFetch<VehicleModelOption>(`/vehicle-catalog/models/${modelId}?filial_id=${filialId}`, {
     method: "PATCH",
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name: patch.name, vehicle_type: patch.vehicleType }),
   });
 }
 

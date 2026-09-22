@@ -9,6 +9,8 @@ import {
   deleteTask,
   addTransferLine,
   updateTransferLinePayer,
+  updateTransferLineQuantity,
+  removeTransferLine,
   markTransferOrdered,
 } from "@/lib/api/serviceOrders";
 import type { OrderSummary, ServiceOrderPayer } from "@/types/serviceOrder";
@@ -85,6 +87,24 @@ export function useOrderSummary(orderId: string | null) {
     [orderId]
   );
 
+  const changeLineQuantity = useCallback(
+    async (lineId: string, quantity: number) => {
+      if (!orderId) return;
+      const updated = await updateTransferLineQuantity(orderId, lineId, quantity);
+      setSummary(updated);
+    },
+    [orderId]
+  );
+
+  const removeLine = useCallback(
+    async (lineId: string) => {
+      if (!orderId) return;
+      const updated = await removeTransferLine(orderId, lineId);
+      setSummary(updated);
+    },
+    [orderId]
+  );
+
   const markOrdered = useCallback(
     async (transferId: string) => {
       await markTransferOrdered(transferId);
@@ -107,6 +127,8 @@ export function useOrderSummary(orderId: string | null) {
     removeTask,
     addTransferLine: addLineAndRefresh,
     changeLinePayer,
+    changeLineQuantity,
+    removeLine,
     markOrdered,
     dismissWarnings,
   };

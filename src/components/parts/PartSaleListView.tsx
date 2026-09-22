@@ -85,6 +85,9 @@ export default function PartSalesListView() {
                   Cliente
                 </th>
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                  Almacén
+                </th>
+                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
                   Fecha
                 </th>
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
@@ -107,6 +110,7 @@ export default function PartSalesListView() {
                 >
                   <td className="px-6 py-4 font-mono font-semibold text-blue">{s.code}</td>
                   <td className="px-6 py-4 font-medium text-navy">{s.client_name}</td>
+                  <td className="px-6 py-4 text-steel">{s.warehouse_name ?? "—"}</td>
                   <td className="px-6 py-4 text-steel">
                     {new Date(s.created_at).toLocaleDateString("es-VE")}
                   </td>
