@@ -22,7 +22,10 @@ export function useScheduledOrders(filialId: string | null, dateStr: string) {
   } = useListLoader<ServiceOrder>(
     async () => {
       if (!filialId) return [];
-      const data = await listServiceOrders(filialId, "all", dateStr);
+      // "active" — not "all" — so a cancelada/orden_cerrada order scheduled
+      // for today doesn't show up here when it's already gone from the
+      // Kanban board (which never shows those two statuses at all).
+      const data = await listServiceOrders(filialId, "active", dateStr);
       return data.filter((o) => o.scheduled_at);
     },
     [filialId, dateStr]

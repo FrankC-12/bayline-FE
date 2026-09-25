@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getInventory } from "@/lib/api/warehouse";
+import { getInventory, updateInventoryLocation } from "@/lib/api/warehouse";
 import type { InventoryRow } from "@/types/warehouse";
 
 export function useInventory(filialId: string | null, warehouseId?: string, search?: string) {
@@ -24,5 +24,18 @@ export function useInventory(filialId: string | null, warehouseId?: string, sear
     load();
   }, [load]);
 
-  return { inventory, loading, refresh: load };
+  const editLocation = useCallback(
+    async (partId: string, rowWarehouseId: string, location: string | null) => {
+      if (!filialId) return;
+      const updated = await updateInventoryLocation(filialId, partId, rowWarehouseId, location);
+      setInventory((prev) =>
+        prev.map((row) =>
+          row.part_id === updated.part_id && row.warehouse_id === updated.warehouse_id ? updated : row
+        )
+      );
+    },
+    [filialId]
+  );
+
+  return { inventory, loading, refresh: load, editLocation };
 }

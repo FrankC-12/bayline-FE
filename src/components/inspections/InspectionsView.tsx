@@ -10,6 +10,7 @@ import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { createServiceOrder } from "@/lib/api/serviceOrders";
 import type { Inspection } from "@/types/inspection";
+import type { ServiceOrderType } from "@/types/serviceOrder";
 import CreateInspectionPanel from "./CreateInspectionPanel";
 import CreateOrderPanel, { type CreateOrderExtra } from "@/components/service-orders/CreateOrderPanel";
 import EmptyState from "@/components/common/EmptyState";
@@ -41,7 +42,7 @@ export default function InspectionsView() {
 
   async function handleCreateOrder(
     vehicleId: string,
-    orderType: "regular" | "mpt",
+    orderType: ServiceOrderType,
     extra: CreateOrderExtra,
     inspectionId: string
   ) {

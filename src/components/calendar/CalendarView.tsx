@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBays } from "@/hooks/useBays";
 import { useScheduledOrders } from "@/hooks/useScheduledOrders";
+import { useServiceOrders } from "@/hooks/useServiceOrders";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { useRoleDirectory } from "@/hooks/useRoleDirectory";
@@ -29,6 +30,15 @@ export default function CalendarView() {
   const [selectedDate, setSelectedDate] = useState(() => toDateInputValue(new Date()));
   const { bays, addBay, toggleActive, renameBay } = useBays(filialId);
   const { orders, loading, error, addOrder, rescheduleOrder, refresh } = useScheduledOrders(filialId, selectedDate);
+  // Every order the Kanban board shows (view=active, no date scope) — an
+  // active order missing scheduled_at (a walk-in, typically) never lands in
+  // the grid above, so it's surfaced here instead of being invisible on
+  // this screen entirely.
+  const { orders: activeOrders } = useServiceOrders(filialId, "active");
+  const unscheduledOrders = useMemo(
+    () => activeOrders.filter((o) => !o.scheduled_at),
+    [activeOrders]
+  );
   const { vehicleMap } = useVehicleLookup(filialId);
   const { users } = useUserDirectory({ filialId });
   const { roles } = useRoleDirectory("filial");
@@ -263,34 +273,63 @@ export default function CalendarView() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-navy/10 bg-white p-5">
-          <p className="mb-3 font-display font-bold text-navy">Citas de Hoy</p>
-          {loading ? (
-            <p className="text-sm text-steel">Cargando...</p>
-          ) : error ? (
-            <ErrorState error={error} onRetry={refresh} compact />
-          ) : orders.length === 0 ? (
-            <p className="text-sm italic text-steel">No hay citas programadas para hoy.</p>
-          ) : (
-            <div className="space-y-2">
-              {orders
-                .slice()
-                .sort((a, b) => (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? ""))
-                .map((o) => {
+        <div className="flex flex-col gap-6">
+          <div className="rounded-2xl border border-navy/10 bg-white p-5">
+            <p className="mb-3 font-display font-bold text-navy">Citas de Hoy</p>
+            {loading ? (
+              <p className="text-sm text-steel">Cargando...</p>
+            ) : error ? (
+              <ErrorState error={error} onRetry={refresh} compact />
+            ) : orders.length === 0 ? (
+              <p className="text-sm italic text-steel">No hay citas programadas para hoy.</p>
+            ) : (
+              <div className="space-y-2">
+                {orders
+                  .slice()
+                  .sort((a, b) => (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? ""))
+                  .map((o) => {
+                    const info = vehicleMap.get(o.vehicle_id);
+                    return (
+                      <Link
+                        key={o.id}
+                        href={`/dashboard/servicios/${o.id}`}
+                        className="block rounded-xl border border-navy/10 px-3 py-2 text-sm transition hover:bg-ash"
+                      >
+                        <p className="font-mono text-xs text-blue">
+                          {o.scheduled_at &&
+                            new Date(o.scheduled_at).toLocaleTimeString("es-VE", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                        </p>
+                        <p className="font-medium text-navy">
+                          {info ? `${info.vehicle.brand} ${info.vehicle.model}` : o.code}
+                        </p>
+                        <p className="text-xs text-steel">{info?.client.full_name}</p>
+                      </Link>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-navy/10 bg-white p-5">
+            <p className="mb-1 font-display font-bold text-navy">Sin agendar</p>
+            <p className="mb-3 text-xs text-steel">
+              Órdenes activas del Kanban que todavía no tienen fecha/hora asignada.
+            </p>
+            {unscheduledOrders.length === 0 ? (
+              <p className="text-sm italic text-steel">No hay órdenes activas sin agendar.</p>
+            ) : (
+              <div className="space-y-2">
+                {unscheduledOrders.map((o) => {
                   const info = vehicleMap.get(o.vehicle_id);
                   return (
                     <Link
                       key={o.id}
                       href={`/dashboard/servicios/${o.id}`}
-                      className="block rounded-xl border border-navy/10 px-3 py-2 text-sm transition hover:bg-ash"
+                      className="block rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm transition hover:bg-amber-100"
                     >
-                      <p className="font-mono text-xs text-blue">
-                        {o.scheduled_at &&
-                          new Date(o.scheduled_at).toLocaleTimeString("es-VE", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                      </p>
                       <p className="font-medium text-navy">
                         {info ? `${info.vehicle.brand} ${info.vehicle.model}` : o.code}
                       </p>
@@ -298,8 +337,9 @@ export default function CalendarView() {
                     </Link>
                   );
                 })}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

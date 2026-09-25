@@ -87,7 +87,7 @@ export default function ComprasProveedoresView() {
           <div className="mb-2 flex flex-wrap items-center justify-between gap-4">
             <h1 className="font-display text-3xl font-bold text-navy">Historial de Compras a Proveedores</h1>
             <Link
-              href="/dashboard/administracion/compras/nueva"
+              href="/dashboard/compras/nueva"
               className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
             >
               <Plus className="h-4 w-4" />
@@ -129,7 +129,7 @@ export default function ComprasProveedoresView() {
                 </thead>
                 <tbody className="divide-y divide-navy/5">
                   {requests.map((r) => (
-                    <tr key={r.id} className="cursor-pointer transition hover:bg-ash/60" onClick={() => router.push(`/dashboard/administracion/compras/${r.id}`)}>
+                    <tr key={r.id} className="cursor-pointer transition hover:bg-ash/60" onClick={() => router.push(`/dashboard/compras/${r.id}`)}>
                       <td className="px-6 py-4 font-mono font-semibold text-blue">{r.code}</td>
                       <td className="px-6 py-4 font-medium text-navy">{supplierName(r.supplier_id)}</td>
                       <td className="px-6 py-4 text-steel">{new Date(r.created_at).toLocaleDateString("es-VE")}</td>

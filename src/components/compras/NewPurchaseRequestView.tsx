@@ -73,7 +73,7 @@ export default function NewPurchaseRequestView() {
         supplierId,
         validLines.map((l) => ({ part_id: l.partId, quantity: Number(l.quantity) }))
       );
-      if (created) router.push("/dashboard/administracion");
+      if (created) router.push("/dashboard/compras");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear la solicitud.");
     } finally {
@@ -86,7 +86,7 @@ export default function NewPurchaseRequestView() {
   return (
     <div>
       <Link
-        href="/dashboard/administracion"
+        href="/dashboard/compras"
         className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-steel hover:text-navy"
       >
         <ChevronLeft className="h-4 w-4" />

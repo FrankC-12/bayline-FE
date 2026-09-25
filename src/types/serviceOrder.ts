@@ -7,7 +7,13 @@ export type ServiceOrderStatus =
   | "orden_cerrada"
   | "cancelado";
 
-export type ServiceOrderType = "regular" | "mpt";
+export type ServiceOrderType =
+  | "regular"
+  | "mpt"
+  | "retrabajo"
+  | "garantia_fabrica"
+  | "comeback"
+  | "campana";
 
 export interface ServiceOrder {
   discount_label: DiscountLabel;
@@ -17,6 +23,9 @@ export interface ServiceOrder {
   vehicle_id: string;
   status: ServiceOrderStatus;
   order_type: ServiceOrderType;
+  warranty_claim_id: string | null;
+  labor_warranty_policy_id: string | null;
+  parts_warranty_policy_id: string | null;
   technician_user_id: string | null;
   advisor_user_id: string | null;
   bay_id: string | null;
@@ -28,6 +37,7 @@ export interface ServiceOrder {
   created_at: string;
   updated_at: string;
   closed_at: string | null;
+  completed_at: string | null;
   total_amount: number | null;
   invoiced_at: string | null;
   cancel_reason: string | null;
@@ -47,7 +57,12 @@ export interface Bay {
   is_active: boolean;
 }
 
-export type TaskStatus = "pendiente" | "completada";
+export type TaskStatus =
+  | "pendiente"
+  | "en_espera_de_repuestos"
+  | "en_progreso"
+  | "completada"
+  | "cancelada";
 export type TransferStatus = "pendiente" | "pedido" | "completado";
 export type ServiceOrderPayer =
   | "cliente"

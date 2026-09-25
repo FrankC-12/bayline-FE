@@ -1,13 +1,12 @@
-import { ShoppingCart, Package, AlertCircle, FileStack, LineChart, CreditCard, ArrowUp, ArrowDown, TrendingUp, Receipt } from "lucide-react";
+import { FileStack, LineChart, CreditCard, ArrowUp, ArrowDown, TrendingUp, Receipt } from "lucide-react";
 
+// Proveedores / Compras a Proveedores / Reclamos a Proveedor moved to their
+// own "Compras" module — see src/components/compras/nav-items.ts.
 export const ADMIN_ITEMS = [
-  { href: "/dashboard/administracion", label: "Compras a Proveedores", tab: null },
-  { href: "/dashboard/administracion?tab=proveedores", label: "Proveedores", tab: "proveedores" },
-  { href: "/dashboard/administracion/reclamos", label: "Reclamos a Proveedor", tab: null, standalone: true },
   { href: "/dashboard/administracion/presentaciones", label: "Presentación de Garantías", tab: null, standalone: true },
 ];
 
-export const ADMIN_ICONS = [ShoppingCart, Package, AlertCircle, FileStack];
+export const ADMIN_ICONS = [FileStack];
 
 export const FINANCE_ITEMS = [
   { href: "/dashboard/administracion/finanzas", label: "Dashboard", icon: LineChart },

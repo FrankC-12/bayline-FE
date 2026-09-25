@@ -136,7 +136,7 @@ export default function PurchaseRequestDetailView({ requestId }: PurchaseRequest
   return (
     <div>
       <Link
-        href="/dashboard/administracion"
+        href="/dashboard/compras"
         className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-steel hover:text-navy"
       >
         <ChevronLeft className="h-4 w-4" />

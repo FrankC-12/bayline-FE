@@ -1,18 +1,18 @@
 import { Suspense } from "react";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import RequireScope from "@/components/auth/RequireScope";
-import AdministracionLayout from "@/components/administracion/AdministracionLayout";
-import SupplierClaimsView from "@/components/administracion/SupplierClaimsView";
+import ComprasLayout from "@/components/compras/ComprasLayout";
+import VehicleOrdersListView from "@/components/compras/VehicleOrdersListView";
 
-export default function SupplierClaimsPage() {
+export default function VehicleOrdersPage() {
   return (
     <RequireScope scope="filial">
       <div className="min-h-screen bg-ash">
         <DashboardHeader />
         <Suspense fallback={null}>
-          <AdministracionLayout>
-            <SupplierClaimsView />
-          </AdministracionLayout>
+          <ComprasLayout>
+            <VehicleOrdersListView />
+          </ComprasLayout>
         </Suspense>
       </div>
     </RequireScope>

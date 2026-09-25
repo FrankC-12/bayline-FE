@@ -1,16 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Circle, Search, Trash2 } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import { useTemparios } from "@/hooks/useTemparios";
-import type { ServiceOrderTask, ServiceOrderPayer } from "@/types/serviceOrder";
+import type { ServiceOrderTask, ServiceOrderPayer, TaskStatus } from "@/types/serviceOrder";
+
+const STATUS_LABELS: Record<TaskStatus, string> = {
+  pendiente: "Pendiente",
+  en_espera_de_repuestos: "Esperando repuestos",
+  en_progreso: "En progreso",
+  completada: "Completada",
+  cancelada: "Cancelada",
+};
+const STATUS_STYLES: Record<TaskStatus, string> = {
+  pendiente: "bg-amber-50 text-amber-600",
+  en_espera_de_repuestos: "bg-orange-50 text-orange-600",
+  en_progreso: "bg-blue-light text-blue",
+  completada: "bg-emerald-50 text-emerald-600",
+  cancelada: "bg-slate-100 text-slate-500",
+};
+const STATUS_OPTIONS = Object.keys(STATUS_LABELS) as TaskStatus[];
 
 interface TasksCardProps {
   filialId: string;
   readOnly?: boolean;
   tasks: ServiceOrderTask[];
   onAdd: (temparioId: string, payer: ServiceOrderPayer) => Promise<void>;
-  onToggleStatus: (taskId: string, status: "pendiente" | "completada") => Promise<void>;
+  onToggleStatus: (taskId: string, status: TaskStatus) => Promise<void>;
   onRemove: (taskId: string) => Promise<void>;
 }
 
@@ -98,26 +114,18 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRe
                 <td className="py-2.5 font-mono text-blue">{task.code_snapshot}</td>
                 <td className="py-2.5 text-navy">{task.hours_snapshot} h</td>
                 <td className="py-2.5">
-                  <button
-                    type="button"
+                  <select
+                    value={task.status}
                     disabled={readOnly || adding}
-                    onClick={() =>
-                      onToggleStatus(
-                        task.id,
-                        task.status === "pendiente" ? "completada" : "pendiente"
-                      )
-                    }
-                    className={`flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold uppercase ${
-                      task.status === "completada" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
-                    }`}
+                    onChange={(e) => onToggleStatus(task.id, e.target.value as TaskStatus)}
+                    className={`w-full rounded-lg border-none px-3 py-2 text-xs font-semibold uppercase outline-none disabled:opacity-60 ${STATUS_STYLES[task.status]}`}
                   >
-                    {task.status === "completada" ? (
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5" />
-                    )}
-                    {task.status === "completada" ? "Completada" : "Pendiente"}
-                  </button>
+                    {STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {STATUS_LABELS[s]}
+                      </option>
+                    ))}
+                  </select>
                 </td>
                 <td className="py-2.5 text-right">
                   <button

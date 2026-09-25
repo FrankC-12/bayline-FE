@@ -3,8 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Search } from "lucide-react";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
-import type { Bay } from "@/types/serviceOrder";
+import HourSelect from "@/components/common/HourSelect";
+import { listWarrantyClaims } from "@/lib/api/warrantyClaims";
+import { CLAIM_LINKED_ORDER_TYPE_LABELS, CLAIM_LINKED_ORDER_TYPES } from "@/lib/claimLinkedOrderTypes";
+import type { Bay, ServiceOrderType } from "@/types/serviceOrder";
 import type { UserDirectoryEntry } from "@/types/user";
+import type { WarrantyClaim } from "@/types/warrantyClaim";
 import type { CreateServiceOrderInput } from "@/lib/api/serviceOrders";
 
 interface ScheduleOrderModalProps {
@@ -44,9 +48,15 @@ export default function ScheduleOrderModal({
   const [notes, setNotes] = useState("");
   const [customerReason, setCustomerReason] = useState("");
   const [advisorId, setAdvisorId] = useState("");
-  const [promisedAt, setPromisedAt] = useState("");
+  const [promisedDate, setPromisedDate] = useState("");
+  const [promisedTime, setPromisedTime] = useState("");
+  const [orderType, setOrderType] = useState<ServiceOrderType>("regular");
+  const [matchingClaims, setMatchingClaims] = useState<WarrantyClaim[]>([]);
+  const [warrantyClaimId, setWarrantyClaimId] = useState("");
+  const [loadingClaims, setLoadingClaims] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requiredClaimType = CLAIM_LINKED_ORDER_TYPES[orderType];
 
   // This component stays mounted while closed, so plain useState initial
   // values only apply once — re-seed a clean form (and the clicked cell's
@@ -64,10 +74,36 @@ export default function ScheduleOrderModal({
     setNotes("");
     setCustomerReason("");
     setAdvisorId("");
-    setPromisedAt("");
+    setPromisedDate("");
+    setPromisedTime("");
+    setOrderType("regular");
+    setWarrantyClaimId("");
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultDate, defaultTime, defaultBayId]);
+
+  useEffect(() => {
+    setWarrantyClaimId("");
+    if (!requiredClaimType || !selectedVehicleId) {
+      setMatchingClaims([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingClaims(true);
+    listWarrantyClaims(filialId, { vehicleId: selectedVehicleId, status: "autorizado" })
+      .then((claims) => {
+        if (cancelled) return;
+        setMatchingClaims(
+          claims.filter((c) => c.claim_type === requiredClaimType && !c.resulting_service_order_id)
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingClaims(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filialId, requiredClaimType, selectedVehicleId]);
 
   const results = useMemo(() => {
     if (!search || selectedVehicleId) return [];
@@ -78,6 +114,9 @@ export default function ScheduleOrderModal({
         const matches =
           (vehicle.plate ?? "").toLowerCase().includes(term) ||
           (vehicle.vin ?? "").toLowerCase().includes(term) ||
+          vehicle.brand.toLowerCase().includes(term) ||
+          vehicle.model.toLowerCase().includes(term) ||
+          `${vehicle.brand} ${vehicle.model}`.toLowerCase().includes(term) ||
           client.full_name.toLowerCase().includes(term);
         if (matches) {
           entries.push({
@@ -101,8 +140,12 @@ export default function ScheduleOrderModal({
       setError("Selecciona el asesor responsable.");
       return;
     }
-    if (!promisedAt) {
-      setError("Selecciona la fecha prometida de entrega.");
+    if (!promisedDate || !promisedTime) {
+      setError("Selecciona la fecha de inicio de la ODS.");
+      return;
+    }
+    if (requiredClaimType && !warrantyClaimId) {
+      setError("Selecciona el reclamo asociado a esta orden.");
       return;
     }
     setSubmitting(true);
@@ -111,13 +154,15 @@ export default function ScheduleOrderModal({
       await onSubmit({
         filial_id: filialId,
         vehicle_id: selectedVehicleId,
+        order_type: orderType,
+        warranty_claim_id: requiredClaimType ? warrantyClaimId : null,
         scheduled_at: new Date(`${date}T${time}`).toISOString(),
         bay_id: bayId || null,
         technician_user_id: technicianId || null,
         notes: notes || null,
         customer_reason: customerReason.trim(),
         advisor_user_id: advisorId,
-        promised_at: promisedAt,
+        promised_at: new Date(`${promisedDate}T${promisedTime}`).toISOString(),
       });
       setSearch("");
       setSelectedVehicleId(null);
@@ -127,7 +172,10 @@ export default function ScheduleOrderModal({
       setNotes("");
       setCustomerReason("");
       setAdvisorId("");
-      setPromisedAt("");
+      setPromisedDate("");
+      setPromisedTime("");
+      setOrderType("regular");
+      setWarrantyClaimId("");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo agendar la orden.");
@@ -160,7 +208,7 @@ export default function ScheduleOrderModal({
                   setSearch(e.target.value);
                   setSelectedVehicleId(null);
                 }}
-                placeholder="Buscar por placa, VIN o cliente..."
+                placeholder="Buscar por placa, VIN, marca, modelo o cliente..."
                 className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
               />
             </div>
@@ -196,27 +244,56 @@ export default function ScheduleOrderModal({
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Hora</label>
-              <select
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-              >
-                <option value="">Selecciona...</option>
-                {hours.map((h) => (
-                  <optgroup key={h} label={`${h.toString().padStart(2, "0")}:00`}>
-                    {["00", "30"].map((m) => {
-                      const value = `${h.toString().padStart(2, "0")}:${m}`;
-                      return (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      );
-                    })}
-                  </optgroup>
-                ))}
-              </select>
+              <HourSelect value={time} onChange={setTime} hours={hours} />
             </div>
           </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">Tipo de orden</label>
+            <select
+              value={orderType}
+              onChange={(e) => setOrderType(e.target.value as ServiceOrderType)}
+              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+            >
+              <option value="regular">Regular</option>
+              {Object.entries(CLAIM_LINKED_ORDER_TYPE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {requiredClaimType && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-navy">Reclamo asociado</label>
+              <select
+                value={warrantyClaimId}
+                onChange={(e) => setWarrantyClaimId(e.target.value)}
+                disabled={!selectedVehicleId || loadingClaims}
+                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 disabled:bg-ash disabled:text-steel"
+              >
+                <option value="">
+                  {!selectedVehicleId
+                    ? "Selecciona un vehículo primero"
+                    : loadingClaims
+                      ? "Cargando reclamos..."
+                      : matchingClaims.length === 0
+                        ? "Sin reclamos autorizados para este vehículo"
+                        : "Selecciona..."}
+                </option>
+                {matchingClaims.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} — {c.failure_cause || c.reported_symptom || "Sin descripción"}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-steel">
+                Solo se listan reclamos autorizados de este vehículo, del tipo correspondiente y que
+                todavía no se hayan convertido en otra orden.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Bahía (opcional)</label>
@@ -269,13 +346,16 @@ export default function ScheduleOrderModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Fecha prometida de entrega</label>
-            <input
-              type="date"
-              value={promisedAt}
-              onChange={(e) => setPromisedAt(e.target.value)}
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-            />
+            <label className="mb-1.5 block text-sm font-medium text-navy">Fecha de inicio de ODS</label>
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="date"
+                value={promisedDate}
+                onChange={(e) => setPromisedDate(e.target.value)}
+                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+              />
+              <HourSelect value={promisedTime} onChange={setPromisedTime} hours={hours} />
+            </div>
             <p className="mt-1 text-[11px] text-steel">
               El kilometraje de ingreso se registrará al vincular la inspección preliminar, desde la
               ficha de la orden, cuando el vehículo llegue.
@@ -320,7 +400,13 @@ export default function ScheduleOrderModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!selectedVehicleId || !date || !time || submitting}
+            disabled={
+              !selectedVehicleId ||
+              !date ||
+              !time ||
+              (!!requiredClaimType && !warrantyClaimId) ||
+              submitting
+            }
             className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

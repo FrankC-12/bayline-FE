@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { usePartCategories } from "@/hooks/usePartCategories";
-import { usePartMeasures } from "@/hooks/usePartMeasures";
 import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 import type { CreatePartInput, UpdatePartInput } from "@/lib/api/parts";
 import type { Part } from "@/types/parts";
@@ -25,7 +24,6 @@ interface PartForm {
   vehicleModelId: string;
   yearFrom: string;
   yearTo: string;
-  measureId: string;
   unit: string;
   minStock: string;
 }
@@ -40,7 +38,6 @@ function emptyForm(initialName = ""): PartForm {
     vehicleModelId: "",
     yearFrom: "",
     yearTo: "",
-    measureId: "",
     unit: "",
     minStock: "10",
   };
@@ -73,7 +70,6 @@ export default function CreatePartModal({
   onSaved,
 }: CreatePartModalProps) {
   const { categories } = usePartCategories(filialId);
-  const { measures } = usePartMeasures(filialId);
   const { brands } = useVehicleCatalog(filialId);
   const [editingIsActive, setEditingIsActive] = useState(true);
   const [form, setForm] = useState<PartForm>(emptyForm(initialName));
@@ -98,7 +94,6 @@ export default function CreatePartModal({
         vehicleModelId: editingPart.vehicle_model_id ?? "",
         yearFrom: editingPart.year_from != null ? String(editingPart.year_from) : "",
         yearTo: editingPart.year_to != null ? String(editingPart.year_to) : "",
-        measureId: editingPart.measure_id ?? "",
         unit: editingPart.unit,
         minStock: String(editingPart.min_stock),
       });
@@ -139,13 +134,11 @@ export default function CreatePartModal({
           manufacturer_part_number: form.manufacturerPartNumber.trim() || undefined,
           vehicle_brand_id: form.vehicleBrandId || undefined,
           vehicle_model_id: form.vehicleModelId || undefined,
-          measure_id: form.measureId || undefined,
           year_from: form.yearFrom ? Number(form.yearFrom) : undefined,
           year_to: form.yearTo ? Number(form.yearTo) : undefined,
           clear_manufacturer_part_number: !form.manufacturerPartNumber.trim(),
           clear_vehicle_brand: !form.vehicleBrandId,
           clear_vehicle_model: !form.vehicleModelId,
-          clear_measure: !form.measureId,
           clear_years: !form.yearFrom && !form.yearTo,
         };
         saved = await onUpdate!(editingPart.id, payload);
@@ -160,7 +153,6 @@ export default function CreatePartModal({
           vehicle_model_id: form.vehicleModelId || null,
           year_from: form.yearFrom ? Number(form.yearFrom) : null,
           year_to: form.yearTo ? Number(form.yearTo) : null,
-          measure_id: form.measureId || null,
           unit: form.unit.trim(),
           min_stock: Number(form.minStock) || 10,
         };
@@ -319,22 +311,6 @@ export default function CreatePartModal({
             </div>
           </div>
           <p className="-mt-3 text-xs text-steel">Años vacíos = aplica a todos los años (universal).</p>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Medida (opcional)</label>
-            <select
-              value={form.measureId}
-              onChange={(e) => updateField("measureId", e.target.value)}
-              className={selectClass}
-            >
-              <option value="">Sin medida</option>
-              {measures.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>

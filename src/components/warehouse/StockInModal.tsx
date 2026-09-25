@@ -19,7 +19,7 @@ interface LineDraft {
 }
 
 function emptyLine(): LineDraft {
-  return { partId: "", search: "", quantity: "", unitCost: "0", location: "" };
+  return { partId: "", search: "", quantity: "", unitCost: "", location: "" };
 }
 
 interface StockInModalProps {
@@ -240,15 +240,20 @@ export default function StockInModal({
                     onChange={(e) => updateLine(i, { quantity: e.target.value })}
                     className="rounded-lg border border-navy/15 px-2 py-2 text-sm outline-none focus:border-blue"
                   />
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={line.unitCost}
-                    onChange={(e) => updateLine(i, { unitCost: e.target.value })}
-                    className="rounded-lg border border-navy/15 px-2 py-2 text-sm outline-none focus:border-blue"
-                  />
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm text-steel">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="1.99"
+                      value={line.unitCost}
+                      onChange={(e) => updateLine(i, { unitCost: e.target.value })}
+                      className="w-full rounded-lg border border-navy/15 py-2 pl-5 pr-2 text-sm outline-none focus:border-blue"
+                    />
+                  </div>
                   <input
                     placeholder="Ubic."
                     value={line.location}

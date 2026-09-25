@@ -13,7 +13,7 @@ import {
   removeTransferLine,
   markTransferOrdered,
 } from "@/lib/api/serviceOrders";
-import type { OrderSummary, ServiceOrderPayer } from "@/types/serviceOrder";
+import type { OrderSummary, ServiceOrderPayer, TaskStatus } from "@/types/serviceOrder";
 
 export function useOrderSummary(orderId: string | null) {
   const [summary, setSummary] = useState<OrderSummary | null>(null);
@@ -45,7 +45,7 @@ export function useOrderSummary(orderId: string | null) {
   );
 
   const toggleTaskStatus = useCallback(
-    async (taskId: string, status: "pendiente" | "completada") => {
+    async (taskId: string, status: TaskStatus) => {
       await updateTaskStatus(taskId, status);
       await load();
     },

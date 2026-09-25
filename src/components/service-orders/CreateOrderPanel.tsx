@@ -6,12 +6,18 @@ import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useInspections } from "@/hooks/useInspections";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { useRoleDirectory } from "@/hooks/useRoleDirectory";
+import HourSelect from "@/components/common/HourSelect";
+import { listWarrantyClaims } from "@/lib/api/warrantyClaims";
+import { CLAIM_LINKED_ORDER_TYPE_LABELS, CLAIM_LINKED_ORDER_TYPES } from "@/lib/claimLinkedOrderTypes";
 import type { Inspection } from "@/types/inspection";
+import type { ServiceOrderType } from "@/types/serviceOrder";
+import type { WarrantyClaim } from "@/types/warrantyClaim";
 
 export interface CreateOrderExtra {
   customer_reason: string;
   advisor_user_id: string;
   promised_at: string;
+  warranty_claim_id?: string | null;
 }
 
 interface CreateOrderPanelProps {
@@ -25,7 +31,7 @@ interface CreateOrderPanelProps {
   presetInspection?: Inspection | null;
   onSubmit: (
     vehicleId: string,
-    orderType: "regular" | "mpt",
+    orderType: ServiceOrderType,
     extra: CreateOrderExtra,
     inspectionId: string
   ) => Promise<void>;
@@ -47,12 +53,41 @@ export default function CreateOrderPanel({
 
   const [search, setSearch] = useState("");
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
-  const [orderType, setOrderType] = useState<"regular" | "mpt">("regular");
+  const [orderType, setOrderType] = useState<ServiceOrderType>("regular");
   const [customerReason, setCustomerReason] = useState("");
   const [advisorUserId, setAdvisorUserId] = useState("");
-  const [promisedAt, setPromisedAt] = useState("");
+  const [promisedDate, setPromisedDate] = useState("");
+  const [promisedTime, setPromisedTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [matchingClaims, setMatchingClaims] = useState<WarrantyClaim[]>([]);
+  const [warrantyClaimId, setWarrantyClaimId] = useState("");
+  const [loadingClaims, setLoadingClaims] = useState(false);
+  const requiredClaimType = CLAIM_LINKED_ORDER_TYPES[orderType];
+
+  useEffect(() => {
+    setWarrantyClaimId("");
+    if (!requiredClaimType || !selectedVehicleId) {
+      setMatchingClaims([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingClaims(true);
+    listWarrantyClaims(filialId, { vehicleId: selectedVehicleId, status: "autorizado" })
+      .then((claims) => {
+        if (cancelled) return;
+        setMatchingClaims(
+          claims.filter((c) => c.claim_type === requiredClaimType && !c.resulting_service_order_id)
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingClaims(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [filialId, requiredClaimType, selectedVehicleId]);
 
   const results = useMemo(() => {
     if (!search || selectedVehicleId) return [];
@@ -63,6 +98,9 @@ export default function CreateOrderPanel({
         const matches =
           (vehicle.plate ?? "").toLowerCase().includes(term) ||
           (vehicle.vin ?? "").toLowerCase().includes(term) ||
+          vehicle.brand.toLowerCase().includes(term) ||
+          vehicle.model.toLowerCase().includes(term) ||
+          `${vehicle.brand} ${vehicle.model}`.toLowerCase().includes(term) ||
           client.full_name.toLowerCase().includes(term);
         if (matches) {
           entries.push({
@@ -136,8 +174,12 @@ export default function CreateOrderPanel({
       setError("Selecciona el asesor responsable.");
       return;
     }
-    if (!promisedAt) {
-      setError("Selecciona la fecha prometida de entrega.");
+    if (!promisedDate || !promisedTime) {
+      setError("Selecciona la fecha de inicio de la ODS.");
+      return;
+    }
+    if (requiredClaimType && !warrantyClaimId) {
+      setError("Selecciona el reclamo asociado a esta orden.");
       return;
     }
     setSubmitting(true);
@@ -149,7 +191,8 @@ export default function CreateOrderPanel({
         {
           customer_reason: customerReason.trim(),
           advisor_user_id: advisorUserId,
-          promised_at: promisedAt,
+          promised_at: new Date(`${promisedDate}T${promisedTime}`).toISOString(),
+          warranty_claim_id: requiredClaimType ? warrantyClaimId : null,
         },
         matchedInspection.id
       );
@@ -157,7 +200,10 @@ export default function CreateOrderPanel({
       setSelectedVehicleId(null);
       setCustomerReason("");
       setAdvisorUserId("");
-      setPromisedAt("");
+      setPromisedDate("");
+      setPromisedTime("");
+      setOrderType("regular");
+      setWarrantyClaimId("");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear la ODS.");
@@ -207,7 +253,7 @@ export default function CreateOrderPanel({
                     setSearch(e.target.value);
                     setSelectedVehicleId(null);
                   }}
-                  placeholder="Buscar por placa, VIN o cliente..."
+                  placeholder="Buscar por placa, VIN, marca, modelo o cliente..."
                   className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
                 />
               </div>
@@ -239,12 +285,48 @@ export default function CreateOrderPanel({
                 no workflow behind them. */}
             <select
               value={orderType}
-              onChange={(e) => setOrderType(e.target.value as "regular" | "mpt")}
+              onChange={(e) => setOrderType(e.target.value as ServiceOrderType)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
             >
               <option value="regular">Regular</option>
+              {Object.entries(CLAIM_LINKED_ORDER_TYPE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           </div>
+
+          {requiredClaimType && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-navy">Reclamo asociado</label>
+              <select
+                value={warrantyClaimId}
+                onChange={(e) => setWarrantyClaimId(e.target.value)}
+                disabled={!selectedVehicleId || loadingClaims}
+                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 disabled:bg-ash disabled:text-steel"
+              >
+                <option value="">
+                  {!selectedVehicleId
+                    ? "Selecciona un vehículo primero"
+                    : loadingClaims
+                      ? "Cargando reclamos..."
+                      : matchingClaims.length === 0
+                        ? "Sin reclamos autorizados para este vehículo"
+                        : "Selecciona..."}
+                </option>
+                {matchingClaims.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} — {c.failure_cause || c.reported_symptom || "Sin descripción"}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-steel">
+                Solo se listan reclamos autorizados de este vehículo, del tipo correspondiente y que
+                todavía no se hayan convertido en otra orden.
+              </p>
+            </div>
+          )}
 
           {selectedVehicleId && matchedInspection ? (
             <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
@@ -268,13 +350,20 @@ export default function CreateOrderPanel({
               </p>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Fecha prometida de entrega</label>
-              <input
-                type="date"
-                value={promisedAt}
-                onChange={(e) => setPromisedAt(e.target.value)}
-                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-              />
+              <label className="mb-1.5 block text-sm font-medium text-navy">Fecha de inicio de ODS</label>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="date"
+                  value={promisedDate}
+                  onChange={(e) => setPromisedDate(e.target.value)}
+                  className="w-full rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+                />
+                <HourSelect
+                  value={promisedTime}
+                  onChange={setPromisedTime}
+                  className="w-full rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+                />
+              </div>
             </div>
           </div>
 
@@ -329,7 +418,12 @@ export default function CreateOrderPanel({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!selectedVehicleId || !matchedInspection || submitting}
+            disabled={
+              !selectedVehicleId ||
+              !matchedInspection ||
+              (!!requiredClaimType && !warrantyClaimId) ||
+              submitting
+            }
             className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

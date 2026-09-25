@@ -1,17 +1,18 @@
 import { Suspense } from "react";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import RequireScope from "@/components/auth/RequireScope";
-import NewPurchaseRequestView from "@/components/administracion/NewPurchaseRequestView";
+import ComprasLayout from "@/components/compras/ComprasLayout";
+import ComprasProveedoresView from "@/components/compras/ComprasProveedoresView";
 
-export default function NewPurchaseRequestPage() {
+export default function ComprasPage() {
   return (
     <RequireScope scope="filial">
       <div className="min-h-screen bg-ash">
         <DashboardHeader />
         <Suspense fallback={null}>
-          <div className="mx-auto max-w-4xl px-6 py-12">
-            <NewPurchaseRequestView />
-          </div>
+          <ComprasLayout>
+            <ComprasProveedoresView />
+          </ComprasLayout>
         </Suspense>
       </div>
     </RequireScope>

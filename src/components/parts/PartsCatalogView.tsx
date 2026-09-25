@@ -9,6 +9,7 @@ import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 import BulkImportPartsModal from "./BulkImportPartsModal";
 import CreatePartModal from "./CreatePartModal";
+import PartDetailPanel from "./PartDetailPanel";
 
 function compatibilityLabel(part: Part): string {
   if (!part.vehicle_brand_name) return "Universal";
@@ -33,6 +34,8 @@ export default function PartsCatalogView() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [editingPart, setEditingPart] = useState<Part | null>(null);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewingPart, setViewingPart] = useState<Part | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function openCreatePanel() {
@@ -41,8 +44,14 @@ export default function PartsCatalogView() {
   }
 
   function openEditPanel(part: Part) {
+    setViewOpen(false);
     setEditingPart(part);
     setPanelOpen(true);
+  }
+
+  function openDetailPanel(part: Part) {
+    setViewingPart(part);
+    setViewOpen(true);
   }
 
   async function handleToggleActive(part: Part) {
@@ -121,7 +130,6 @@ export default function PartsCatalogView() {
                   "Nombre",
                   "Categoría",
                   "Compatibilidad",
-                  "Medida",
                   "Ubicación",
                   "Unidad",
                   "Stock mínimo",
@@ -141,7 +149,11 @@ export default function PartsCatalogView() {
             </thead>
             <tbody className="divide-y divide-navy/5">
               {parts.map((part) => (
-                <tr key={part.id} className={`transition hover:bg-ash/60 ${!part.is_active ? "opacity-60" : ""}`}>
+                <tr
+                  key={part.id}
+                  onClick={() => openDetailPanel(part)}
+                  className={`cursor-pointer transition hover:bg-ash/60 ${!part.is_active ? "opacity-60" : ""}`}
+                >
                   <td className="whitespace-nowrap px-4 py-4">
                     <p className="font-mono text-blue">{part.code}</p>
                     {part.manufacturer_part_number && (
@@ -151,7 +163,6 @@ export default function PartsCatalogView() {
                   <td className="px-4 py-4 font-medium text-navy">{part.name}</td>
                   <td className="px-4 py-4 text-navy">{part.category_name}</td>
                   <td className="px-4 py-4 text-navy">{compatibilityLabel(part)}</td>
-                  <td className="px-4 py-4 text-navy">{part.measure_name ?? "—"}</td>
                   <td className="px-4 py-4 text-navy">{part.location ?? "—"}</td>
                   <td className="px-4 py-4 text-navy">{part.unit}</td>
                   <td className="px-4 py-4 text-navy">{part.min_stock}</td>
@@ -173,14 +184,20 @@ export default function PartsCatalogView() {
                   <td className="px-4 py-4 text-right">
                     <div className="flex justify-end gap-1">
                       <button
-                        onClick={() => openEditPanel(part)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditPanel(part);
+                        }}
                         aria-label={`Editar ${part.name}`}
                         className="rounded-lg p-2 text-steel transition hover:bg-blue-light hover:text-blue"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => handleToggleActive(part)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleActive(part);
+                        }}
                         aria-label={part.is_active ? `Desactivar ${part.name}` : `Activar ${part.name}`}
                         className="rounded-lg p-2 text-steel transition hover:bg-blue-light hover:text-blue"
                       >
@@ -206,6 +223,13 @@ export default function PartsCatalogView() {
           onToggleActive={toggleActive}
         />
       )}
+
+      <PartDetailPanel
+        open={viewOpen}
+        part={viewingPart}
+        onClose={() => setViewOpen(false)}
+        onEdit={openEditPanel}
+      />
 
       <BulkImportPartsModal open={bulkOpen} onClose={() => setBulkOpen(false)} onImport={bulkAddParts} />
     </div>

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
-import { formatElapsed } from "@/lib/time";
+import { formatElapsed, serviceOrderStoppedAt } from "@/lib/time";
+import { CLAIM_LINKED_ORDER_TYPE_LABELS } from "@/lib/claimLinkedOrderTypes";
 import type { ServiceOrder } from "@/types/serviceOrder";
 import type { VehicleLookupEntry } from "@/hooks/useVehicleLookUp";
 import LiveDot from "@/components/common/LiveDot";
@@ -13,16 +14,26 @@ interface OrderCardProps {
   technicianName: string;
 }
 
-const TYPE_LABELS: Record<string, string> = { regular: "Regular", mpt: "MPT" };
+const TYPE_LABELS: Record<string, string> = {
+  regular: "Regular",
+  mpt: "MPT",
+  retrabajo: "Retrabajo",
+  ...CLAIM_LINKED_ORDER_TYPE_LABELS,
+};
 
 export default function OrderCard({ order, info, technicianName }: OrderCardProps) {
-  const [elapsed, setElapsed] = useState(() => formatElapsed(order.created_at, order.closed_at));
+  const stoppedAt = serviceOrderStoppedAt(order);
+  const [elapsed, setElapsed] = useState(() => formatElapsed(order.created_at, stoppedAt));
 
   useEffect(() => {
-    if (order.closed_at) return;
+    if (stoppedAt) {
+      setElapsed(formatElapsed(order.created_at, stoppedAt));
+      return;
+    }
+    setElapsed(formatElapsed(order.created_at));
     const interval = setInterval(() => setElapsed(formatElapsed(order.created_at)), 1000);
     return () => clearInterval(interval);
-  }, [order.created_at, order.closed_at]);
+  }, [order.created_at, stoppedAt]);
 
   return (
     <div className="w-full rounded-2xl border border-l-4 border-navy/10 border-l-blue bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -42,7 +53,7 @@ export default function OrderCard({ order, info, technicianName }: OrderCardProp
       <div className="mt-4 flex items-center justify-between border-t border-navy/10 pt-3 text-sm">
         <span className="text-steel">{technicianName || "Sin asignar"}</span>
         <span className="flex items-center gap-1.5 font-mono text-xs text-blue">
-          {!order.closed_at && <LiveDot />}
+          {!stoppedAt && <LiveDot />}
           <Clock className="h-3.5 w-3.5" />
           {elapsed}
         </span>

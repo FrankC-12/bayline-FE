@@ -113,7 +113,7 @@ export default function WarrantyClaimsListView() {
 
   return (
     <div>
-      <h1 className="mb-2 font-display text-3xl font-bold text-navy">Garantías</h1>
+      <h1 className="mb-2 font-display text-3xl font-bold text-navy">Reclamos</h1>
       <p className="mb-6 text-sm text-steel">
         Un solo flujo para fábrica, comeback de taller, repuesto defectuoso y campañas — el tipo determina quién
         paga. Solicitado → autorizado/rechazado → convertido a ODS.

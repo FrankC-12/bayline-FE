@@ -2,16 +2,27 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, Loader2, ShieldCheck, Gauge } from "lucide-react";
+import { X, Loader2, ShieldCheck, Gauge, Wrench } from "lucide-react";
 import { getVehiclePlanStatus, assignVehicleMaintenancePlan } from "@/lib/api/clients";
-import { getVehicleWarrantyByVin } from "@/lib/api/vehicleWarranties";
+import { getVehicleWarrantyByVin, getWorkshopWarrantiesByVin } from "@/lib/api/vehicleWarranties";
 import { useMaintenancePlans } from "@/hooks/useMaintenancePlans";
 import { useVehicleMileageHistory } from "@/hooks/useVehicleMileageHistory";
 import { ApiError } from "@/lib/api/client";
 import ErrorState from "@/components/common/ErrorState";
 import type { Vehicle } from "@/types/client";
 import type { VehiclePlanStatus } from "@/types/maintenancePlan";
-import type { VehicleWarranty } from "@/types/vehicleWarranty";
+import type { VehicleWarranty, WorkshopWarranty } from "@/types/vehicleWarranty";
+
+const COVERAGE_TYPE_LABELS: Record<string, string> = {
+  mano_de_obra: "Mano de obra",
+  repuesto: "Repuesto",
+};
+
+const COVERED_BY_LABELS: Record<string, string> = {
+  la_casa: "La casa",
+  fabrica_importador: "Fábrica / Importador",
+  proveedor: "Proveedor",
+};
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Pendiente",
@@ -64,6 +75,10 @@ export default function VehicleDetailModal({ open, onClose, vehicle, filialId }:
   const [warrantyLoading, setWarrantyLoading] = useState(true);
   const [warrantyError, setWarrantyError] = useState<string | null>(null);
 
+  const [workshopWarranties, setWorkshopWarranties] = useState<WorkshopWarranty[]>([]);
+  const [workshopWarrantyLoading, setWorkshopWarrantyLoading] = useState(true);
+  const [workshopWarrantyError, setWorkshopWarrantyError] = useState<string | null>(null);
+
   async function load() {
     setLoading(true);
     setError(null);
@@ -101,8 +116,26 @@ export default function VehicleDetailModal({ open, onClose, vehicle, filialId }:
     }
   }
 
+  async function loadWorkshopWarranties() {
+    if (!vehicle.vin) {
+      setWorkshopWarranties([]);
+      setWorkshopWarrantyLoading(false);
+      return;
+    }
+    setWorkshopWarrantyLoading(true);
+    setWorkshopWarrantyError(null);
+    try {
+      const data = await getWorkshopWarrantiesByVin(filialId, vehicle.vin);
+      setWorkshopWarranties(data);
+    } catch (err) {
+      setWorkshopWarrantyError(err instanceof Error ? err.message : "No se pudo cargar la garantía del taller.");
+    } finally {
+      setWorkshopWarrantyLoading(false);
+    }
+  }
+
   useEffect(() => {
-    if (open) { load(); loadWarranty(); }
+    if (open) { load(); loadWarranty(); loadWorkshopWarranties(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, vehicle.id]);
 
@@ -308,6 +341,64 @@ export default function VehicleDetailModal({ open, onClose, vehicle, filialId }:
               <p className="rounded-xl bg-ash px-4 py-6 text-center text-sm text-steel">
                 Este vehículo no tiene garantía de fábrica registrada.
               </p>
+            )}
+
+            {vehicle.vin && (
+              <div>
+                <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-steel">Garantías de taller</p>
+                {workshopWarrantyLoading ? (
+                  <div className="p-6 text-center text-sm text-steel">Cargando garantías de taller...</div>
+                ) : workshopWarrantyError ? (
+                  <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{workshopWarrantyError}</p>
+                ) : workshopWarranties.length === 0 ? (
+                  <p className="rounded-xl bg-ash px-4 py-6 text-center text-sm text-steel">
+                    Este vehículo no tiene garantías de taller registradas.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {workshopWarranties.map((w) => (
+                      <div key={w.id} className="rounded-xl border border-navy/10 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <Wrench className="h-4 w-4 text-blue" />
+                            <span className="font-semibold text-navy">
+                              {w.warranty_policy_name_snapshot ?? COVERAGE_TYPE_LABELS[w.coverage_type]}
+                            </span>
+                          </div>
+                          <span className={`rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${WARRANTY_STATUS_STYLES[w.status]}`}>
+                            {w.status === "vigente" ? "Vigente" : "Vencida"}
+                          </span>
+                        </div>
+                        <dl className="mt-3 space-y-1.5 text-sm">
+                          <div className="flex justify-between">
+                            <dt className="text-steel">Servicio</dt>
+                            <dd className="text-navy">
+                              <span className="font-mono text-blue">{w.tempario_code_snapshot}</span> {w.tempario_name_snapshot}
+                            </dd>
+                          </div>
+                          <div className="flex justify-between">
+                            <dt className="text-steel">Cobertura</dt>
+                            <dd className="text-navy">{COVERAGE_TYPE_LABELS[w.coverage_type]}</dd>
+                          </div>
+                          <div className="flex justify-between">
+                            <dt className="text-steel">Paga</dt>
+                            <dd className="text-navy">
+                              {w.covered_by_snapshot ? COVERED_BY_LABELS[w.covered_by_snapshot] : "Taller (ajuste general)"}
+                            </dd>
+                          </div>
+                          <div className="flex justify-between">
+                            <dt className="text-steel">Vigencia</dt>
+                            <dd className="text-navy">
+                              {w.expires_at ? `Hasta ${new Date(w.expires_at).toLocaleDateString("es-VE")}` : "Sin vencimiento"}
+                              {w.duration_km != null && ` · ${w.duration_km.toLocaleString("es-VE")} km`}
+                            </dd>
+                          </div>
+                        </dl>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         ) : (

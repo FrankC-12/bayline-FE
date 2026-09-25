@@ -1,12 +1,16 @@
 import type { DiscountLabel } from "@/lib/partsPricing";
 import { apiFetch } from "./client";
-import type { ServiceOrder, Bay, OrderSummary, ServiceOrderPayer } from "@/types/serviceOrder";
+import type { ServiceOrder, ServiceOrderType, Bay, OrderSummary, ServiceOrderPayer, TaskStatus } from "@/types/serviceOrder";
 
 export interface CreateServiceOrderInput {
   discount_label?: DiscountLabel;
   filial_id: string;
   vehicle_id: string;
-  order_type?: string;
+  order_type?: ServiceOrderType;
+  // Required exactly when order_type is garantia_fabrica/comeback/campana —
+  // an existing, autorizado WarrantyClaim for this same vehicle_id, of the
+  // matching claim_type.
+  warranty_claim_id?: string | null;
   // intake_mileage is never sent — it's always a read-only view inherited
   // from a PreliminaryInspection, derived server-side. A walk-in ODS (no
   // scheduled_at) must pass an existing unlinked inspection_id for the
@@ -34,6 +38,10 @@ export interface UpdateServiceOrderInput {
   clear_technician?: boolean;
   clear_advisor?: boolean;
   clear_bay?: boolean;
+  labor_warranty_policy_id?: string | null;
+  parts_warranty_policy_id?: string | null;
+  clear_labor_warranty_policy?: boolean;
+  clear_parts_warranty_policy?: boolean;
   // Only meaningful when status="completado" while a task or ODT isn't
   // finished — the server decides that, this just carries the explicit
   // confirmation to go ahead anyway.
@@ -112,7 +120,7 @@ export async function addTask(
   });
 }
 
-export async function updateTaskStatus(taskId: string, status: string): Promise<void> {
+export async function updateTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
   await apiFetch(`/service-order-tasks/${taskId}`, {
     method: "PATCH",
     body: JSON.stringify({ status }),

@@ -9,7 +9,7 @@ import { useServiceOrders } from "@/hooks/useServiceOrders";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
 import ErrorState from "@/components/common/ErrorState";
-import type { ServiceOrder, ServiceOrderStatus } from "@/types/serviceOrder";
+import type { ServiceOrder, ServiceOrderStatus, ServiceOrderType } from "@/types/serviceOrder";
 import OrderCard from "./OrderCard";
 import CreateOrderPanel, { type CreateOrderExtra } from "./CreateOrderPanel";
 
@@ -41,7 +41,7 @@ export default function OrdersBoard() {
 
   async function handleCreate(
     vehicleId: string,
-    orderType: "regular" | "mpt",
+    orderType: ServiceOrderType,
     extra: CreateOrderExtra,
     inspectionId: string
   ) {

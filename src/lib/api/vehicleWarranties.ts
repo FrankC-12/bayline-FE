@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { VehicleWarranty } from "@/types/vehicleWarranty";
+import type { VehicleWarranty, WorkshopWarranty } from "@/types/vehicleWarranty";
 
 export interface CreateVehicleWarrantyInput {
   filial_id: string;
@@ -20,6 +20,10 @@ export async function listVehicleWarranties(filialId: string, search?: string): 
 
 export async function getVehicleWarrantyByVin(filialId: string, vin: string): Promise<VehicleWarranty> {
   return apiFetch<VehicleWarranty>(`/vehicle-warranties/by-vin/${vin}?filial_id=${filialId}`);
+}
+
+export async function getWorkshopWarrantiesByVin(filialId: string, vin: string): Promise<WorkshopWarranty[]> {
+  return apiFetch<WorkshopWarranty[]>(`/workshop-warranties/by-vin/${vin}?filial_id=${filialId}`);
 }
 
 export async function createVehicleWarranty(input: CreateVehicleWarrantyInput): Promise<VehicleWarranty> {

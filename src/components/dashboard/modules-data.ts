@@ -11,10 +11,12 @@ import {
   Car,
   TrendingUp,
   Settings,
+  Truck,
   type LucideIcon,
 } from "lucide-react";
 import { NAV_ITEMS as SERVICE_ORDERS_ITEMS } from "@/components/service-orders/nav-items";
 import { ADMIN_ITEMS, FINANCE_ITEMS } from "@/components/administracion/nav-items";
+import { COMPRAS_ITEMS } from "@/components/compras/nav-items";
 import { NAV_ITEMS as POST_VENTAS_ITEMS } from "@/components/post-ventas/nav-items";
 import { NAV_ITEMS as KPIS_ITEMS } from "@/components/kpis/nav-items";
 import { NAV_ITEMS as PARTS_ITEMS } from "@/components/parts/nav-items";
@@ -62,11 +64,20 @@ export const modules: ModuleCardData[] = [
   {
     icon: ClipboardList,
     title: "Administración",
-    description: "Compras a proveedores, reclamos y finanzas del taller.",
+    description: "Presentación de garantías y finanzas del taller.",
     badge: moduleBadge(ADMIN_ITEMS.length + FINANCE_ITEMS.length),
     tint: "bg-emerald-100 text-emerald-700",
     href: "/dashboard/administracion",
     moduleId: "administracion",
+  },
+  {
+    icon: Truck,
+    title: "Compras",
+    description: "Proveedores, órdenes de compra y reclamos a proveedor.",
+    badge: moduleBadge(COMPRAS_ITEMS.length),
+    tint: "bg-cyan-100 text-cyan-700",
+    href: "/dashboard/compras",
+    moduleId: "compras",
   },
   {
     icon: ShieldCheck,

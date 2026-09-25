@@ -108,6 +108,32 @@ export default function CreateTemparioModal({
     });
   }
 
+  const allVehicleKeys = useMemo(
+    () => vehicleBrands.flatMap((b) => b.models.map((m) => `${b.name}|${m.name}`)),
+    [vehicleBrands]
+  );
+  const allVehiclesSelected =
+    allVehicleKeys.length > 0 && allVehicleKeys.every((key) => selectedVehicles.has(key));
+
+  function toggleAllVehicles() {
+    setSelectedVehicles(allVehiclesSelected ? new Set() : new Set(allVehicleKeys));
+  }
+
+  function brandKeys(brandName: string): string[] {
+    const brand = vehicleBrands.find((b) => b.name === brandName);
+    return brand ? brand.models.map((m) => `${brandName}|${m.name}`) : [];
+  }
+
+  function toggleAllForBrand(brandName: string) {
+    const keys = brandKeys(brandName);
+    const allBrandSelected = keys.length > 0 && keys.every((key) => selectedVehicles.has(key));
+    setSelectedVehicles((prev) => {
+      const next = new Set(prev);
+      keys.forEach((key) => (allBrandSelected ? next.delete(key) : next.add(key)));
+      return next;
+    });
+  }
+
   function addTool() {
     if (!toolInput.trim()) return;
     setTools((prev) => [...prev, toolInput.trim()]);
@@ -268,46 +294,73 @@ export default function CreateTemparioModal({
           </div>
 
           <div>
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-blue">
-              Vehículos compatibles
-            </p>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-blue">
+                Vehículos compatibles
+              </p>
+              {allVehicleKeys.length > 0 && (
+                <button
+                  type="button"
+                  onClick={toggleAllVehicles}
+                  className="text-xs font-semibold text-blue hover:underline"
+                >
+                  {allVehiclesSelected ? "Quitar todos" : "Seleccionar todos"}
+                </button>
+              )}
+            </div>
             <div className="space-y-4 rounded-xl border border-navy/10 p-4">
               {vehicleBrands.length === 0 && (
                 <p className="text-xs text-steel">
                   No hay marcas cargadas todavía — agrégalas en Ajustes → Marcas y Modelos.
                 </p>
               )}
-              {vehicleBrands.map((b) => (
-                <div key={b.id}>
-                  <p className="mb-2 font-semibold text-navy">{b.name}</p>
-                  {b.models.length === 0 ? (
-                    <p className="text-xs text-steel">Esta marca todavía no tiene modelos cargados.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {b.models.map((m) => {
-                        const key = `${b.name}|${m.name}`;
-                        const checked = selectedVehicles.has(key);
-                        return (
-                          <label
-                            key={m.id}
-                            className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
-                              checked ? "border-blue bg-blue-light text-blue" : "border-navy/15 text-navy"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleVehicle(b.name, m.name)}
-                              className="h-3.5 w-3.5"
-                            />
-                            {m.name}
-                          </label>
-                        );
-                      })}
+              {vehicleBrands.map((b) => {
+                const brandModelKeys = brandKeys(b.name);
+                const brandAllSelected =
+                  brandModelKeys.length > 0 && brandModelKeys.every((key) => selectedVehicles.has(key));
+                return (
+                  <div key={b.id}>
+                    <div className="mb-2 flex items-center gap-2">
+                      <p className="font-semibold text-navy">{b.name}</p>
+                      {b.models.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => toggleAllForBrand(b.name)}
+                          className="text-xs font-medium text-blue hover:underline"
+                        >
+                          {brandAllSelected ? "Quitar todos" : "Seleccionar todos"}
+                        </button>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
+                    {b.models.length === 0 ? (
+                      <p className="text-xs text-steel">Esta marca todavía no tiene modelos cargados.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {b.models.map((m) => {
+                          const key = `${b.name}|${m.name}`;
+                          const checked = selectedVehicles.has(key);
+                          return (
+                            <label
+                              key={m.id}
+                              className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                                checked ? "border-blue bg-blue-light text-blue" : "border-navy/15 text-navy"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleVehicle(b.name, m.name)}
+                                className="h-3.5 w-3.5"
+                              />
+                              {m.name}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 

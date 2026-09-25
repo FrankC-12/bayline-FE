@@ -1,15 +1,86 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Plus, Minus, Upload, Search, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Minus, Upload, Search, AlertTriangle, ChevronDown, ChevronUp, Check, Pencil } from "lucide-react";
 import { useWarehouseScope } from "@/contexts/WarehouseContext";
 import { useInventory } from "@/hooks/useInventory";
 import { listLots } from "@/lib/api/warehouse";
 import StockInModal from "./StockInModal";
 import StockOutModal from "./StockOutModal";
 import BulkStockInModal from "./BulkStockInModal";
-import type { PartLot } from "@/types/warehouse";
+import type { InventoryRow, PartLot } from "@/types/warehouse";
 import EmptyState from "@/components/common/EmptyState";
+
+function LocationCell({
+  row,
+  onSave,
+}: {
+  row: InventoryRow;
+  onSave: (location: string | null) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(row.location ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setValue(row.location ?? "");
+  }, [row.location]);
+
+  async function save() {
+    const trimmed = value.trim();
+    if (trimmed === (row.location ?? "")) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(trimmed || null);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") {
+              setValue(row.location ?? "");
+              setEditing(false);
+            }
+          }}
+          disabled={saving}
+          placeholder="Ej. Estante A3"
+          className="w-28 rounded-lg border border-navy/15 px-2 py-1 text-sm outline-none focus:border-blue disabled:opacity-60"
+        />
+        <button
+          onClick={save}
+          disabled={saving}
+          aria-label="Guardar ubicación"
+          className="rounded-lg p-1 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+        >
+          <Check className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      className="flex items-center gap-1.5 text-left text-steel transition hover:text-blue"
+    >
+      {row.location ?? "—"}
+      <Pencil className="h-3 w-3 opacity-40" />
+    </button>
+  );
+}
 
 export default function InventoryDashboardView() {
   const { filialId, activeWarehouse, activeWarehouseId, createWarehouse } =
@@ -19,7 +90,7 @@ export default function InventoryDashboardView() {
   // Fetch the full, unfiltered inventory once so every warehouse card can show
   // its own item/low-stock counts at the same time, then filter client-side
   // for the table of the currently selected warehouse.
-  const { inventory: allInventory, loading, refresh } = useInventory(filialId);
+  const { inventory: allInventory, loading, refresh, editLocation } = useInventory(filialId);
 
   const tableRows = useMemo(() => {
     return allInventory.filter((row) => {
@@ -154,7 +225,12 @@ export default function InventoryDashboardView() {
                           <td className="px-6 py-4 text-navy">
                             {row.fifo_unit_cost != null ? `$${row.fifo_unit_cost.toFixed(2)}` : "—"}
                           </td>
-                          <td className="px-6 py-4 text-steel">{row.location ?? "—"}</td>
+                          <td className="px-6 py-4 text-steel">
+                            <LocationCell
+                              row={row}
+                              onSave={(location) => editLocation(row.part_id, row.warehouse_id, location)}
+                            />
+                          </td>
                         </tr>
                         {isExpanded && (
                           <tr key={`${row.part_id}-lots`}>

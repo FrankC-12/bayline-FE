@@ -16,6 +16,7 @@ import { useInspectionForOrder } from "@/hooks/useInspectionForOrder";
 import { useInspections } from "@/hooks/useInspections";
 import { useOrderSummary } from "@/hooks/useOrderSummary";
 import { useTemparios } from "@/hooks/useTemparios";
+import { useWarrantyPolicies } from "@/hooks/useWarrantyPolicies";
 import TasksCard from "./TaskCard";
 import TransfersCard from "./TransferCard";
 import CoverageBreakdownCard from "./CoverageBreakdownCard";
@@ -23,10 +24,12 @@ import PriceSummaryCard from "./PriceSummaryCard";
 import BillingModal from "./BillingModal";
 import WarrantyClaimModal from "./WarrantyClaimModal";
 import { closeServiceOrder } from "@/lib/api/serviceOrderBilling";
-import { formatElapsed } from "@/lib/time";
+import { formatElapsed, serviceOrderStoppedAt } from "@/lib/time";
+import { CLAIM_LINKED_ORDER_TYPE_LABELS } from "@/lib/claimLinkedOrderTypes";
 import LiveDot from "@/components/common/LiveDot";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { ApiError } from "@/lib/api/client";
+import type { WarrantyClaimType } from "@/types/warrantyClaim";
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Pendiente",
@@ -44,7 +47,12 @@ const STATUS_STYLES: Record<string, string> = {
   cancelado: "bg-red-100 text-red-700",
 };
 
-const TYPE_LABELS: Record<string, string> = { regular: "Regular", mpt: "MPT" };
+const TYPE_LABELS: Record<string, string> = {
+  regular: "Regular",
+  mpt: "MPT",
+  retrabajo: "Retrabajo",
+  ...CLAIM_LINKED_ORDER_TYPE_LABELS,
+};
 
 interface OrderDetailProps {
   orderId: string;
@@ -61,6 +69,30 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const { users } = useUserDirectory({ filialId });
   const { roles } = useRoleDirectory("filial");
   const { bays } = useBays(filialId);
+  const { policies: warrantyPolicies } = useWarrantyPolicies(filialId);
+  // Selectable if active, or already selected on this order — an order that
+  // picked a policy before it was deactivated must still show its name.
+  const selectableWarrantyPolicy = (p: (typeof warrantyPolicies)[number]) =>
+    p.status === "activa" || p.id === order?.labor_warranty_policy_id || p.id === order?.parts_warranty_policy_id;
+  const laborWarrantyOptions = warrantyPolicies.filter(
+    (p) => (p.applies_to === "mano_de_obra" || p.applies_to === "ambas") && selectableWarrantyPolicy(p)
+  );
+  const partsWarrantyOptions = warrantyPolicies.filter(
+    (p) => (p.applies_to === "repuestos" || p.applies_to === "ambas") && selectableWarrantyPolicy(p)
+  );
+  // "Pagador propuesto" for a new claim — prefers the parts policy (a claim
+  // is usually about a defective part), falling back to the labor policy.
+  // "la_casa" proposes no external claim_type; the form's own default
+  // ("comeback", the shop investigates first) stays as-is for that case.
+  const relevantWarrantyPolicy =
+    warrantyPolicies.find((p) => p.id === order?.parts_warranty_policy_id) ??
+    warrantyPolicies.find((p) => p.id === order?.labor_warranty_policy_id);
+  const suggestedClaimType: WarrantyClaimType | undefined =
+    relevantWarrantyPolicy?.covered_by === "fabrica_importador"
+      ? "fabrica"
+      : relevantWarrantyPolicy?.covered_by === "proveedor"
+        ? "repuesto_proveedor"
+        : undefined;
   const { canEdit: canReopen } = useModuleAccess("administracion");
   const { inspection, link } = useInspectionForOrder(order?.id ?? null);
   const { inspections: unlinkedInspections } = useInspections(filialId, true);
@@ -91,14 +123,19 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const [nextMaintenanceTempario, setNextMaintenanceTempario] = useState<{ id: string; code: string; name: string } | null>(null);
   const { temparios: temparioResults } = useTemparios(filialId, temparioSearch || undefined);
   const [addingPlanTask, setAddingPlanTask] = useState(false);
-  const [elapsed, setElapsed] = useState(() => (order ? formatElapsed(order.created_at, order.closed_at) : ""));
+  const stoppedAt = order ? serviceOrderStoppedAt(order) : null;
+  const [elapsed, setElapsed] = useState(() => (order ? formatElapsed(order.created_at, stoppedAt) : ""));
 
   useEffect(() => {
-    if (!order || order.closed_at) return;
+    if (!order) return;
+    if (stoppedAt) {
+      setElapsed(formatElapsed(order.created_at, stoppedAt));
+      return;
+    }
     setElapsed(formatElapsed(order.created_at));
     const interval = setInterval(() => setElapsed(formatElapsed(order.created_at)), 1000);
     return () => clearInterval(interval);
-  }, [order]);
+  }, [order, stoppedAt]);
 
   const technicianRoleId = roles.find((r) => r.slug === "tecnico")?.id;
   const technicians = users.filter((u) => u.role_id === technicianRoleId);
@@ -259,6 +296,26 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     }
   }
 
+  async function assignLaborWarrantyPolicy(value: string) {
+    if (readOnly) return;
+    setSaving(true);
+    try {
+      await update(value === "" ? { clear_labor_warranty_policy: true } : { labor_warranty_policy_id: value });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function assignPartsWarrantyPolicy(value: string) {
+    if (readOnly) return;
+    setSaving(true);
+    try {
+      await update(value === "" ? { clear_parts_warranty_policy: true } : { parts_warranty_policy_id: value });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="min-w-0">
       <button
@@ -293,7 +350,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             </span>
           )}
           <span className="flex items-center gap-1.5 rounded-full border border-navy/15 px-2.5 py-1 font-mono text-xs text-navy">
-            {!order.closed_at && <LiveDot />}
+            {!stoppedAt && <LiveDot />}
             <Clock className="h-3.5 w-3.5" />
             {elapsed}
           </span>
@@ -505,9 +562,17 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             </p>
           </div>
           <div>
-            <p className="text-xs text-steel">Fecha prometida de entrega</p>
+            <p className="text-xs text-steel">Fecha de inicio de ODS</p>
             <p className="mt-0.5 text-sm font-semibold text-navy">
-              {order.promised_at ? new Date(`${order.promised_at}T12:00:00`).toLocaleDateString("es-VE") : "—"}
+              {order.promised_at
+                ? new Date(order.promised_at).toLocaleString("es-VE", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "—"}
             </p>
           </div>
           <div className="sm:col-span-1">
@@ -626,6 +691,45 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         </div>
       </div>
 
+      <div className="mt-6 grid gap-4 rounded-2xl border border-navy/10 bg-white p-5 sm:grid-cols-2">
+        <div>
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">Garantía de mano de obra</p>
+          <select
+            disabled={readOnly || saving}
+            value={order.labor_warranty_policy_id ?? ""}
+            onChange={(e) => assignLaborWarrantyPolicy(e.target.value)}
+            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+          >
+            <option value="">Sin política seleccionada</option>
+            {laborWarrantyOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">Garantía de repuestos</p>
+          <select
+            disabled={readOnly || saving}
+            value={order.parts_warranty_policy_id ?? ""}
+            onChange={(e) => assignPartsWarrantyPolicy(e.target.value)}
+            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+          >
+            <option value="">Sin política seleccionada</option>
+            {partsWarrantyOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <p className="sm:col-span-2 -mt-2 text-xs text-steel">
+          Aplica a toda la ODS. Al facturar, la política elegida queda congelada para las unidades
+          de garantía de taller que se generen — editar la política después no la modifica.
+        </p>
+      </div>
+
       {readOnly && <p role="status" className="mt-6 rounded-xl bg-ash px-4 py-3 text-sm text-steel">
         Esta orden es de solo lectura.{(order.invoiced_at || order.status === "orden_cerrada") ? " El precio quedó congelado al facturar." : ""}
       </p>}
@@ -709,6 +813,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           vehicleId={order.vehicle_id}
           serviceOrderId={orderId}
           onClose={() => setClaimModalOpen(false)}
+          initialClaimType={suggestedClaimType}
         />
       )}
       <ConfirmDialog

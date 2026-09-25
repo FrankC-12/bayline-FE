@@ -37,6 +37,9 @@ export default function CreateInspectionPanel({
         const matches =
           (vehicle.plate ?? "").toLowerCase().includes(term) ||
           (vehicle.vin ?? "").toLowerCase().includes(term) ||
+          vehicle.brand.toLowerCase().includes(term) ||
+          vehicle.model.toLowerCase().includes(term) ||
+          `${vehicle.brand} ${vehicle.model}`.toLowerCase().includes(term) ||
           client.full_name.toLowerCase().includes(term);
         if (matches) {
           entries.push({
@@ -116,7 +119,7 @@ export default function CreateInspectionPanel({
                   setSearch(e.target.value);
                   setSelectedVehicleId(null);
                 }}
-                placeholder="Buscar por placa, VIN o cliente..."
+                placeholder="Buscar por placa, VIN, marca, modelo o cliente..."
                 className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
               />
             </div>

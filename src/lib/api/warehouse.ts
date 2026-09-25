@@ -72,6 +72,18 @@ export async function getInventory(
   return apiFetch<InventoryRow[]>(`/almacen/inventory?${query.toString()}`);
 }
 
+export async function updateInventoryLocation(
+  filialId: string,
+  partId: string,
+  warehouseId: string,
+  location: string | null
+): Promise<InventoryRow> {
+  return apiFetch<InventoryRow>(`/almacen/inventory/location?filial_id=${filialId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ part_id: partId, warehouse_id: warehouseId, location }),
+  });
+}
+
 export async function listLots(
   filialId: string,
   partId?: string,
