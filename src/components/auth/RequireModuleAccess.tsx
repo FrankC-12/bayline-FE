@@ -14,7 +14,12 @@ interface RequireModuleAccessProps {
  * Only filial-scoped users have per-module permissions at all — a
  * holding/platform caller who somehow lands here is left to that page's
  * own RequireScope to redirect, not shown a denial screen that isn't
- * really about them. */
+ * really about them.
+ *
+ * Nesting a second one around a single page (inside a broader module's
+ * layout) is fine when that one route needs a narrower fine-grained
+ * permission than the rest of its module — e.g. Rentabilidad requires
+ * "finanzas-rentabilidad" on top of the outer "administracion" gate. */
 export default function RequireModuleAccess({ moduleId, children }: RequireModuleAccessProps) {
   const { currentUser, isLoading, accessLoading, hasModuleAccess } = useAuth();
 

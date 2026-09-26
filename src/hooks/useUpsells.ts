@@ -15,8 +15,8 @@ export function useUpsells(filialId: string | null) {
   } = useListLoader<Upsell>(() => (filialId ? listUpsells(filialId) : Promise.resolve([])), [filialId]);
 
   const addUpsell = useCallback(
-    async (orderId: string, input: CreateUpsellInput) => {
-      const created = await createUpsell(orderId, input);
+    async (orderId: string, input: CreateUpsellInput, photos: File[] = []) => {
+      const created = await createUpsell(orderId, input, photos);
       setUpsells((prev) => [created, ...prev]);
       return created;
     },

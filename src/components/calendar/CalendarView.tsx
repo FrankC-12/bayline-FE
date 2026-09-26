@@ -39,6 +39,17 @@ export default function CalendarView() {
     () => activeOrders.filter((o) => !o.scheduled_at),
     [activeOrders]
   );
+  // An order can be scheduled (has scheduled_at) with no bay chosen yet —
+  // bay is optional in ScheduleOrderModal and the backend never requires
+  // it, but ordersByBayAndHour below can only place an order that has
+  // both. Without this, such an order silently disappears from the
+  // calendar grid entirely (it still shows in "Citas de Hoy", which is
+  // date-scoped and doesn't filter by bay) — same "never invisible"
+  // reasoning as unscheduledOrders above.
+  const scheduledWithoutBay = useMemo(
+    () => activeOrders.filter((o) => !!o.scheduled_at && !o.bay_id),
+    [activeOrders]
+  );
   const { vehicleMap } = useVehicleLookup(filialId);
   const { users } = useUserDirectory({ filialId });
   const { roles } = useRoleDirectory("filial");
@@ -330,6 +341,43 @@ export default function CalendarView() {
                       href={`/dashboard/servicios/${o.id}`}
                       className="block rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm transition hover:bg-amber-100"
                     >
+                      <p className="font-medium text-navy">
+                        {info ? `${info.vehicle.brand} ${info.vehicle.model}` : o.code}
+                      </p>
+                      <p className="text-xs text-steel">{info?.client.full_name}</p>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-navy/10 bg-white p-5">
+            <p className="mb-1 font-display font-bold text-navy">Sin bahía asignada</p>
+            <p className="mb-3 text-xs text-steel">
+              Órdenes agendadas (fecha/hora) a las que todavía no se les eligió una bahía.
+            </p>
+            {scheduledWithoutBay.length === 0 ? (
+              <p className="text-sm italic text-steel">No hay órdenes agendadas sin bahía.</p>
+            ) : (
+              <div className="space-y-2">
+                {scheduledWithoutBay.map((o) => {
+                  const info = vehicleMap.get(o.vehicle_id);
+                  return (
+                    <Link
+                      key={o.id}
+                      href={`/dashboard/servicios/${o.id}`}
+                      className="block rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm transition hover:bg-amber-100"
+                    >
+                      <p className="font-mono text-xs text-blue">
+                        {o.scheduled_at &&
+                          new Date(o.scheduled_at).toLocaleString("es-VE", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                      </p>
                       <p className="font-medium text-navy">
                         {info ? `${info.vehicle.brand} ${info.vehicle.model}` : o.code}
                       </p>

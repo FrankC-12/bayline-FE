@@ -161,8 +161,8 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
 
   async function handleSubmit() {
     const nextFieldErrors: FieldErrors = {};
-    if (!brand) nextFieldErrors.brand = "Selecciona la marca.";
-    if (!model) nextFieldErrors.model = "Selecciona el modelo.";
+    if (!brand) nextFieldErrors.brand = "Elige la marca";
+    if (!model) nextFieldErrors.model = "Elige el modelo";
     if (year === "") nextFieldErrors.year = "Selecciona el año.";
     if (!vin.trim()) nextFieldErrors.vin = "El VIN es obligatorio.";
     if (!sku.trim()) nextFieldErrors.sku = "El SKU es obligatorio.";

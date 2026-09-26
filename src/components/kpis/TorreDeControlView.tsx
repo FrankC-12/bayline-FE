@@ -4,18 +4,26 @@ import { useState } from "react";
 import { Calendar, Trophy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
-import { getKpiReport, getManualMovementsRate, getReworkReport, type KpiCategory } from "@/lib/api/kpis";
-import type { KpiReport, ManualMovementsRate, ReworkReport } from "@/types/kpis";
+import {
+  getKpiReport,
+  getManualMovementsRate,
+  getReworkReport,
+  getUpsellConversionRate,
+  type KpiCategory,
+} from "@/lib/api/kpis";
+import type { KpiReport, ManualMovementsRate, ReworkReport, UpsellConversionRate } from "@/types/kpis";
 import MaintenanceDueCard from "./MaintenanceDueCard";
 import ManualMovementsRateCard from "./ManualMovementsRateCard";
 import ReworkRateCard from "./ReworkRateCard";
+import UpsellConversionRateCard from "./UpsellConversionRateCard";
 
-type Tab = KpiCategory | "mantenimientos" | "retrabajo" | "movimientos-manuales";
+type Tab = KpiCategory | "mantenimientos" | "retrabajo" | "movimientos-manuales" | "conversion-upsells";
 
 const TABS: { value: Tab; label: string }[] = [
   { value: "mantenimientos", label: "Mantenimiento por vencer" },
   { value: "retrabajo", label: "Tasa de retrabajo" },
   { value: "movimientos-manuales", label: "Movimientos manuales" },
+  { value: "conversion-upsells", label: "Conversión de upsells" },
   { value: "tecnicos", label: "Técnicos" },
   { value: "asesores", label: "Asesores (ODS)" },
   { value: "almacenistas", label: "Almacenistas (ODT)" },
@@ -45,23 +53,29 @@ export default function TorreDeControlView() {
   const [report, setReport] = useState<KpiReport | null>(null);
   const [reworkReport, setReworkReport] = useState<ReworkReport | null>(null);
   const [manualMovementsReport, setManualMovementsReport] = useState<ManualMovementsRate | null>(null);
+  const [upsellConversionReport, setUpsellConversionReport] = useState<UpsellConversionRate | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const userName = (id: string) => users.find((u) => u.id === id)?.full_name ?? "Usuario desconocido";
   const isKpiCategory = (t: Tab): t is KpiCategory =>
-    t !== "mantenimientos" && t !== "retrabajo" && t !== "movimientos-manuales";
+    t !== "mantenimientos" && t !== "retrabajo" && t !== "movimientos-manuales" && t !== "conversion-upsells";
 
   async function fetchReport(next: Tab, filial: string, from: string, to: string) {
     if (next === "retrabajo") return getReworkReport(filial, from, to);
     if (next === "movimientos-manuales") return getManualMovementsRate(filial, from, to);
+    if (next === "conversion-upsells") return getUpsellConversionRate(filial, from, to);
     if (isKpiCategory(next)) return getKpiReport(next, filial, from, to);
     return null;
   }
 
-  function applyReport(next: Tab, data: ReworkReport | ManualMovementsRate | KpiReport | null) {
+  function applyReport(
+    next: Tab,
+    data: ReworkReport | ManualMovementsRate | UpsellConversionRate | KpiReport | null
+  ) {
     if (next === "retrabajo") setReworkReport(data as ReworkReport);
     else if (next === "movimientos-manuales") setManualMovementsReport(data as ManualMovementsRate);
+    else if (next === "conversion-upsells") setUpsellConversionReport(data as UpsellConversionRate);
     else setReport(data as KpiReport);
   }
 
@@ -84,6 +98,7 @@ export default function TorreDeControlView() {
     setReport(null);
     setReworkReport(null);
     setManualMovementsReport(null);
+    setUpsellConversionReport(null);
     if (next !== "mantenimientos" && filialId && dateFrom && dateTo) {
       setLoading(true);
       fetchReport(next, filialId, dateFrom, dateTo)
@@ -189,6 +204,28 @@ export default function TorreDeControlView() {
             <div className="p-16 text-center text-sm text-steel">Calculando métricas...</div>
           ) : manualMovementsReport ? (
             <ManualMovementsRateCard report={manualMovementsReport} />
+          ) : null}
+        </div>
+      ) : tab === "conversion-upsells" ? (
+        <div className="mt-6 rounded-2xl border border-navy/10 bg-white">
+          {!dateFrom || !dateTo || (!upsellConversionReport && !loading) ? (
+            <div className="flex flex-col items-center justify-center gap-3 p-16 text-center">
+              <div className="rounded-2xl bg-blue-light p-4">
+                <Calendar className="h-6 w-6 text-blue" />
+              </div>
+              <p className="font-display text-lg font-bold text-navy">
+                {!dateFrom || !dateTo ? "Selecciona un rango de fechas para ver las métricas" : "Sin resultados en este rango"}
+              </p>
+              <p className="text-sm text-steel">
+                {!dateFrom || !dateTo
+                  ? 'Elige fecha "Desde" y "Hasta" arriba, luego presiona Aplicar.'
+                  : "No hay upsells pospuestos en las fechas elegidas."}
+              </p>
+            </div>
+          ) : loading ? (
+            <div className="p-16 text-center text-sm text-steel">Calculando métricas...</div>
+          ) : upsellConversionReport ? (
+            <UpsellConversionRateCard report={upsellConversionReport} />
           ) : null}
         </div>
       ) : (

@@ -68,3 +68,9 @@ export interface ManualMovementsRate {
   manual_count: number;
   rate: number;
 }
+
+export interface UpsellConversionRate {
+  postponed_count: number;
+  converted_count: number;
+  rate: number;
+}

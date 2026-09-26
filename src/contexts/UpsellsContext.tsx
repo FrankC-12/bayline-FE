@@ -11,7 +11,7 @@ interface UpsellsContextValue {
   upsells: Upsell[];
   loading: boolean;
   error: ListErrorInfo | null;
-  addUpsell: (orderId: string, input: CreateUpsellInput) => Promise<Upsell>;
+  addUpsell: (orderId: string, input: CreateUpsellInput, photos?: File[]) => Promise<Upsell>;
   decide: (upsellId: string, input: DecideUpsellInput) => Promise<Upsell>;
   refresh: () => void;
 }

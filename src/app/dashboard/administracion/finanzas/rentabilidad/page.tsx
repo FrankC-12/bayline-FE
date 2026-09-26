@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import RequireScope from "@/components/auth/RequireScope";
+import RequireModuleAccess from "@/components/auth/RequireModuleAccess";
 import AdministracionLayout from "@/components/administracion/AdministracionLayout";
 import RentabilidadView from "@/components/administracion/RentabilidadView";
 
@@ -11,7 +12,9 @@ export default function RentabilidadPage() {
         <DashboardHeader />
         <Suspense fallback={null}>
           <AdministracionLayout>
-            <RentabilidadView />
+            <RequireModuleAccess moduleId="finanzas-rentabilidad">
+              <RentabilidadView />
+            </RequireModuleAccess>
           </AdministracionLayout>
         </Suspense>
       </div>

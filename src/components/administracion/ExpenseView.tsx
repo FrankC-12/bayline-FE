@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, X, Loader2, Paperclip, Undo2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useExpenseEntries } from "@/hooks/useExpenseEntries";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useClients } from "@/hooks/useClients";
@@ -66,6 +67,8 @@ export default function ExpenseView() {
   const { suppliers } = useSuppliers(filialId);
   const [createOpen, setCreateOpen] = useState(false);
   const [reversingId, setReversingId] = useState<string | null>(null);
+  const { canEdit: canCreateEgreso } = useModuleAccess("finanzas-egreso");
+  const { canEdit: canReversar } = useModuleAccess("finanzas-reversar");
 
   const accountName = (id: string) => accounts.find((a) => a.id === id)?.name ?? "—";
   const counterpartyLabel = (e: ExpenseEntry) => {
@@ -101,13 +104,15 @@ export default function ExpenseView() {
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-4">
         <h1 className="font-display text-3xl font-bold text-navy">Egresos</h1>
-        <button
-          onClick={() => setCreateOpen(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
-        >
-          <Plus className="h-4 w-4" />
-          Registrar Egreso
-        </button>
+        {canCreateEgreso && (
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
+          >
+            <Plus className="h-4 w-4" />
+            Registrar Egreso
+          </button>
+        )}
       </div>
       <p className="mb-4 text-sm text-steel">Registro de gastos y salidas de dinero del negocio</p>
 
@@ -184,7 +189,7 @@ export default function ExpenseView() {
                   </td>
                   <td className="px-6 py-4 text-steel">{accountName(e.account_id)}</td>
                   <td className="px-6 py-4">
-                    {!e.reverses_entry_id && !reversedIds.has(e.id) && (
+                    {!e.reverses_entry_id && !reversedIds.has(e.id) && canReversar && (
                       <button
                         onClick={() => handleReverse(e.id)}
                         disabled={reversingId === e.id}

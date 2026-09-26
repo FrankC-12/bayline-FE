@@ -9,9 +9,10 @@ import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { useTemparios } from "@/hooks/useTemparios";
 import { useParts } from "@/hooks/useParts";
-import type { Upsell, UpsellApprovalChannel } from "@/types/upsells";
+import type { Upsell, UpsellApprovalChannel, UpsellDiscardReason, UpsellSeverity } from "@/types/upsells";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
+import DiscardUpsellModal from "./DiscardUpsellModal";
 
 const STATUS_LABELS: Record<string, string> = {
   aprobado: "Aprobado",
@@ -24,6 +25,33 @@ const STATUS_STYLES: Record<string, string> = {
   pospuesto: "bg-amber-100 text-amber-700",
   rechazado: "bg-red-100 text-red-700",
 };
+
+const SEVERITY_LABELS: Record<UpsellSeverity, string> = {
+  urgente: "Urgente",
+  pronto: "Pronto",
+  monitorear: "Monitorear",
+};
+
+const SEVERITY_STYLES: Record<UpsellSeverity, string> = {
+  urgente: "bg-red-100 text-red-700",
+  pronto: "bg-amber-100 text-amber-700",
+  monitorear: "bg-slate-100 text-slate-600",
+};
+
+const DISCARD_REASON_LABELS: Record<UpsellDiscardReason, string> = {
+  ya_reparado_otro_taller: "Ya reparado en otro taller",
+  cliente_no_lo_quiere: "El cliente no lo quiere",
+  ya_no_aplica: "Ya no aplica",
+  otro: "Otro motivo",
+};
+
+function SeverityBadge({ severity }: { severity: UpsellSeverity }) {
+  return (
+    <span className={`rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest ${SEVERITY_STYLES[severity]}`}>
+      {SEVERITY_LABELS[severity]}
+    </span>
+  );
+}
 
 const CHANNEL_OPTIONS: { value: UpsellApprovalChannel; label: string }[] = [
   { value: "presencial", label: "Presencial" },
@@ -62,6 +90,7 @@ export default function UpsellsView() {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [approvingUpsell, setApprovingUpsell] = useState<Upsell | null>(null);
+  const [discardingUpsell, setDiscardingUpsell] = useState<Upsell | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
 
   const orderById = (id: string) => orders.find((o) => o.id === id);
@@ -69,7 +98,14 @@ export default function UpsellsView() {
     const order = orderById(orderId);
     if (!order) return "—";
     const entry = vehicleMap.get(order.vehicle_id);
-    return entry ? `${entry.vehicle.brand} ${entry.vehicle.model} ${entry.vehicle.year}` : "—";
+    if (!entry) return "—";
+    const plate = entry.vehicle.plate ? ` · ${entry.vehicle.plate}` : "";
+    return `${entry.vehicle.brand} ${entry.vehicle.model} ${entry.vehicle.year}${plate}`;
+  };
+  const ownerName = (orderId: string) => {
+    const order = orderById(orderId);
+    if (!order) return "—";
+    return vehicleMap.get(order.vehicle_id)?.client.full_name ?? "—";
   };
   const technicianName = (id: string | null) => (id ? users.find((u) => u.id === id)?.full_name ?? "—" : "—");
   const isOrderEditable = (orderId: string) => {
@@ -96,11 +132,11 @@ export default function UpsellsView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolved, search, orders, vehicleMap, users]);
 
-  async function handleAction(upsell: Upsell, status: "rechazado" | "pospuesto") {
+  async function handlePostpone(upsell: Upsell) {
     if (!isOrderEditable(upsell.service_order_id)) return;
     setActingId(upsell.id);
     try {
-      await decide(upsell.id, { status });
+      await decide(upsell.id, { status: "pospuesto" });
     } finally {
       setActingId(null);
     }
@@ -111,6 +147,16 @@ export default function UpsellsView() {
     try {
       await decide(upsell.id, { status: "aprobado", approval_channel: channel });
       setApprovingUpsell(null);
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function handleDiscard(upsell: Upsell, reason: UpsellDiscardReason, note: string | undefined) {
+    setActingId(upsell.id);
+    try {
+      await decide(upsell.id, { status: "rechazado", discard_reason: reason, discard_note: note });
+      setDiscardingUpsell(null);
     } finally {
       setActingId(null);
     }
@@ -159,6 +205,7 @@ export default function UpsellsView() {
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-display text-lg font-bold text-navy">{u.title}</p>
+                        <SeverityBadge severity={u.severity} />
                         <span className="rounded-full bg-blue-light px-2.5 py-1 text-xs font-bold text-blue">
                           {usd(u.amount)}
                         </span>
@@ -170,11 +217,14 @@ export default function UpsellsView() {
                         <span>·</span>
                         <span>{vehicleLabel(u.service_order_id)}</span>
                         <span>·</span>
+                        <span>{ownerName(u.service_order_id)}</span>
+                        <span>·</span>
                         <span>{technicianName(u.detected_by_user_id)}</span>
-                        {u.evidence_count > 0 && (
+                        {u.detected_mileage != null && <span>· {u.detected_mileage.toLocaleString("es-VE")} km</span>}
+                        {u.photo_urls.length > 0 && (
                           <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
                             <Camera className="h-3 w-3" />
-                            {u.evidence_count} evidencia{u.evidence_count > 1 ? "s" : ""}
+                            {u.photo_urls.length} evidencia{u.photo_urls.length > 1 ? "s" : ""}
                           </span>
                         )}
                       </div>
@@ -182,14 +232,14 @@ export default function UpsellsView() {
 
                     <div className="flex shrink-0 items-center gap-2">
                       <button
-                        onClick={() => handleAction(u, "rechazado")}
+                        onClick={() => setDiscardingUpsell(u)}
                         disabled={actingId === u.id || !isOrderEditable(u.service_order_id)}
                         className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                       >
                         Rechazar
                       </button>
                       <button
-                        onClick={() => handleAction(u, "pospuesto")}
+                        onClick={() => handlePostpone(u)}
                         disabled={actingId === u.id || !isOrderEditable(u.service_order_id)}
                         className="rounded-full border border-navy/15 px-4 py-2 text-sm font-semibold text-navy transition hover:bg-ash disabled:opacity-50"
                       >
@@ -246,16 +296,26 @@ export default function UpsellsView() {
                     <tr key={u.id}>
                       <td className="py-3 text-steel">{new Date(u.created_at).toLocaleDateString("es-VE")}</td>
                       <td className="py-3">
-                        <p className="font-semibold text-navy">{u.title}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-semibold text-navy">{u.title}</p>
+                          <SeverityBadge severity={u.severity} />
+                        </div>
                         <p className="text-xs text-steel">
-                          {orderById(u.service_order_id)?.code ?? "—"} · {u.evidence_count} evidencia
-                          {u.evidence_count !== 1 ? "s" : ""}
+                          {orderById(u.service_order_id)?.code ?? "—"}
+                          {u.photo_urls.length > 0 &&
+                            ` · ${u.photo_urls.length} evidencia${u.photo_urls.length !== 1 ? "s" : ""}`}
                         </p>
                         {u.status === "aprobado" && (
                           <p className="mt-0.5 text-xs text-emerald-700">
                             Aprobado por {technicianName(u.approved_by_user_id)}
                             {u.approval_channel && ` · ${CHANNEL_LABELS[u.approval_channel]}`}
                             {u.resolved_at && ` · ${new Date(u.resolved_at).toLocaleDateString("es-VE")}`}
+                          </p>
+                        )}
+                        {u.status === "rechazado" && u.discard_reason && (
+                          <p className="mt-0.5 text-xs text-red-600">
+                            {DISCARD_REASON_LABELS[u.discard_reason]}
+                            {u.discard_note && ` — ${u.discard_note}`}
                           </p>
                         )}
                       </td>
@@ -295,6 +355,15 @@ export default function UpsellsView() {
           submitting={actingId === approvingUpsell.id}
           onClose={() => setApprovingUpsell(null)}
           onConfirm={(channel) => handleApprove(approvingUpsell, channel)}
+        />
+      )}
+
+      {discardingUpsell && (
+        <DiscardUpsellModal
+          title={discardingUpsell.title}
+          submitting={actingId === discardingUpsell.id}
+          onClose={() => setDiscardingUpsell(null)}
+          onConfirm={(reason, note) => handleDiscard(discardingUpsell, reason, note)}
         />
       )}
     </div>
@@ -388,17 +457,19 @@ function CreateUpsellModal({
     input: {
       title: string;
       description: string;
-      evidence_count?: number;
+      severity: UpsellSeverity;
       detected_by_user_id?: string | null;
       tasks?: { tempario_id: string }[];
       parts?: { part_id: string; quantity: number }[];
-    }
+    },
+    photos?: File[]
   ) => Promise<unknown>;
 }) {
   const [orderId, setOrderId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [evidenceCount, setEvidenceCount] = useState("0");
+  const [severity, setSeverity] = useState<UpsellSeverity>("monitorear");
+  const [photos, setPhotos] = useState<File[]>([]);
   const [taskSearch, setTaskSearch] = useState("");
   const [partSearch, setPartSearch] = useState("");
   const [selectedTasks, setSelectedTasks] = useState<TaskDraft[]>([]);
@@ -416,7 +487,8 @@ function CreateUpsellModal({
     setOrderId("");
     setTitle("");
     setDescription("");
-    setEvidenceCount("0");
+    setSeverity("monitorear");
+    setPhotos([]);
     setTaskSearch("");
     setPartSearch("");
     setSelectedTasks([]);
@@ -436,14 +508,18 @@ function CreateUpsellModal({
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit(orderId, {
-        title,
-        description,
-        evidence_count: Number(evidenceCount) || 0,
-        detected_by_user_id: currentUserId,
-        tasks: selectedTasks.map((t) => ({ tempario_id: t.tempario_id })),
-        parts: selectedParts.map((p) => ({ part_id: p.part_id, quantity: Number(p.quantity) || 1 })),
-      });
+      await onSubmit(
+        orderId,
+        {
+          title,
+          description,
+          severity,
+          detected_by_user_id: currentUserId,
+          tasks: selectedTasks.map((t) => ({ tempario_id: t.tempario_id })),
+          parts: selectedParts.map((p) => ({ part_id: p.part_id, quantity: Number(p.quantity) || 1 })),
+        },
+        photos
+      );
       reset();
       onClose();
     } catch (err) {
@@ -618,17 +694,36 @@ function CreateUpsellModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Cantidad de evidencias (fotos)</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">Severidad</label>
+            <select
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value as UpsellSeverity)}
+              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+            >
+              <option value="urgente">Urgente</option>
+              <option value="pronto">Pronto</option>
+              <option value="monitorear">Monitorear</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">Evidencia fotográfica</label>
             <input
-              type="number"
-              min="0"
-              value={evidenceCount}
-              onChange={(e) => setEvidenceCount(e.target.value)}
-              className="w-24 rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={(e) => setPhotos(Array.from(e.target.files ?? []))}
+              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
             />
-            <p className="mt-1.5 text-xs text-steel">
-              Todavía no hay subida real de fotos — es solo un contador por ahora.
-            </p>
+            {photos.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {photos.map((file, i) => (
+                  <span key={i} className="rounded-full bg-ash px-3 py-1 text-xs text-steel">
+                    {file.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}

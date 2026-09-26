@@ -12,6 +12,11 @@ import {
   TrendingUp,
   Settings,
   Truck,
+  Wallet,
+  HandCoins,
+  ArrowDownCircle,
+  Undo2,
+  PieChart,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,4 +40,9 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
   { id: "ventas", label: "Ventas", icon: TrendingUp },
   { id: "ajustes", label: "Ajustes", icon: Settings },
   { id: "compras", label: "Compras", icon: Truck },
+  { id: "movimientos-manuales", label: "Movimientos Manuales", icon: Wallet },
+  { id: "finanzas-cobrar", label: "Cobrar", icon: HandCoins },
+  { id: "finanzas-egreso", label: "Registrar Egresos", icon: ArrowDownCircle },
+  { id: "finanzas-reversar", label: "Reversar Movimientos", icon: Undo2 },
+  { id: "finanzas-rentabilidad", label: "Ver Rentabilidad", icon: PieChart },
 ];

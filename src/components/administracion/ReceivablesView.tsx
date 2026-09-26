@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Loader2, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useReceivables } from "@/hooks/useReceivables";
 import { useAccounts } from "@/hooks/useAccounts";
 import type { Receivable } from "@/lib/api/serviceOrderBilling";
@@ -30,6 +31,7 @@ export default function ReceivablesView() {
   const filialId = currentUser?.filialId ?? null;
   const { receivables, loading, error, collectOne, refresh } = useReceivables(filialId);
   const [collecting, setCollecting] = useState<Receivable | null>(null);
+  const { canEdit: canCollect } = useModuleAccess("finanzas-cobrar");
 
   return (
     <div>
@@ -81,12 +83,16 @@ export default function ReceivablesView() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     {r.document_type === "service_order_invoice" ? (
-                      <button
-                        onClick={() => setCollecting(r)}
-                        className="rounded-full bg-blue px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-navy"
-                      >
-                        Registrar cobro
-                      </button>
+                      canCollect ? (
+                        <button
+                          onClick={() => setCollecting(r)}
+                          className="rounded-full bg-blue px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-navy"
+                        >
+                          Registrar cobro
+                        </button>
+                      ) : (
+                        <span className="text-xs italic text-steel">Sin permiso para cobrar</span>
+                      )
                     ) : (
                       <Link
                         href={`/dashboard/repuestos/ventas/${r.invoice_id}`}

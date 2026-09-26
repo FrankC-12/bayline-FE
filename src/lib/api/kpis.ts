@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { KpiReport, ManualMovementsRate, MaintenanceDueReport, ReworkReport } from "@/types/kpis";
+import type { KpiReport, ManualMovementsRate, MaintenanceDueReport, ReworkReport, UpsellConversionRate } from "@/types/kpis";
 
 export type KpiCategory = "tecnicos" | "asesores" | "almacenistas";
 
@@ -40,5 +40,15 @@ export async function getManualMovementsRate(
 ): Promise<ManualMovementsRate> {
   return apiFetch<ManualMovementsRate>(
     `/kpis/movimientos-manuales?filial_id=${filialId}&date_from=${dateFrom}&date_to=${dateTo}`
+  );
+}
+
+export async function getUpsellConversionRate(
+  filialId: string,
+  dateFrom: string,
+  dateTo: string
+): Promise<UpsellConversionRate> {
+  return apiFetch<UpsellConversionRate>(
+    `/kpis/conversion-upsells?filial_id=${filialId}&date_from=${dateFrom}&date_to=${dateTo}`
   );
 }

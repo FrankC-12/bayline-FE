@@ -22,6 +22,7 @@ import TransfersCard from "./TransferCard";
 import CoverageBreakdownCard from "./CoverageBreakdownCard";
 import PriceSummaryCard from "./PriceSummaryCard";
 import BillingModal from "./BillingModal";
+import PendingUpsellsBlock from "./PendingUpsellsBlock";
 import WarrantyClaimModal from "./WarrantyClaimModal";
 import { closeServiceOrder } from "@/lib/api/serviceOrderBilling";
 import { formatElapsed, serviceOrderStoppedAt } from "@/lib/time";
@@ -325,6 +326,13 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         <ChevronLeft className="h-4 w-4" />
         Volver a Órdenes de Servicio
       </button>
+
+      <PendingUpsellsBlock
+        vehicleId={order.vehicle_id}
+        orderId={orderId}
+        readOnly={readOnly}
+        onApplied={() => { void refreshOrder(); void refreshSummary(); }}
+      />
 
       <div className="rounded-2xl border border-navy/10 bg-white p-6">
         <div className="flex flex-wrap items-center gap-3">
