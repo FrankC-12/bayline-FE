@@ -13,14 +13,16 @@ import ReserveVehicleModal from "./ReserveVehicleModal";
 import VehicleDetailDrawer from "./VehicleDetailDrawer";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
-import type { DealershipVehicle } from "@/types/concesionario";
+import type { DealershipVehicle, VehicleLocation } from "@/types/concesionario";
 import type { VehicleReservationInput, VehicleSaleInput } from "@/lib/api/concesionario";
+import { LOCATION_OPTIONS } from "@/lib/vehicle-catalog-dealership";
 
 export default function VehicleCatalogView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
+  const [locationFilter, setLocationFilter] = useState<VehicleLocation | "">("");
   const { vehicles, loading, error, addVehicle, editVehicle, reserveVehicle, refresh } = useVehicles(filialId, search || undefined);
   const { clients } = useClients(filialId);
   const { users } = useUserDirectory({ filialId });
@@ -28,7 +30,13 @@ export default function VehicleCatalogView() {
   const [selectedVehicle, setSelectedVehicle] = useState<DealershipVehicle | null>(null);
   const [sellTarget, setSellTarget] = useState<DealershipVehicle | null>(null);
   const [reserveTarget, setReserveTarget] = useState<DealershipVehicle | null>(null);
-  const visibleVehicles = useMemo(() => vehicles.filter((vehicle) => vehicle.status !== "vendido"), [vehicles]);
+  const visibleVehicles = useMemo(
+    () =>
+      vehicles.filter(
+        (vehicle) => vehicle.status !== "vendido" && (!locationFilter || vehicle.location === locationFilter)
+      ),
+    [vehicles, locationFilter]
+  );
   const summary = useMemo(() => ({
     nuevos: visibleVehicles.filter((vehicle) => vehicle.condition === "nuevo").length,
     usados: visibleVehicles.filter((vehicle) => vehicle.condition === "usado").length,
@@ -47,6 +55,12 @@ export default function VehicleCatalogView() {
       return;
     }
     const updated = await editVehicle(selectedVehicle.id, { status });
+    setSelectedVehicle(updated);
+  }
+
+  async function changeLocation(location: string) {
+    if (!selectedVehicle) return;
+    const updated = await editVehicle(selectedVehicle.id, { location });
     setSelectedVehicle(updated);
   }
 
@@ -96,6 +110,16 @@ export default function VehicleCatalogView() {
             className="w-full rounded-full border border-navy/15 bg-white py-3 pl-11 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
           />
         </div>
+        <select
+          value={locationFilter}
+          onChange={(e) => setLocationFilter(e.target.value as VehicleLocation | "")}
+          className="rounded-full border border-navy/15 bg-white px-4 py-3 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+        >
+          <option value="">Todas las ubicaciones</option>
+          {LOCATION_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
         <span className="whitespace-nowrap text-sm text-steel">{visibleVehicles.length} vehículos</span>
       </div>
 
@@ -130,6 +154,7 @@ export default function VehicleCatalogView() {
         vehicle={selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
         onStatusChange={changeStatus}
+        onLocationChange={changeLocation}
         reservedClientName={clients.find((c) => c.id === selectedVehicle?.reserved_client_id)?.full_name}
         reservedByName={users.find((u) => u.id === selectedVehicle?.reserved_by_user_id)?.full_name}
       />

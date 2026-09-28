@@ -1,4 +1,4 @@
-import { FileStack, LineChart, CreditCard, ArrowUp, ArrowDown, TrendingUp, Receipt } from "lucide-react";
+import { FileStack, LineChart, CreditCard, ArrowUp, ArrowDown, TrendingUp, Receipt, FileWarning } from "lucide-react";
 
 // Proveedores / Compras a Proveedores / Reclamos a Proveedor moved to their
 // own "Compras" module — see src/components/compras/nav-items.ts.
@@ -14,5 +14,6 @@ export const FINANCE_ITEMS = [
   { href: "/dashboard/administracion/finanzas/ingresos", label: "Ingresos", icon: ArrowUp },
   { href: "/dashboard/administracion/finanzas/egresos", label: "Egresos", icon: ArrowDown },
   { href: "/dashboard/administracion/finanzas/cuentas-por-cobrar", label: "Cuentas por Cobrar", icon: Receipt },
+  { href: "/dashboard/administracion/finanzas/cuentas-por-pagar", label: "Cuentas por Pagar", icon: FileWarning },
   { href: "/dashboard/administracion/finanzas/rentabilidad", label: "Rentabilidad", icon: TrendingUp },
 ];

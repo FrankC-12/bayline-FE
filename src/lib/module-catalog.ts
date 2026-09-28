@@ -17,6 +17,7 @@ import {
   ArrowDownCircle,
   Undo2,
   PieChart,
+  ArrowLeftRight,
   type LucideIcon,
 } from "lucide-react";
 
@@ -45,4 +46,5 @@ export const MODULE_CATALOG: ModuleCatalogItem[] = [
   { id: "finanzas-egreso", label: "Registrar Egresos", icon: ArrowDownCircle },
   { id: "finanzas-reversar", label: "Reversar Movimientos", icon: Undo2 },
   { id: "finanzas-rentabilidad", label: "Ver Rentabilidad", icon: PieChart },
+  { id: "finanzas-transferir", label: "Transferir entre Cuentas", icon: ArrowLeftRight },
 ];

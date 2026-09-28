@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X, Loader2 } from "lucide-react";
-import { STATUS_OPTIONS, VEHICLE_COLORS } from "@/lib/vehicle-catalog-dealership";
+import { LOCATION_OPTIONS, STATUS_OPTIONS, VEHICLE_COLORS } from "@/lib/vehicle-catalog-dealership";
 import { formatMoneyInput } from "@/lib/format";
 import { getLatestExchangeRates, type CreateVehicleInput } from "@/lib/api/concesionario";
 import CreatableSelect from "./CreatableSelect";
@@ -45,6 +45,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
   const { brands } = useVehicleCatalog(filialId);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [status, setStatus] = useState("en_transito");
+  const [location, setLocation] = useState("patio");
   const [years, setYears] = useState(YEARS);
   const [colors, setColors] = useState(VEHICLE_COLORS);
   const [condition, setCondition] = useState("nuevo");
@@ -76,7 +77,12 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
       const saved = localStorage.getItem("bayline.vehicleOptions");
       if (!saved) return;
       const parsed = JSON.parse(saved) as { years?: number[]; colors?: string[] };
-      if (parsed.years) setYears(parsed.years);
+      // Merge with the built-in range instead of replacing it — a browser
+      // that cached a narrower list before this range was widened to
+      // 1990-current+1 must not have that stale list silently override the
+      // real default forever; only genuinely extra years (added via the
+      // "+" button) should survive from here.
+      if (parsed.years) setYears(Array.from(new Set([...YEARS, ...parsed.years])).sort((a, b) => b - a));
       if (parsed.colors) setColors(parsed.colors);
     } catch {
       // Keep the built-in options if local preferences are unavailable.
@@ -180,6 +186,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
         filial_id: filialId,
         status,
         condition,
+        location,
         brand,
         model,
         year: Number(year),
@@ -248,6 +255,20 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
               >
                 <option value="nuevo">Nuevo</option>
                 <option value="usado">Usado</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-navy">Ubicación *</label>
+              <select
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+              >
+                {LOCATION_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

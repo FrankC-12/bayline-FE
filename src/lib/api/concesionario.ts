@@ -5,6 +5,7 @@ export interface CreateVehicleInput {
   filial_id: string;
   status: string;
   condition: string;
+  location: string;
   brand: string;
   model: string;
   year: number;
@@ -64,6 +65,7 @@ export interface VehicleReservationInput {
 export interface UpdateVehicleInput {
   status?: string;
   condition?: string;
+  location?: string;
   brand?: string;
   model?: string;
   year?: number;

@@ -1,13 +1,14 @@
 "use client";
 
 import { X } from "lucide-react";
-import { availableStatusOptions, STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
+import { availableStatusOptions, LOCATION_OPTIONS, STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
 import type { DealershipVehicle } from "@/types/concesionario";
 
 interface Props {
   vehicle: DealershipVehicle | null;
   onClose: () => void;
   onStatusChange: (status: string) => Promise<void>;
+  onLocationChange: (location: string) => Promise<void>;
   reservedClientName?: string;
   reservedByName?: string;
 }
@@ -16,6 +17,7 @@ export default function VehicleDetailDrawer({
   vehicle,
   onClose,
   onStatusChange,
+  onLocationChange,
   reservedClientName,
   reservedByName,
 }: Props) {
@@ -66,6 +68,21 @@ export default function VehicleDetailDrawer({
           <div><dt className="text-steel">VIN</dt><dd className="break-all font-medium text-navy">{vehicle.vin}</dd></div><div><dt className="text-steel">Placa</dt><dd className="font-medium text-navy">{vehicle.plate ?? "—"}</dd></div>
           <div><dt className="text-steel">Condición</dt><dd className="font-medium capitalize text-navy">{vehicle.condition}</dd></div><div><dt className="text-steel">Color</dt><dd className="font-medium text-navy">{vehicle.color ?? "—"}</dd></div>
           <div><dt className="text-steel">Combustible</dt><dd className="font-medium capitalize text-navy">{vehicle.fuel_type ?? "—"}</dd></div><div><dt className="text-steel">Transmisión</dt><dd className="font-medium capitalize text-navy">{vehicle.transmission ?? "—"}</dd></div>
+          <div>
+            <dt className="text-steel">Ubicación</dt>
+            <dd>
+              <select
+                value={vehicle.location ?? ""}
+                onChange={(event) => void onLocationChange(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-navy/15 px-2.5 py-1.5 text-sm font-medium text-navy outline-none focus:border-blue"
+              >
+                {!vehicle.location && <option value="" disabled>Selecciona una ubicación</option>}
+                {LOCATION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </dd>
+          </div>
         </dl></section>
 
         <section><h3 className="mb-3 font-semibold text-navy">Precio de lista</h3><dl className="space-y-2 rounded-2xl border border-navy/10 p-5 text-sm">

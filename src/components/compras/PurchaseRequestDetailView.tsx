@@ -147,6 +147,18 @@ export default function PurchaseRequestDetailView({ requestId }: PurchaseRequest
         <div>
           <h1 className="font-display text-3xl font-bold text-navy">{request.code}</h1>
           <p className="mt-1 text-sm text-steel">{supplierName(request.supplier_id)}</p>
+          {request.status === "conciliada" && (
+            <p className="mt-2 text-sm">
+              <span className="text-steel">Estado de pago a proveedor: </span>
+              {request.paid_at ? (
+                <span className="font-semibold text-emerald-700">
+                  Pagada ({new Date(request.paid_at).toLocaleDateString("es-VE")})
+                </span>
+              ) : (
+                <span className="font-semibold text-amber-700">Pendiente de pago</span>
+              )}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex gap-2">

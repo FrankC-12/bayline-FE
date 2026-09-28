@@ -1,4 +1,4 @@
-import type { VehicleStatus } from "@/types/concesionario";
+import type { VehicleLocation, VehicleStatus } from "@/types/concesionario";
 
 export const VEHICLE_COLORS = [
   "Blanco", "Negro", "Gris", "Plata", "Azul", "Rojo", "Verde", "Beige", "Marrón", "Amarillo", "Naranja",
@@ -30,6 +30,23 @@ export const STATUS_STYLES: Record<VehicleStatus, string> = {
 
 export function statusLabel(status: VehicleStatus): string {
   return STATUS_LABELS[status] ?? status;
+}
+
+export const LOCATION_OPTIONS: { value: VehicleLocation; label: string }[] = [
+  { value: "patio", label: "Patio" },
+  { value: "showroom", label: "Showroom" },
+  { value: "sucursal", label: "Sucursal" },
+];
+
+export const LOCATION_LABELS: Record<VehicleLocation, string> = {
+  patio: "Patio",
+  showroom: "Showroom",
+  sucursal: "Sucursal",
+};
+
+export function locationLabel(location: VehicleLocation | null): string {
+  if (!location) return "Sin ubicación";
+  return LOCATION_LABELS[location] ?? location;
 }
 
 // Mirrors the backend's ConcesionarioService.ALLOWED_TRANSITIONS — kept in

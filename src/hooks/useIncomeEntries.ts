@@ -33,8 +33,8 @@ export function useIncomeEntries(filialId: string | null, search?: string) {
   );
 
   const reverseEntry = useCallback(
-    async (id: string) => {
-      const reversal = await reverseIncomeEntry(id);
+    async (id: string, reason: string) => {
+      const reversal = await reverseIncomeEntry(id, reason);
       setEntries((prev) => [reversal, ...prev]);
       return reversal;
     },

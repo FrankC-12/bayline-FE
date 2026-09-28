@@ -33,8 +33,8 @@ export function useExpenseEntries(filialId: string | null, search?: string) {
   );
 
   const reverseEntry = useCallback(
-    async (id: string) => {
-      const reversal = await reverseExpenseEntry(id);
+    async (id: string, reason: string) => {
+      const reversal = await reverseExpenseEntry(id, reason);
       setEntries((prev) => [reversal, ...prev]);
       return reversal;
     },

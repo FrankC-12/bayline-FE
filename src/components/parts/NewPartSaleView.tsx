@@ -54,11 +54,18 @@ export default function NewPartSaleView() {
   const { parts } = useParts(filialId);
   const { addSale } = usePartSales(filialId);
 
+  // Default: a walk-in counter sale needs nothing but a name — "Consumidor
+  // Final" is editable so the cashier can jot down a real name without a
+  // full Client record. Only checking this box (to actually bill the sale
+  // to a registered client's name/document) requires the full flow below.
+  const [wantsInvoiceToClient, setWantsInvoiceToClient] = useState(false);
+  const [genericClientName, setGenericClientName] = useState("Consumidor Final");
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [createClientOpen, setCreateClientOpen] = useState(false);
   const { clients, loading: clientsLoading, addClient } = useClients(filialId);
+  const clientReady = wantsInvoiceToClient ? selectedClient !== null : genericClientName.trim().length >= 2;
 
   const [discountLabel, setDiscountLabel] = useState<DiscountLabel>(DISCOUNT_OPTIONS[0]);
   const [lines, setLines] = useState<LineDraft[]>([emptyLine()]);
@@ -154,7 +161,7 @@ export default function NewPartSaleView() {
   }
 
   async function handleSubmit() {
-    if (!filialId || !selectedClient || !warehouseId || !currentQuote || !validDraft) return;
+    if (!filialId || !clientReady || !warehouseId || !currentQuote || !validDraft) return;
     const validLines = lines.filter((l) => l.partId && Number(l.quantity) > 0);
     if (validLines.length === 0) {
       setError("Agrega al menos una línea de repuesto con cantidad mayor a 0.");
@@ -167,8 +174,10 @@ export default function NewPartSaleView() {
       await addSale({
         filial_id: filialId,
         warehouse_id: warehouseId,
-        client_name: selectedClient.full_name,
-        client_document: `${selectedClient.document_type}-${selectedClient.document_number}`,
+        client_name: wantsInvoiceToClient ? selectedClient!.full_name : genericClientName.trim(),
+        client_document: wantsInvoiceToClient
+          ? `${selectedClient!.document_type}-${selectedClient!.document_number}`
+          : null,
         discount_label: discountLabel,
         lines: validLines.map((l) => ({ part_id: l.partId, quantity: Number(l.quantity) })),
       });
@@ -199,9 +208,36 @@ export default function NewPartSaleView() {
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
           <div className="rounded-2xl border border-navy/10 bg-white p-6">
-            <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">Cliente</p>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Cliente</p>
+              <label className="flex items-center gap-2 text-xs font-medium text-navy">
+                <input
+                  type="checkbox"
+                  checked={wantsInvoiceToClient}
+                  onChange={(e) => {
+                    setWantsInvoiceToClient(e.target.checked);
+                    if (!e.target.checked) setSelectedClient(null);
+                  }}
+                  className="h-4 w-4 rounded border-navy/30 text-blue focus:ring-blue/30"
+                />
+                Facturar a nombre de un cliente registrado
+              </label>
+            </div>
 
-            {selectedClient ? (
+            {!wantsInvoiceToClient ? (
+              <div>
+                <input
+                  value={genericClientName}
+                  onChange={(e) => setGenericClientName(e.target.value)}
+                  placeholder="Nombre del cliente"
+                  className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+                />
+                <p className="mt-1.5 text-xs text-steel">
+                  Venta de mostrador — no requiere una ficha de cliente. Marca la casilla de arriba solo si
+                  necesitas facturar a nombre de un cliente registrado (cédula/RIF).
+                </p>
+              </div>
+            ) : selectedClient ? (
               <div className="flex items-center justify-between rounded-xl border border-navy/10 bg-ash px-4 py-3">
                 <div>
                   <p className="font-medium text-navy">{selectedClient.full_name}</p>
@@ -420,7 +456,7 @@ export default function NewPartSaleView() {
 
           <button
             onClick={handleSubmit}
-            disabled={submitting || !selectedClient || !currentQuote || !validDraft}
+            disabled={submitting || !clientReady || !currentQuote || !validDraft}
             className="flex w-full items-center justify-center gap-2 rounded-full bg-blue px-6 py-3 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

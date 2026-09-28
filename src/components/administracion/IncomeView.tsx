@@ -10,8 +10,10 @@ import { useAccounts } from "@/hooks/useAccounts";
 import { useClients } from "@/hooks/useClients";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useLaborSettings } from "@/hooks/useLaborSettings";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
+import ReverseEntryModal from "./ReverseEntryModal";
 import type { CreateIncomeEntryInput } from "@/lib/api/administracion";
 import type { CounterpartyType, IncomeConcept, IncomeEntry } from "@/types/administracion";
 import { formatEntryDate, formatEntryDateTime } from "@/lib/format";
@@ -55,10 +57,13 @@ export default function IncomeView() {
   const { suppliers } = useSuppliers(filialId);
   const [createOpen, setCreateOpen] = useState(false);
   const [reversingId, setReversingId] = useState<string | null>(null);
+  const [reversingEntry, setReversingEntry] = useState<IncomeEntry | null>(null);
   const { canEdit: canCreateIngreso } = useModuleAccess("movimientos-manuales");
   const { canEdit: canReversar } = useModuleAccess("finanzas-reversar");
+  const { users } = useUserDirectory({ filialId });
 
   const accountName = (id: string) => accounts.find((a) => a.id === id)?.name ?? "—";
+  const registeredByName = (id: string | null) => (id ? users.find((u) => u.id === id)?.full_name ?? "—" : "—");
   const counterpartyLabel = (e: IncomeEntry) => {
     if (!e.counterparty_type) return "—";
     if (e.counterparty_type === "cliente") return clients.find((c) => c.id === e.counterparty_client_id)?.full_name ?? "Cliente";
@@ -76,11 +81,11 @@ export default function IncomeView() {
     }, 0);
   }, [entries, accounts]);
 
-  async function handleReverse(id: string) {
-    if (!confirm("¿Reversar este movimiento? Se creará un nuevo movimiento en sentido contrario, fechado hoy.")) return;
-    setReversingId(id);
+  async function handleReverse(entry: IncomeEntry, reason: string) {
+    setReversingId(entry.id);
     try {
-      await reverseEntry(id);
+      await reverseEntry(entry.id, reason);
+      setReversingEntry(null);
     } catch (err) {
       alert(err instanceof Error ? err.message : "No se pudo reversar el movimiento.");
     } finally {
@@ -139,6 +144,7 @@ export default function IncomeView() {
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Contraparte</th>
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Monto</th>
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Cuenta destino</th>
+                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Registrado por</th>
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Acciones</th>
               </tr>
             </thead>
@@ -160,9 +166,12 @@ export default function IncomeView() {
                     {e.concept && <span className="mt-1 block text-xs text-steel">{conceptLabel(e.concept)}</span>}
                     {e.origin_reference && <span className="mt-1 block font-mono text-xs text-blue">{e.origin_reference}</span>}
                     {e.reverses_entry_id && (
-                      <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                        <Undo2 className="h-3 w-3" /> Reverso
-                      </span>
+                      <div className="mt-1">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                          <Undo2 className="h-3 w-3" /> Reverso
+                        </span>
+                        {e.reversal_reason && <p className="mt-0.5 text-xs italic text-steel">{e.reversal_reason}</p>}
+                      </div>
                     )}
                   </td>
                   <td className="px-6 py-4 text-navy">
@@ -183,10 +192,11 @@ export default function IncomeView() {
                     {e.currency === "usd" ? `$${e.amount.toLocaleString()}` : `Bs. ${e.amount.toLocaleString()}`}
                   </td>
                   <td className="px-6 py-4 text-steel">{accountName(e.account_id)}</td>
+                  <td className="px-6 py-4 text-steel">{registeredByName(e.registered_by_user_id)}</td>
                   <td className="px-6 py-4">
                     {!e.reverses_entry_id && !reversedIds.has(e.id) && canReversar && (
                       <button
-                        onClick={() => handleReverse(e.id)}
+                        onClick={() => setReversingEntry(e)}
                         disabled={reversingId === e.id}
                         className="inline-flex items-center gap-1 rounded-full border border-navy/15 px-3 py-1.5 text-xs font-semibold text-navy transition hover:bg-ash disabled:opacity-50"
                       >
@@ -203,6 +213,15 @@ export default function IncomeView() {
       </div>
 
       {filialId && <CreateIncomeModal open={createOpen} onClose={() => setCreateOpen(false)} onSubmit={addEntry} />}
+
+      {reversingEntry && (
+        <ReverseEntryModal
+          description={`${conceptLabel(reversingEntry.concept ?? "otro_ingreso")} · ${reversingEntry.description}`}
+          submitting={reversingId === reversingEntry.id}
+          onClose={() => setReversingEntry(null)}
+          onConfirm={(reason) => handleReverse(reversingEntry, reason)}
+        />
+      )}
     </div>
   );
 }
@@ -240,7 +259,12 @@ function CreateIncomeModal({
   const [error, setError] = useState<string | null>(null);
 
   const threshold = laborSettings?.manual_movement_attachment_threshold_usd ?? 0;
-  const attachmentRequired = Number(amount || 0) >= threshold && threshold > 0;
+  // The threshold is USD-denominated — a Bs amount must be converted at the
+  // current BCV rate before comparing, or e.g. Bs 50.000 (~$58) would be
+  // compared against 100 as if it were $50.000.
+  const amountUsd =
+    currency === "usd" ? Number(amount || 0) : Number(amount || 0) / (laborSettings?.bcv_rate || 1);
+  const attachmentRequired = amountUsd >= threshold && threshold > 0;
   const redirect = REDIRECT_CONCEPTS[concept];
 
   async function handleSubmit() {

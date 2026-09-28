@@ -37,8 +37,19 @@ export default function InspectionsView() {
 
   const [onlyToday, setOnlyToday] = useState(true);
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [panelOpen, setPanelOpen] = useState(false);
   const [orderInspection, setOrderInspection] = useState<Inspection | null>(null);
+
+  const hasCustomFilter = !!search || !!dateFrom || !!dateTo;
+
+  function resetToToday() {
+    setSearch("");
+    setDateFrom("");
+    setDateTo("");
+    setOnlyToday(true);
+  }
 
   async function handleCreateOrder(
     vehicleId: string,
@@ -60,8 +71,14 @@ export default function InspectionsView() {
   const inspectorName = (id: string) => users.find((u) => u.id === id)?.full_name ?? "—";
 
   const filtered = useMemo(() => {
+    // Searching or picking a date range escapes the "Hoy" shortcut
+    // automatically — finding a 2-week-old inspection by plate shouldn't
+    // require first remembering to turn today's filter off.
+    const effectiveOnlyToday = onlyToday && !hasCustomFilter;
     return inspections.filter((i) => {
-      if (onlyToday && !isToday(i.created_at)) return false;
+      if (effectiveOnlyToday && !isToday(i.created_at)) return false;
+      if (dateFrom && i.created_at.slice(0, 10) < dateFrom) return false;
+      if (dateTo && i.created_at.slice(0, 10) > dateTo) return false;
       if (search) {
         const term = search.toLowerCase();
         const info = vehicleMap.get(i.vehicle_id);
@@ -70,7 +87,7 @@ export default function InspectionsView() {
       }
       return true;
     });
-  }, [inspections, onlyToday, search, vehicleMap]);
+  }, [inspections, onlyToday, hasCustomFilter, search, dateFrom, dateTo, vehicleMap]);
 
   if (!filialId) return null;
 
@@ -79,7 +96,10 @@ export default function InspectionsView() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-navy">Inspecciones Preliminares</h1>
-          <p className="mt-1 text-sm text-steel">Primer paso del flujo · la vista se reinicia diariamente</p>
+          <p className="mt-1 text-sm text-steel">
+            Primer paso del flujo · muestra el día de hoy por defecto — busca por placa, cliente o un rango de
+            fechas para ver el historial completo
+          </p>
         </div>
         <button
           onClick={() => setPanelOpen(true)}
@@ -92,9 +112,9 @@ export default function InspectionsView() {
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <button
-          onClick={() => setOnlyToday((v) => !v)}
+          onClick={() => (onlyToday && !hasCustomFilter ? undefined : resetToToday())}
           className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-            onlyToday ? "border-blue bg-blue-light text-blue" : "border-navy/15 text-steel hover:text-navy"
+            onlyToday && !hasCustomFilter ? "border-blue bg-blue-light text-blue" : "border-navy/15 text-steel hover:text-navy"
           }`}
         >
           Hoy ·{" "}
@@ -104,8 +124,30 @@ export default function InspectionsView() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por placa o cliente..."
-          className="flex-1 rounded-full border border-navy/15 bg-white px-4 py-2 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+          className="min-w-[200px] flex-1 rounded-full border border-navy/15 bg-white px-4 py-2 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
         />
+        <div className="flex items-center gap-1.5">
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            aria-label="Desde"
+            className="rounded-full border border-navy/15 bg-white px-3 py-2 text-sm text-steel outline-none focus:border-blue"
+          />
+          <span className="text-xs text-steel">a</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            aria-label="Hasta"
+            className="rounded-full border border-navy/15 bg-white px-3 py-2 text-sm text-steel outline-none focus:border-blue"
+          />
+        </div>
+        {hasCustomFilter && (
+          <button onClick={resetToToday} className="text-sm font-medium text-steel hover:text-navy">
+            Limpiar filtros
+          </button>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
@@ -119,9 +161,11 @@ export default function InspectionsView() {
             title={
               search
                 ? `Sin resultados para "${search}"`
-                : onlyToday
-                  ? "No hay inspecciones registradas hoy."
-                  : "No hay inspecciones registradas."
+                : dateFrom || dateTo
+                  ? "No hay inspecciones en el rango de fechas elegido."
+                  : onlyToday
+                    ? "No hay inspecciones registradas hoy."
+                    : "No hay inspecciones registradas."
             }
           />
         ) : (

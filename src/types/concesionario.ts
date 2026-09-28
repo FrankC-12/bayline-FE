@@ -1,5 +1,6 @@
 export type VehicleCondition = "nuevo" | "usado";
 export type VehicleStatus = "en_transito" | "disponible" | "en_preparacion" | "reservado" | "vendido";
+export type VehicleLocation = "patio" | "showroom" | "sucursal";
 export type FuelType = "gasolina" | "diesel" | "hibrido" | "electrico";
 export type TransmissionType = "automatica" | "manual";
 export type SaleType = "contado" | "financiado";
@@ -9,6 +10,7 @@ export interface DealershipVehicle {
   filial_id: string;
   status: VehicleStatus;
   condition: VehicleCondition;
+  location: VehicleLocation | null;
   brand: string;
   model: string;
   year: number;

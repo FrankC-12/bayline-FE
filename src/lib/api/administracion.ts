@@ -5,6 +5,7 @@ import type {
   ExpenseEntry,
   FinanceDashboard,
   IncomeEntry,
+  Payable,
   ProfitabilityReport,
   PurchaseRequest,
   Supplier,
@@ -210,6 +211,38 @@ export async function getAccountMovements(id: string, limit = 50): Promise<Accou
   return apiFetch<AccountMovement[]>(`/accounts/${id}/movements?limit=${limit}`);
 }
 
+export interface CreateTransferInput {
+  filial_id: string;
+  entry_date: string;
+  from_account_id: string;
+  to_account_id: string;
+  amount: number;
+  // Required only when the two accounts carry different currencies.
+  exchange_rate?: number | null;
+  description?: string | null;
+  reference?: string | null;
+}
+
+export interface Transfer {
+  from_entry_id: string;
+  to_entry_id: string;
+  from_amount: number;
+  to_amount: number;
+  from_currency: "usd" | "bs";
+  to_currency: "usd" | "bs";
+  exchange_rate: number | null;
+}
+
+export async function createTransfer(input: CreateTransferInput): Promise<Transfer> {
+  return apiFetch<Transfer>("/transfers", { method: "POST", body: JSON.stringify(input) });
+}
+
+// Cuentas por Pagar
+
+export async function listPayables(filialId: string): Promise<Payable[]> {
+  return apiFetch<Payable[]>(`/payables?filial_id=${filialId}`);
+}
+
 // Income / Expense
 
 export async function listIncomeEntries(filialId: string, search?: string): Promise<IncomeEntry[]> {
@@ -235,10 +268,13 @@ export interface CreateIncomeEntryInput {
 }
 
 function toManualMovementForm(input: CreateIncomeEntryInput | CreateExpenseEntryInput): FormData {
-  const { attachment, ...fields } = input;
+  const { attachment, purchase_request_ids, ...fields } = input as CreateExpenseEntryInput;
   const form = new FormData();
   for (const [key, value] of Object.entries(fields)) {
     if (value !== null && value !== undefined && value !== "") form.append(key, String(value));
+  }
+  if (purchase_request_ids && purchase_request_ids.length > 0) {
+    form.append("purchase_request_ids_json", JSON.stringify(purchase_request_ids));
   }
   if (attachment instanceof File) form.append("attachment", attachment);
   return form;
@@ -248,8 +284,11 @@ export async function createIncomeEntry(input: CreateIncomeEntryInput): Promise<
   return apiFetch<IncomeEntry>("/income-entries", { method: "POST", body: toManualMovementForm(input) });
 }
 
-export async function reverseIncomeEntry(id: string): Promise<IncomeEntry> {
-  return apiFetch<IncomeEntry>(`/income-entries/${id}/reverse`, { method: "POST" });
+export async function reverseIncomeEntry(id: string, reason: string): Promise<IncomeEntry> {
+  return apiFetch<IncomeEntry>(`/income-entries/${id}/reverse`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
 }
 
 export async function listExpenseEntries(filialId: string, search?: string): Promise<ExpenseEntry[]> {
@@ -272,6 +311,9 @@ export interface CreateExpenseEntryInput {
   counterparty_supplier_id?: string | null;
   counterparty_name?: string | null;
   reference?: string | null;
+  // Only meaningful for category="compras_proveedores" + counterparty_type
+  // "proveedor" — the PurchaseRequest(s) (Cuentas por Pagar) this payment settles.
+  purchase_request_ids?: string[];
   attachment?: File | null;
 }
 
@@ -279,8 +321,11 @@ export async function createExpenseEntry(input: CreateExpenseEntryInput): Promis
   return apiFetch<ExpenseEntry>("/expense-entries", { method: "POST", body: toManualMovementForm(input) });
 }
 
-export async function reverseExpenseEntry(id: string): Promise<ExpenseEntry> {
-  return apiFetch<ExpenseEntry>(`/expense-entries/${id}/reverse`, { method: "POST" });
+export async function reverseExpenseEntry(id: string, reason: string): Promise<ExpenseEntry> {
+  return apiFetch<ExpenseEntry>(`/expense-entries/${id}/reverse`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
 }
 
 // Reports

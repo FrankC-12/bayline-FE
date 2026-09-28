@@ -16,7 +16,8 @@ export type ExpenseCategory =
   | "marketing"
   | "impuestos_tasas"
   | "garantia_rechazada"
-  | "otro";
+  | "otro"
+  | "transferencia_cuentas";
 export type IncomeConcept =
   | "cobro_cliente"
   | "reembolso_holding"
@@ -31,7 +32,8 @@ export type MovementSourceType =
   | "part_sale"
   | "service_order"
   | "supplier_claim"
-  | "warranty_submission";
+  | "warranty_submission"
+  | "account_transfer";
 
 export interface Supplier {
   id: string;
@@ -87,8 +89,25 @@ export interface PurchaseRequest {
   status: PurchaseRequestStatus;
   lines: PurchaseRequestLine[];
   total_quoted: number | null;
+  conciliated_at: string | null;
+  // "Estado de pago a proveedor" — distinct from `status`'s own "pagada"
+  // stage (a mid-workflow checkpoint, unrelated to this). Null = still owed.
+  paid_at: string | null;
+  payment_expense_entry_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface Payable {
+  purchase_request_id: string;
+  code: string;
+  filial_id: string;
+  supplier_id: string;
+  supplier_name: string;
+  total_amount: number;
+  conciliated_at: string;
+  days_outstanding: number;
+  aging_bucket: "0-30" | "31-60" | "61-90" | "90+";
 }
 
 export interface SupplierClaim {
@@ -196,6 +215,7 @@ export interface IncomeEntry {
   amount_bs: number | null;
   attachment_url: string | null;
   reverses_entry_id: string | null;
+  reversal_reason: string | null;
   source_type: MovementSourceType | null;
   source_id: string | null;
   registered_by_user_id: string | null;
@@ -222,6 +242,7 @@ export interface ExpenseEntry {
   amount_bs: number | null;
   attachment_url: string | null;
   reverses_entry_id: string | null;
+  reversal_reason: string | null;
   source_type: MovementSourceType | null;
   source_id: string | null;
   registered_by_user_id: string | null;
@@ -242,6 +263,9 @@ export interface AccountMovement {
   counterparty_supplier_id: string | null;
   counterparty_name: string | null;
   reference: string | null;
+  reversal_reason: string | null;
+  exchange_rate: number | null;
+  registered_by_user_id: string | null;
   attachment_url: string | null;
   reverses_entry_id: string | null;
   source_type: MovementSourceType | null;

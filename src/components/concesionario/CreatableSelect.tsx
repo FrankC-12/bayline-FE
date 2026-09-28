@@ -72,9 +72,9 @@ export default function CreatableSelect<T extends string | number>({
       </select>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
       {adding && <div className="mt-2 flex gap-2">
-        <input autoFocus inputMode={inputMode} value={newValue} onChange={(event) => setNewValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); save(); } }} placeholder={`Nuevo ${label.toLowerCase()}`} className="min-w-0 flex-1 rounded-lg border border-blue/30 px-3 py-2 text-sm outline-none focus:border-blue" />
-        <button type="button" onClick={save} className="rounded-lg bg-blue p-2 text-white"><Check className="h-4 w-4" /></button>
-        <button type="button" onClick={() => { setAdding(false); setNewValue(""); }} className="rounded-lg border border-navy/15 p-2 text-steel"><X className="h-4 w-4" /></button>
+        <input autoFocus inputMode={inputMode} value={newValue} onChange={(event) => setNewValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); save(); } }} placeholder={`Nuevo ${label.toLowerCase()}`} aria-label={`Nuevo ${label.toLowerCase()}`} className="min-w-0 flex-1 rounded-lg border border-blue/30 px-3 py-2 text-sm outline-none focus:border-blue" />
+        <button type="button" onClick={save} aria-label={`Confirmar nuevo ${label.toLowerCase()}`} title="Confirmar" className="rounded-lg bg-blue p-2 text-white"><Check className="h-4 w-4" /></button>
+        <button type="button" onClick={() => { setAdding(false); setNewValue(""); }} aria-label="Cancelar" title="Cancelar" className="rounded-lg border border-navy/15 p-2 text-steel"><X className="h-4 w-4" /></button>
       </div>}
     </div>
   );

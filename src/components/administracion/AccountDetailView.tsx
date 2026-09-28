@@ -2,10 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ChevronLeft, ExternalLink, Paperclip, Undo2, X } from "lucide-react";
-import { getAccount, getAccountMovements } from "@/lib/api/administracion";
+import { AlertTriangle, ArrowLeftRight, ChevronLeft, ExternalLink, Paperclip, Undo2, X } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
+import { useAccounts } from "@/hooks/useAccounts";
+import { useLaborSettings } from "@/hooks/useLaborSettings";
+import { getAccount, getAccountMovements, createTransfer, type CreateTransferInput } from "@/lib/api/administracion";
 import type { Account, AccountMovement, CounterpartyType, ExpenseCategory, IncomeConcept } from "@/types/administracion";
 import { formatEntryDate, formatEntryDateTime } from "@/lib/format";
+import TransferModal from "./TransferModal";
 
 /** source_type is only ever set on rows generated automatically from a real
  * document (a vehicle sale, a part sale, an invoice collection...) — a
@@ -37,6 +43,7 @@ const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   impuestos_tasas: "Impuestos y Tasas",
   garantia_rechazada: "Garantía Rechazada",
   otro: "Otro",
+  transferencia_cuentas: "Transferencia",
 };
 
 const COUNTERPARTY_LABELS: Record<CounterpartyType, string> = {
@@ -69,6 +76,7 @@ function sourceHref(m: AccountMovement): string | null {
 }
 
 function movementLabel(m: AccountMovement): string {
+  if (m.source_type === "account_transfer") return "Transferencia";
   if (m.movement_type === "ingreso") return m.concept ? CONCEPT_LABELS[m.concept] : "Automático";
   return m.category ? CATEGORY_LABELS[m.category] : "—";
 }
@@ -87,16 +95,26 @@ interface AccountDetailViewProps {
 
 export default function AccountDetailView({ accountId }: AccountDetailViewProps) {
   const router = useRouter();
+  const { currentUser } = useAuth();
+  const filialId = currentUser?.filialId ?? null;
+  const { users } = useUserDirectory({ filialId });
+  const { accounts } = useAccounts(filialId);
+  const { settings: laborSettings } = useLaborSettings(filialId);
+  const { canEdit: canTransfer } = useModuleAccess("finanzas-transferir");
+  const registeredByName = (id: string | null) => (id ? users.find((u) => u.id === id)?.full_name ?? "—" : "—");
   const [account, setAccount] = useState<Account | null>(null);
   const [movements, setMovements] = useState<AccountMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detailMovement, setDetailMovement] = useState<AccountMovement | null>(null);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
     setLoading(true);
     setError(null);
-    Promise.all([getAccount(accountId), getAccountMovements(accountId)])
+    return Promise.all([getAccount(accountId), getAccountMovements(accountId)])
       .then(([accountData, movementsData]) => {
         setAccount(accountData);
         setMovements(movementsData);
@@ -105,12 +123,32 @@ export default function AccountDetailView({ accountId }: AccountDetailViewProps)
         setError(err instanceof Error ? err.message : "No se pudo cargar la cuenta.");
       })
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
 
   function handleRowClick(m: AccountMovement) {
     const href = sourceHref(m);
     if (href) router.push(href);
     else setDetailMovement(m);
+  }
+
+  async function handleTransfer(input: Omit<CreateTransferInput, "filial_id">) {
+    if (!filialId) return;
+    setTransferSubmitting(true);
+    setTransferError(null);
+    try {
+      await createTransfer({ filial_id: filialId, ...input });
+      setTransferOpen(false);
+      await load();
+    } catch (err) {
+      setTransferError(err instanceof Error ? err.message : "No se pudo registrar la transferencia.");
+    } finally {
+      setTransferSubmitting(false);
+    }
   }
 
   if (loading) {
@@ -152,13 +190,24 @@ export default function AccountDetailView({ accountId }: AccountDetailViewProps)
             {account.currency === "usd" ? "USD" : "Bs"}
           </p>
         </div>
-        <span
-          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-            account.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
-          }`}
-        >
-          {account.is_active ? "Activa" : "Inactiva"}
-        </span>
+        <div className="flex items-center gap-3">
+          {canTransfer && account.is_active && (
+            <button
+              onClick={() => setTransferOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              Transferir
+            </button>
+          )}
+          <span
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+              account.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {account.is_active ? "Activa" : "Inactiva"}
+          </span>
+        </div>
       </div>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
@@ -197,6 +246,7 @@ export default function AccountDetailView({ accountId }: AccountDetailViewProps)
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Descripción</th>
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Contraparte</th>
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Monto</th>
+                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Registrado por</th>
                 <th className="px-6 py-3" />
               </tr>
             </thead>
@@ -215,9 +265,12 @@ export default function AccountDetailView({ accountId }: AccountDetailViewProps)
                         {m.movement_type === "ingreso" ? "Ingreso" : "Egreso"}
                       </span>
                       {m.reverses_entry_id && (
-                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                          <Undo2 className="h-3 w-3" /> Reverso
-                        </span>
+                        <div className="mt-1">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                            <Undo2 className="h-3 w-3" /> Reverso
+                          </span>
+                          {m.reversal_reason && <p className="mt-0.5 text-xs italic text-steel">{m.reversal_reason}</p>}
+                        </div>
                       )}
                     </td>
                     <td className="px-6 py-4 text-navy">{movementLabel(m)}</td>
@@ -231,6 +284,7 @@ export default function AccountDetailView({ accountId }: AccountDetailViewProps)
                       {m.currency === "usd" ? "$" : "Bs. "}
                       {Math.abs(m.amount).toLocaleString()}
                     </td>
+                    <td className="px-6 py-4 text-steel">{registeredByName(m.registered_by_user_id)}</td>
                     <td className="px-6 py-4 text-right">
                       {hasSource && <ExternalLink className="ml-auto h-4 w-4 text-steel" />}
                     </td>
@@ -242,12 +296,41 @@ export default function AccountDetailView({ accountId }: AccountDetailViewProps)
         )}
       </div>
 
-      {detailMovement && <MovementDetailModal movement={detailMovement} onClose={() => setDetailMovement(null)} />}
+      {detailMovement && (
+        <MovementDetailModal
+          movement={detailMovement}
+          registeredBy={registeredByName(detailMovement.registered_by_user_id)}
+          onClose={() => setDetailMovement(null)}
+        />
+      )}
+
+      {transferOpen && account && (
+        <TransferModal
+          fromAccount={account}
+          accounts={accounts}
+          bcvRate={laborSettings?.bcv_rate ?? null}
+          submitting={transferSubmitting}
+          error={transferError}
+          onClose={() => {
+            setTransferOpen(false);
+            setTransferError(null);
+          }}
+          onConfirm={handleTransfer}
+        />
+      )}
     </div>
   );
 }
 
-function MovementDetailModal({ movement, onClose }: { movement: AccountMovement; onClose: () => void }) {
+function MovementDetailModal({
+  movement,
+  registeredBy,
+  onClose,
+}: {
+  movement: AccountMovement;
+  registeredBy: string;
+  onClose: () => void;
+}) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div onClick={onClose} className="absolute inset-0 bg-navy/40" />
@@ -268,6 +351,11 @@ function MovementDetailModal({ movement, onClose }: { movement: AccountMovement;
             value={`${movement.currency === "usd" ? "$" : "Bs. "}${Math.abs(movement.amount).toLocaleString()}`}
           />
           {movement.reference && <Row label="Referencia" value={movement.reference} />}
+          {movement.source_type === "account_transfer" && movement.exchange_rate != null && (
+            <Row label="Tasa aplicada" value={`${movement.exchange_rate.toLocaleString()} Bs/USD`} />
+          )}
+          <Row label="Registrado por" value={registeredBy} />
+          {movement.reversal_reason && <Row label="Motivo del reverso" value={movement.reversal_reason} />}
           {movement.attachment_url && (
             <div className="flex items-center justify-between gap-2">
               <span className="text-steel">Soporte</span>
@@ -282,7 +370,9 @@ function MovementDetailModal({ movement, onClose }: { movement: AccountMovement;
             </div>
           )}
           <p className="rounded-xl bg-ash px-4 py-3 text-xs text-steel">
-            Este movimiento se registró manualmente en Finanzas y no tiene un documento de origen que abrir.
+            {movement.source_type === "account_transfer"
+              ? "Esta es una transferencia entre cuentas propias — no cuenta como ingreso ni egreso y no afecta la rentabilidad."
+              : "Este movimiento no tiene un documento de origen que abrir."}
           </p>
         </div>
       </div>

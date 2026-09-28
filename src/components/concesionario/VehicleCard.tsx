@@ -1,5 +1,5 @@
 import { ChevronRight, ImageIcon, Trash2 } from "lucide-react";
-import { availableStatusOptions, STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
+import { availableStatusOptions, locationLabel, STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
 import type { DealershipVehicle } from "@/types/concesionario";
 
 interface VehicleCardProps {
@@ -113,6 +113,10 @@ export default function VehicleCard({
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-steel">SKU</p>
             <p className="font-medium text-navy">{vehicle.sku}</p>
+          </div>
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">Ubicación</p>
+            <p className="font-medium text-navy">{locationLabel(vehicle.location)}</p>
           </div>
         </div>
 

@@ -10,8 +10,11 @@ import { useAccounts } from "@/hooks/useAccounts";
 import { useClients } from "@/hooks/useClients";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useLaborSettings } from "@/hooks/useLaborSettings";
+import { usePurchaseRequests } from "@/hooks/usePurchaseRequests";
+import { useUserDirectory } from "@/hooks/useUserDirectory";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
+import ReverseEntryModal from "./ReverseEntryModal";
 import type { CreateExpenseEntryInput } from "@/lib/api/administracion";
 import type { CounterpartyType, ExpenseCategory, ExpenseEntry } from "@/types/administracion";
 import { formatEntryDate } from "@/lib/format";
@@ -38,6 +41,7 @@ const CATEGORY_STYLES: Record<ExpenseCategory, string> = {
   impuestos_tasas: "bg-red-100 text-red-700",
   garantia_rechazada: "bg-fuchsia-100 text-fuchsia-700",
   otro: "bg-gray-100 text-gray-600",
+  transferencia_cuentas: "bg-indigo-100 text-indigo-700",
 };
 
 const COUNTERPARTY_LABELS: Record<CounterpartyType, string> = {
@@ -67,10 +71,13 @@ export default function ExpenseView() {
   const { suppliers } = useSuppliers(filialId);
   const [createOpen, setCreateOpen] = useState(false);
   const [reversingId, setReversingId] = useState<string | null>(null);
+  const [reversingEntry, setReversingEntry] = useState<ExpenseEntry | null>(null);
   const { canEdit: canCreateEgreso } = useModuleAccess("finanzas-egreso");
   const { canEdit: canReversar } = useModuleAccess("finanzas-reversar");
+  const { users } = useUserDirectory({ filialId });
 
   const accountName = (id: string) => accounts.find((a) => a.id === id)?.name ?? "—";
+  const registeredByName = (id: string | null) => (id ? users.find((u) => u.id === id)?.full_name ?? "—" : "—");
   const counterpartyLabel = (e: ExpenseEntry) => {
     if (!e.counterparty_type) return "—";
     if (e.counterparty_type === "cliente") return clients.find((c) => c.id === e.counterparty_client_id)?.full_name ?? "Cliente";
@@ -88,11 +95,11 @@ export default function ExpenseView() {
     }, 0);
   }, [entries, accounts]);
 
-  async function handleReverse(id: string) {
-    if (!confirm("¿Reversar este movimiento? Se creará un nuevo movimiento en sentido contrario, fechado hoy.")) return;
-    setReversingId(id);
+  async function handleReverse(entry: ExpenseEntry, reason: string) {
+    setReversingId(entry.id);
     try {
-      await reverseEntry(id);
+      await reverseEntry(entry.id, reason);
+      setReversingEntry(null);
     } catch (err) {
       alert(err instanceof Error ? err.message : "No se pudo reversar el movimiento.");
     } finally {
@@ -152,6 +159,7 @@ export default function ExpenseView() {
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Contraparte</th>
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Monto</th>
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Cuenta</th>
+                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Registrado por</th>
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Acciones</th>
               </tr>
             </thead>
@@ -164,9 +172,12 @@ export default function ExpenseView() {
                       {categoryLabel(e.category)}
                     </span>
                     {e.reverses_entry_id && (
-                      <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                        <Undo2 className="h-3 w-3" /> Reverso
-                      </span>
+                      <div className="mt-1">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                          <Undo2 className="h-3 w-3" /> Reverso
+                        </span>
+                        {e.reversal_reason && <p className="mt-0.5 text-xs italic text-steel">{e.reversal_reason}</p>}
+                      </div>
                     )}
                   </td>
                   <td className="px-6 py-4 font-semibold text-navy">{e.beneficiary}</td>
@@ -188,10 +199,11 @@ export default function ExpenseView() {
                     {e.currency === "usd" ? `$${e.amount.toLocaleString()}` : `Bs. ${e.amount.toLocaleString()}`}
                   </td>
                   <td className="px-6 py-4 text-steel">{accountName(e.account_id)}</td>
+                  <td className="px-6 py-4 text-steel">{registeredByName(e.registered_by_user_id)}</td>
                   <td className="px-6 py-4">
                     {!e.reverses_entry_id && !reversedIds.has(e.id) && canReversar && (
                       <button
-                        onClick={() => handleReverse(e.id)}
+                        onClick={() => setReversingEntry(e)}
                         disabled={reversingId === e.id}
                         className="inline-flex items-center gap-1 rounded-full border border-navy/15 px-3 py-1.5 text-xs font-semibold text-navy transition hover:bg-ash disabled:opacity-50"
                       >
@@ -208,6 +220,15 @@ export default function ExpenseView() {
       </div>
 
       {filialId && <CreateExpenseModal open={createOpen} onClose={() => setCreateOpen(false)} onSubmit={addEntry} />}
+
+      {reversingEntry && (
+        <ReverseEntryModal
+          description={`${reversingEntry.beneficiary} · ${reversingEntry.description}`}
+          submitting={reversingId === reversingEntry.id}
+          onClose={() => setReversingEntry(null)}
+          onConfirm={(reason) => handleReverse(reversingEntry, reason)}
+        />
+      )}
     </div>
   );
 }
@@ -241,12 +262,28 @@ function CreateExpenseModal({
   const [clientSearch, setClientSearch] = useState("");
   const { clients } = useClients(filialId, clientSearch || undefined);
   const { suppliers } = useSuppliers(filialId);
+  const { requests: purchaseRequests } = usePurchaseRequests(filialId);
+  const [selectedPurchaseRequestIds, setSelectedPurchaseRequestIds] = useState<string[]>([]);
   const [attachment, setAttachment] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Only orders from the chosen supplier that are conciliada and unpaid —
+  // the same set Cuentas por Pagar would show for that supplier.
+  const payablePurchaseRequests =
+    category === "compras_proveedores" && counterpartyType === "proveedor" && counterpartySupplierId
+      ? purchaseRequests.filter(
+          (r) => r.supplier_id === counterpartySupplierId && r.status === "conciliada" && !r.paid_at
+        )
+      : [];
+
   const threshold = laborSettings?.manual_movement_attachment_threshold_usd ?? 0;
-  const attachmentRequired = Number(amount || 0) >= threshold && threshold > 0;
+  // The threshold is USD-denominated — a Bs amount must be converted at the
+  // current BCV rate before comparing, or e.g. Bs 50.000 (~$58) would be
+  // compared against 100 as if it were $50.000.
+  const amountUsd =
+    currency === "usd" ? Number(amount || 0) : Number(amount || 0) / (laborSettings?.bcv_rate || 1);
+  const attachmentRequired = amountUsd >= threshold && threshold > 0;
   const redirect = REDIRECT_CATEGORIES[category];
 
   async function handleSubmit() {
@@ -286,6 +323,7 @@ function CreateExpenseModal({
         counterparty_supplier_id: counterpartyType === "proveedor" ? counterpartySupplierId : null,
         counterparty_name: counterpartyType === "tercero" || counterpartyType === "socio" ? counterpartyName : null,
         reference: reference || null,
+        purchase_request_ids: payablePurchaseRequests.length > 0 ? selectedPurchaseRequestIds : undefined,
         attachment,
       });
       setBeneficiary("");
@@ -293,6 +331,7 @@ function CreateExpenseModal({
       setDescription("");
       setReference("");
       setCounterpartyName("");
+      setSelectedPurchaseRequestIds([]);
       setAttachment(null);
       onClose();
     } catch (err) {
@@ -334,7 +373,10 @@ function CreateExpenseModal({
               <label className="mb-1.5 block text-sm font-medium text-navy">Categoría *</label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
+                onChange={(e) => {
+                  setCategory(e.target.value as ExpenseCategory);
+                  setSelectedPurchaseRequestIds([]);
+                }}
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               >
                 {CATEGORY_OPTIONS.map((o) => (
@@ -446,7 +488,10 @@ function CreateExpenseModal({
                 {counterpartyType === "proveedor" && (
                   <select
                     value={counterpartySupplierId}
-                    onChange={(e) => setCounterpartySupplierId(e.target.value)}
+                    onChange={(e) => {
+                      setCounterpartySupplierId(e.target.value);
+                      setSelectedPurchaseRequestIds([]);
+                    }}
                     className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
                   >
                     <option value="">Selecciona el proveedor...</option>
@@ -456,6 +501,32 @@ function CreateExpenseModal({
                       </option>
                     ))}
                   </select>
+                )}
+                {payablePurchaseRequests.length > 0 && (
+                  <div className="rounded-xl border border-navy/10 p-3">
+                    <p className="mb-2 text-xs font-medium text-navy">
+                      Aplicar este pago a órdenes de compra (Cuentas por Pagar)
+                    </p>
+                    <div className="max-h-32 space-y-1.5 overflow-y-auto">
+                      {payablePurchaseRequests.map((r) => (
+                        <label key={r.id} className="flex items-center gap-2 text-sm text-navy">
+                          <input
+                            type="checkbox"
+                            checked={selectedPurchaseRequestIds.includes(r.id)}
+                            onChange={(e) =>
+                              setSelectedPurchaseRequestIds((prev) =>
+                                e.target.checked ? [...prev, r.id] : prev.filter((id) => id !== r.id)
+                              )
+                            }
+                          />
+                          <span className="font-mono text-blue">{r.code}</span>
+                          {r.total_quoted != null && (
+                            <span className="text-steel">${r.total_quoted.toFixed(2)}</span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 )}
                 {(counterpartyType === "tercero" || counterpartyType === "socio") && (
                   <input
