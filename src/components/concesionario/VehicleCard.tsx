@@ -1,4 +1,5 @@
-import { ChevronRight, ImageIcon, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeft, ChevronRight, ImageIcon, Trash2 } from "lucide-react";
 import { availableStatusOptions, locationLabel, STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
 import type { DealershipVehicle } from "@/types/concesionario";
 
@@ -25,11 +26,39 @@ export default function VehicleCard({
   reservedClientName,
   reservedByName,
 }: VehicleCardProps) {
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const photoCount = vehicle.images.length;
+
   return (
     <div onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={(event) => { if (onClick && (event.key === "Enter" || event.key === " ")) onClick(); }} className={`overflow-hidden rounded-2xl border border-navy/10 bg-white ${onClick ? "cursor-pointer transition hover:-translate-y-0.5 hover:border-blue/30 hover:shadow-md" : ""}`}>
-      {vehicle.images.length > 0 ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={vehicle.images[0]} alt={`${vehicle.brand} ${vehicle.model}`} className="h-40 w-full border-b border-navy/10 object-cover" />
+      {photoCount > 0 ? (
+        <div className="relative h-40 w-full overflow-hidden border-b border-navy/10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={vehicle.images[photoIndex % photoCount]} alt={`${vehicle.brand} ${vehicle.model}`} className="h-full w-full object-cover" />
+          {photoCount > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(event) => { event.stopPropagation(); setPhotoIndex((i) => (i - 1 + photoCount) % photoCount); }}
+                aria-label="Foto anterior"
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 rounded-full bg-navy/50 p-1 text-white hover:bg-navy/70"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={(event) => { event.stopPropagation(); setPhotoIndex((i) => (i + 1) % photoCount); }}
+                aria-label="Foto siguiente"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full bg-navy/50 p-1 text-white hover:bg-navy/70"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+              <span className="absolute bottom-1.5 right-1.5 rounded-full bg-navy/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                {(photoIndex % photoCount) + 1}/{photoCount}
+              </span>
+            </>
+          )}
+        </div>
       ) : (
         <div className="flex h-40 flex-col items-center justify-center gap-1.5 border-b border-dashed border-navy/15 bg-ash/60 text-steel">
           <ImageIcon className="h-6 w-6" />

@@ -106,6 +106,13 @@ export async function uploadVehiclePhotos(id: string, photos: File[]): Promise<D
   return apiFetch<DealershipVehicle>(`/dealership-vehicles/${id}/photos`, { method: "POST", body: form });
 }
 
+export async function removeVehiclePhoto(id: string, photoUrl: string): Promise<DealershipVehicle> {
+  return apiFetch<DealershipVehicle>(`/dealership-vehicles/${id}/photos`, {
+    method: "DELETE",
+    body: JSON.stringify({ photo_url: photoUrl }),
+  });
+}
+
 export async function reserveVehicle(
   id: string,
   input: VehicleReservationInput

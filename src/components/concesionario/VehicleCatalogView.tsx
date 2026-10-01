@@ -23,7 +23,7 @@ export default function VehicleCatalogView() {
 
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState<VehicleLocation | "">("");
-  const { vehicles, loading, error, addVehicle, editVehicle, reserveVehicle, addVehiclePhotos, refresh } = useVehicles(filialId, search || undefined);
+  const { vehicles, loading, error, addVehicle, editVehicle, reserveVehicle, addVehiclePhotos, removeVehiclePhoto, refresh } = useVehicles(filialId, search || undefined);
   const { clients } = useClients(filialId);
   const { users } = useUserDirectory({ filialId });
   const [addOpen, setAddOpen] = useState(false);
@@ -66,6 +66,12 @@ export default function VehicleCatalogView() {
 
   async function uploadPhotos(vehicleId: string, photos: File[]) {
     const updated = await addVehiclePhotos(vehicleId, photos);
+    setSelectedVehicle(updated);
+    return updated;
+  }
+
+  async function deletePhoto(vehicleId: string, photoUrl: string) {
+    const updated = await removeVehiclePhoto(vehicleId, photoUrl);
     setSelectedVehicle(updated);
     return updated;
   }
@@ -162,6 +168,7 @@ export default function VehicleCatalogView() {
         onStatusChange={changeStatus}
         onLocationChange={changeLocation}
         onUploadPhotos={uploadPhotos}
+        onDeletePhoto={deletePhoto}
         reservedClientName={clients.find((c) => c.id === selectedVehicle?.reserved_client_id)?.full_name}
         reservedByName={users.find((u) => u.id === selectedVehicle?.reserved_by_user_id)?.full_name}
       />

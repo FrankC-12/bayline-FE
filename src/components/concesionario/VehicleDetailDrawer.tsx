@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ImageIcon, Loader2, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight, ImageIcon, Loader2, Trash2, X } from "lucide-react";
 import { availableStatusOptions, LOCATION_OPTIONS, STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
 import type { DealershipVehicle } from "@/types/concesionario";
 
@@ -11,6 +11,7 @@ interface Props {
   onStatusChange: (status: string) => Promise<void>;
   onLocationChange: (location: string) => Promise<void>;
   onUploadPhotos: (vehicleId: string, photos: File[]) => Promise<unknown>;
+  onDeletePhoto: (vehicleId: string, photoUrl: string) => Promise<unknown>;
   reservedClientName?: string;
   reservedByName?: string;
 }
@@ -21,11 +22,19 @@ export default function VehicleDetailDrawer({
   onStatusChange,
   onLocationChange,
   onUploadPhotos,
+  onDeletePhoto,
   reservedClientName,
   reservedByName,
 }: Props) {
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [deletingPhoto, setDeletingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoIndex, setPhotoIndex] = useState(0);
+
+  const photoCount = vehicle?.images.length ?? 0;
+  useEffect(() => {
+    if (photoIndex >= photoCount) setPhotoIndex(Math.max(0, photoCount - 1));
+  }, [photoIndex, photoCount]);
 
   if (!vehicle) return null;
   const symbol = vehicle.price_currency === "VES" ? "Bs." : "$";
@@ -42,6 +51,21 @@ export default function VehicleDetailDrawer({
       setPhotoError(err instanceof Error ? err.message : "No se pudieron subir las fotos.");
     } finally {
       setUploadingPhotos(false);
+    }
+  }
+
+  async function handleDeleteCurrentPhoto() {
+    if (!vehicle) return;
+    const url = vehicle.images[photoIndex];
+    if (!url) return;
+    setDeletingPhoto(true);
+    setPhotoError(null);
+    try {
+      await onDeletePhoto(vehicle.id, url);
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : "No se pudo eliminar la foto.");
+    } finally {
+      setDeletingPhoto(false);
     }
   }
 
@@ -72,14 +96,61 @@ export default function VehicleDetailDrawer({
               <input type="file" accept="image/*" multiple className="hidden" disabled={uploadingPhotos} onChange={handlePhotoSelect} />
             </label>
           </div>
-          {vehicle.images.length > 0 ? (
-            <div className="grid grid-cols-4 gap-2">
-              {vehicle.images.map((url) => (
-                <a key={url} href={url} target="_blank" rel="noreferrer">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt="" className="aspect-square w-full rounded-lg object-cover" />
-                </a>
-              ))}
+          {photoCount > 0 ? (
+            <div>
+              <div className="relative overflow-hidden rounded-xl bg-ash">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={vehicle.images[photoIndex]}
+                  alt={`${vehicle.brand} ${vehicle.model} — foto ${photoIndex + 1}`}
+                  className="aspect-video w-full object-cover"
+                />
+                {photoCount > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setPhotoIndex((i) => (i - 1 + photoCount) % photoCount)}
+                      aria-label="Foto anterior"
+                      className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-navy/50 p-1.5 text-white hover:bg-navy/70"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPhotoIndex((i) => (i + 1) % photoCount)}
+                      aria-label="Foto siguiente"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-navy/50 p-1.5 text-white hover:bg-navy/70"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                    <span className="absolute bottom-2 right-2 rounded-full bg-navy/60 px-2 py-0.5 text-xs font-semibold text-white">
+                      {photoIndex + 1}/{photoCount}
+                    </span>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={handleDeleteCurrentPhoto}
+                  disabled={deletingPhoto}
+                  aria-label="Eliminar esta foto"
+                  className="absolute right-2 top-2 rounded-full bg-red-600/90 p-1.5 text-white transition hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deletingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                </button>
+              </div>
+              {photoCount > 1 && (
+                <div className="mt-2 flex justify-center gap-1.5">
+                  {vehicle.images.map((url, index) => (
+                    <button
+                      key={url}
+                      type="button"
+                      onClick={() => setPhotoIndex(index)}
+                      aria-label={`Ver foto ${index + 1}`}
+                      className={`h-1.5 rounded-full transition-all ${index === photoIndex ? "w-5 bg-blue" : "w-1.5 bg-navy/20"}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-navy/15 bg-ash/60 text-sm text-steel">
