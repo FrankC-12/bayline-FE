@@ -5,6 +5,7 @@ import { X, Loader2 } from "lucide-react";
 import { LOCATION_OPTIONS, STATUS_OPTIONS, VEHICLE_COLORS } from "@/lib/vehicle-catalog-dealership";
 import { formatMoneyInput } from "@/lib/format";
 import { getLatestExchangeRates, type CreateVehicleInput } from "@/lib/api/concesionario";
+import type { DealershipVehicle } from "@/types/concesionario";
 import CreatableSelect from "./CreatableSelect";
 import BrandModelSelect from "@/components/common/BrandModelSelect";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
@@ -28,7 +29,8 @@ interface AddVehicleModalProps {
   open: boolean;
   onClose: () => void;
   filialId: string;
-  onSubmit: (input: CreateVehicleInput) => Promise<unknown>;
+  onSubmit: (input: CreateVehicleInput) => Promise<DealershipVehicle>;
+  onUploadPhotos: (vehicleId: string, photos: File[]) => Promise<unknown>;
 }
 
 function suggestSku(brand: string, model: string, year: number | "", color: string): string {
@@ -39,7 +41,7 @@ function suggestSku(brand: string, model: string, year: number | "", color: stri
   return [b, m, y, c].filter(Boolean).join("-");
 }
 
-export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: AddVehicleModalProps) {
+export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onUploadPhotos }: AddVehicleModalProps) {
   const { canEdit } = useModuleAccess("concesionario");
   const toast = useToast();
   const { brands } = useVehicleCatalog(filialId);
@@ -69,6 +71,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
   const [luxuryTaxPercentage, setLuxuryTaxPercentage] = useState("0");
   const [bcvRate, setBcvRate] = useState<number | null>(null);
   const [bcvDate, setBcvDate] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -182,7 +185,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit({
+      const created = await onSubmit({
         filial_id: filialId,
         status,
         condition,
@@ -206,6 +209,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
         luxury_tax_percentage: Number(luxuryTaxPercentage) || 0,
         financing_provider: "troyano",
       });
+      if (photos.length > 0) await onUploadPhotos(created.id, photos);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo agregar el vehículo.");
@@ -462,9 +466,19 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit }: A
             <p className="mt-2 text-xs text-steel">El IGTF real se calcula al vender, según cuánto se cobre en divisas — no forma parte del precio de lista.</p>
           </div>
 
-          <p className="rounded-xl bg-ash px-4 py-3 text-xs text-steel">
-            La carga de fotos del vehículo todavía no está disponible.
-          </p>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">Fotos del vehículo (opcional)</label>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => setPhotos(Array.from(e.target.files ?? []))}
+              className="w-full text-sm text-steel file:mr-3 file:rounded-full file:border-0 file:bg-blue-light file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-blue"
+            />
+            {photos.length > 0 && (
+              <p className="mt-1 text-xs text-steel">{photos.length} foto{photos.length === 1 ? "" : "s"} seleccionada{photos.length === 1 ? "" : "s"}</p>
+            )}
+          </div>
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 

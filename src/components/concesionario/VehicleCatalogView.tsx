@@ -23,7 +23,7 @@ export default function VehicleCatalogView() {
 
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState<VehicleLocation | "">("");
-  const { vehicles, loading, error, addVehicle, editVehicle, reserveVehicle, refresh } = useVehicles(filialId, search || undefined);
+  const { vehicles, loading, error, addVehicle, editVehicle, reserveVehicle, addVehiclePhotos, refresh } = useVehicles(filialId, search || undefined);
   const { clients } = useClients(filialId);
   const { users } = useUserDirectory({ filialId });
   const [addOpen, setAddOpen] = useState(false);
@@ -62,6 +62,12 @@ export default function VehicleCatalogView() {
     if (!selectedVehicle) return;
     const updated = await editVehicle(selectedVehicle.id, { location });
     setSelectedVehicle(updated);
+  }
+
+  async function uploadPhotos(vehicleId: string, photos: File[]) {
+    const updated = await addVehiclePhotos(vehicleId, photos);
+    setSelectedVehicle(updated);
+    return updated;
   }
 
   async function confirmSale(sale: VehicleSaleInput) {
@@ -149,12 +155,13 @@ export default function VehicleCatalogView() {
         </div>
       )}
 
-      <AddVehicleModal open={addOpen} onClose={() => setAddOpen(false)} filialId={filialId} onSubmit={addVehicle} />
+      <AddVehicleModal open={addOpen} onClose={() => setAddOpen(false)} filialId={filialId} onSubmit={addVehicle} onUploadPhotos={addVehiclePhotos} />
       <VehicleDetailDrawer
         vehicle={selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
         onStatusChange={changeStatus}
         onLocationChange={changeLocation}
+        onUploadPhotos={uploadPhotos}
         reservedClientName={clients.find((c) => c.id === selectedVehicle?.reserved_client_id)?.full_name}
         reservedByName={users.find((u) => u.id === selectedVehicle?.reserved_by_user_id)?.full_name}
       />

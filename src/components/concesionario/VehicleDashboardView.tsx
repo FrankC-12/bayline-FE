@@ -20,7 +20,7 @@ export default function VehicleDashboardView() {
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
-  const { vehicles, loading, error, addVehicle, editVehicle, reserveVehicle, removeVehicle, refresh } = useVehicles(filialId, search || undefined);
+  const { vehicles, loading, error, addVehicle, editVehicle, reserveVehicle, removeVehicle, addVehiclePhotos, refresh } = useVehicles(filialId, search || undefined);
   const { clients } = useClients(filialId);
   const { users } = useUserDirectory({ filialId });
   const [addOpen, setAddOpen] = useState(false);
@@ -133,7 +133,7 @@ export default function VehicleDashboardView() {
         </div>
       )}
 
-      <AddVehicleModal open={addOpen} onClose={() => setAddOpen(false)} filialId={filialId} onSubmit={addVehicle} />
+      <AddVehicleModal open={addOpen} onClose={() => setAddOpen(false)} filialId={filialId} onSubmit={addVehicle} onUploadPhotos={addVehiclePhotos} />
       <SellVehicleModal
         open={sellTarget != null}
         onClose={() => setSellTarget(null)}

@@ -7,6 +7,7 @@ import {
   updateVehicle,
   reserveVehicle,
   deleteVehicle,
+  uploadVehiclePhotos,
   type CreateVehicleInput,
   type UpdateVehicleInput,
   type VehicleReservationInput,
@@ -61,6 +62,15 @@ export function useVehicles(filialId: string | null, search?: string) {
     [setVehicles]
   );
 
+  const addVehiclePhotos = useCallback(
+    async (id: string, photos: File[]) => {
+      const updated = await uploadVehiclePhotos(id, photos);
+      setVehicles((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
+      return updated;
+    },
+    [setVehicles]
+  );
+
   return {
     vehicles,
     loading,
@@ -69,6 +79,7 @@ export function useVehicles(filialId: string | null, search?: string) {
     editVehicle,
     reserveVehicle: reserveVehicleAction,
     removeVehicle,
+    addVehiclePhotos,
     refresh,
   };
 }

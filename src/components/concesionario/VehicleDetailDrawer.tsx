@@ -1,6 +1,7 @@
 "use client";
 
-import { X } from "lucide-react";
+import { useState } from "react";
+import { ImageIcon, Loader2, X } from "lucide-react";
 import { availableStatusOptions, LOCATION_OPTIONS, STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
 import type { DealershipVehicle } from "@/types/concesionario";
 
@@ -9,6 +10,7 @@ interface Props {
   onClose: () => void;
   onStatusChange: (status: string) => Promise<void>;
   onLocationChange: (location: string) => Promise<void>;
+  onUploadPhotos: (vehicleId: string, photos: File[]) => Promise<unknown>;
   reservedClientName?: string;
   reservedByName?: string;
 }
@@ -18,11 +20,30 @@ export default function VehicleDetailDrawer({
   onClose,
   onStatusChange,
   onLocationChange,
+  onUploadPhotos,
   reservedClientName,
   reservedByName,
 }: Props) {
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
   if (!vehicle) return null;
   const symbol = vehicle.price_currency === "VES" ? "Bs." : "$";
+
+  async function handlePhotoSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (!vehicle || files.length === 0) return;
+    setUploadingPhotos(true);
+    setPhotoError(null);
+    try {
+      await onUploadPhotos(vehicle.id, files);
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : "No se pudieron subir las fotos.");
+    } finally {
+      setUploadingPhotos(false);
+    }
+  }
 
   return <div className="fixed inset-0 z-50 flex justify-end">
     <button onClick={onClose} aria-label="Cerrar detalle" className="absolute inset-0 bg-navy/40" />
@@ -42,6 +63,32 @@ export default function VehicleDetailDrawer({
         </div>
       </header>
       <div className="space-y-6 p-7">
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="font-semibold text-navy">Fotos</h3>
+            <label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-blue/25 px-2.5 py-1 text-xs font-semibold text-blue transition hover:bg-blue-light">
+              {uploadingPhotos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+              Agregar fotos
+              <input type="file" accept="image/*" multiple className="hidden" disabled={uploadingPhotos} onChange={handlePhotoSelect} />
+            </label>
+          </div>
+          {vehicle.images.length > 0 ? (
+            <div className="grid grid-cols-4 gap-2">
+              {vehicle.images.map((url) => (
+                <a key={url} href={url} target="_blank" rel="noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="" className="aspect-square w-full rounded-lg object-cover" />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-navy/15 bg-ash/60 text-sm text-steel">
+              Sin fotos
+            </div>
+          )}
+          {photoError && <p className="mt-2 text-xs text-red-600">{photoError}</p>}
+        </section>
+
         <section className="rounded-2xl border border-navy/10 p-5">
           <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-steel">Estado operativo</label>
           <select value={vehicle.status} onChange={(event) => void onStatusChange(event.target.value)} className={`w-full rounded-xl border px-4 py-3 text-sm font-semibold outline-none ${STATUS_STYLES[vehicle.status]}`}>

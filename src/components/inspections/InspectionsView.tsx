@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Wrench } from "lucide-react";
+import { Plus, Trash2, Wrench, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInspections } from "@/hooks/useInspections";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
@@ -13,6 +13,7 @@ import type { Inspection } from "@/types/inspection";
 import type { ServiceOrderType } from "@/types/serviceOrder";
 import CreateInspectionPanel from "./CreateInspectionPanel";
 import CreateOrderPanel, { type CreateOrderExtra } from "@/components/service-orders/CreateOrderPanel";
+import VehicleDamageMap from "./VehicleDamageMap";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 
@@ -41,6 +42,7 @@ export default function InspectionsView() {
   const [dateTo, setDateTo] = useState("");
   const [panelOpen, setPanelOpen] = useState(false);
   const [orderInspection, setOrderInspection] = useState<Inspection | null>(null);
+  const [damageView, setDamageView] = useState<Inspection | null>(null);
 
   const hasCustomFilter = !!search || !!dateFrom || !!dateTo;
 
@@ -244,6 +246,14 @@ export default function InspectionsView() {
                       >
                         {STATUS_LABELS[i.status]}
                       </span>
+                      {i.damages.length > 0 && (
+                        <button
+                          onClick={() => setDamageView(i)}
+                          className="ml-2 inline-flex items-center rounded-full border border-navy/15 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-steel transition hover:border-blue hover:text-blue"
+                        >
+                          {i.damages.length} daño{i.damages.length === 1 ? "" : "s"}
+                        </button>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       {!i.service_order_id && (
@@ -278,6 +288,37 @@ export default function InspectionsView() {
         presetInspection={orderInspection}
         onSubmit={handleCreateOrder}
       />
+
+      {damageView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setDamageView(null)}>
+          <div onClick={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="font-display text-lg font-bold text-navy">Daños registrados</p>
+              <button
+                onClick={() => setDamageView(null)}
+                aria-label="Cerrar"
+                className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <VehicleDamageMap damages={damageView.damages} editable={false} />
+            {damageView.photo_urls.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-steel">Fotos generales</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {damageView.photo_urls.map((url) => (
+                    <a key={url} href={url} target="_blank" rel="noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="aspect-square w-full rounded-lg object-cover" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

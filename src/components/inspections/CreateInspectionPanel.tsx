@@ -4,13 +4,15 @@ import { useMemo, useState } from "react";
 import { X, Loader2, Search } from "lucide-react";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { formatThousands, stripThousands } from "@/lib/format";
-import type { CreateInspectionInput } from "@/lib/api/inspections";
+import { uploadDamagePhoto, uploadInspectionPhotos, type CreateInspectionInput } from "@/lib/api/inspections";
+import type { Inspection } from "@/types/inspection";
+import VehicleDamageMap, { type DamagePoint } from "./VehicleDamageMap";
 
 interface CreateInspectionPanelProps {
   open: boolean;
   onClose: () => void;
   filialId: string;
-  onSubmit: (input: CreateInspectionInput) => Promise<unknown>;
+  onSubmit: (input: CreateInspectionInput) => Promise<Inspection>;
 }
 
 export default function CreateInspectionPanel({
@@ -25,6 +27,8 @@ export default function CreateInspectionPanel({
   const [mileage, setMileage] = useState("");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<"en_proceso" | "completada">("completada");
+  const [damages, setDamages] = useState<DamagePoint[]>([]);
+  const [generalPhotos, setGeneralPhotos] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,17 +68,37 @@ export default function CreateInspectionPanel({
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit({
+      const created = await onSubmit({
         filial_id: filialId,
         vehicle_id: selectedVehicleId,
         mileage: mileage ? Number(stripThousands(mileage)) : null,
         notes: notes || null,
         status,
+        damages: damages.map(({ x, y, zone, kind, severity, description }) => ({
+          x, y, zone, kind, severity, description,
+        })),
       });
+
+      // Damages come back in the same order they were submitted (the
+      // server assigns an explicit sort_order precisely so this holds) —
+      // safe to match each pending photo to its damage by index.
+      const uploads: Promise<unknown>[] = [];
+      damages.forEach((damage, index) => {
+        if (damage.pendingPhoto && created.damages[index]) {
+          uploads.push(uploadDamagePhoto(created.id, created.damages[index].id, damage.pendingPhoto));
+        }
+      });
+      if (generalPhotos.length > 0) {
+        uploads.push(uploadInspectionPhotos(created.id, generalPhotos));
+      }
+      if (uploads.length > 0) await Promise.all(uploads);
+
       setSearch("");
       setSelectedVehicleId(null);
       setMileage("");
       setNotes("");
+      setDamages([]);
+      setGeneralPhotos([]);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear la inspección.");
@@ -184,6 +208,24 @@ export default function CreateInspectionPanel({
               <option value="completada">Completada</option>
               <option value="en_proceso">En proceso</option>
             </select>
+          </div>
+
+          <VehicleDamageMap editable damages={damages} onChange={setDamages} />
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">Fotos generales (opcional)</label>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              multiple
+              onChange={(e) => setGeneralPhotos(Array.from(e.target.files ?? []))}
+              className="w-full text-sm text-steel file:mr-3 file:rounded-full file:border-0 file:bg-blue-light file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-blue"
+            />
+            {generalPhotos.length > 0 && (
+              <p className="mt-1 text-xs text-steel">{generalPhotos.length} foto{generalPhotos.length === 1 ? "" : "s"} seleccionada{generalPhotos.length === 1 ? "" : "s"}</p>
+            )}
+            <p className="mt-1 text-xs text-steel">Odómetro, tanque de gasolina, estado general del vehículo...</p>
           </div>
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}

@@ -100,6 +100,12 @@ export async function updateVehicle(id: string, input: UpdateVehicleInput): Prom
   });
 }
 
+export async function uploadVehiclePhotos(id: string, photos: File[]): Promise<DealershipVehicle> {
+  const form = new FormData();
+  for (const photo of photos) form.append("photos", photo);
+  return apiFetch<DealershipVehicle>(`/dealership-vehicles/${id}/photos`, { method: "POST", body: form });
+}
+
 export async function reserveVehicle(
   id: string,
   input: VehicleReservationInput

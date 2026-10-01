@@ -27,10 +27,15 @@ export default function VehicleCard({
 }: VehicleCardProps) {
   return (
     <div onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={(event) => { if (onClick && (event.key === "Enter" || event.key === " ")) onClick(); }} className={`overflow-hidden rounded-2xl border border-navy/10 bg-white ${onClick ? "cursor-pointer transition hover:-translate-y-0.5 hover:border-blue/30 hover:shadow-md" : ""}`}>
-      <div className="flex h-40 flex-col items-center justify-center gap-1.5 border-b border-dashed border-navy/15 bg-ash/60 text-steel">
-        <ImageIcon className="h-6 w-6" />
-        <span className="text-sm">Foto del vehículo</span>
-      </div>
+      {vehicle.images.length > 0 ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={vehicle.images[0]} alt={`${vehicle.brand} ${vehicle.model}`} className="h-40 w-full border-b border-navy/10 object-cover" />
+      ) : (
+        <div className="flex h-40 flex-col items-center justify-center gap-1.5 border-b border-dashed border-navy/15 bg-ash/60 text-steel">
+          <ImageIcon className="h-6 w-6" />
+          <span className="text-sm">Foto del vehículo</span>
+        </div>
+      )}
 
       <div className="p-5">
         <div className="flex items-start justify-between gap-2">

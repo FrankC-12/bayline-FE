@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ChevronLeft, Clock } from "lucide-react";
+import { AlertTriangle, ChevronLeft, Clock, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useServiceOrder } from "@/hooks/useServiceOrder";
@@ -24,6 +24,7 @@ import PriceSummaryCard from "./PriceSummaryCard";
 import BillingModal from "./BillingModal";
 import PendingUpsellsBlock from "./PendingUpsellsBlock";
 import WarrantyClaimModal from "./WarrantyClaimModal";
+import VehicleDamageMap from "@/components/inspections/VehicleDamageMap";
 import { closeServiceOrder } from "@/lib/api/serviceOrderBilling";
 import { formatElapsed, serviceOrderStoppedAt } from "@/lib/time";
 import { CLAIM_LINKED_ORDER_TYPE_LABELS } from "@/lib/claimLinkedOrderTypes";
@@ -126,6 +127,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const [addingPlanTask, setAddingPlanTask] = useState(false);
   const stoppedAt = order ? serviceOrderStoppedAt(order) : null;
   const [elapsed, setElapsed] = useState(() => (order ? formatElapsed(order.created_at, stoppedAt) : ""));
+  const [damageMapOpen, setDamageMapOpen] = useState(false);
 
   useEffect(() => {
     if (!order) return;
@@ -662,10 +664,20 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           </div>
 
           {inspection ? (
+            <>
             <p className="text-sm text-steel">
               {inspection.notes || "Sin notas."}
               {inspection.mileage ? ` ${inspection.mileage.toLocaleString("es-VE")} km.` : ""}
             </p>
+            {inspection.damages.length > 0 && (
+              <button
+                onClick={() => setDamageMapOpen(true)}
+                className="mt-2 inline-flex items-center rounded-full border border-navy/15 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-steel transition hover:border-blue hover:text-blue"
+              >
+                {inspection.damages.length} daño{inspection.damages.length === 1 ? "" : "s"} registrado{inspection.damages.length === 1 ? "" : "s"}
+              </button>
+            )}
+            </>
           ) : (
             (() => {
               const candidates = unlinkedInspections.filter((i) => i.vehicle_id === order.vehicle_id);
@@ -823,6 +835,36 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           onClose={() => setClaimModalOpen(false)}
           initialClaimType={suggestedClaimType}
         />
+      )}
+      {damageMapOpen && inspection && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setDamageMapOpen(false)}>
+          <div onClick={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="font-display text-lg font-bold text-navy">Daños registrados</p>
+              <button
+                onClick={() => setDamageMapOpen(false)}
+                aria-label="Cerrar"
+                className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <VehicleDamageMap damages={inspection.damages} editable={false} />
+            {inspection.photo_urls.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-steel">Fotos generales</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {inspection.photo_urls.map((url) => (
+                    <a key={url} href={url} target="_blank" rel="noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="aspect-square w-full rounded-lg object-cover" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
       <ConfirmDialog
         open={cancelDialogOpen}
