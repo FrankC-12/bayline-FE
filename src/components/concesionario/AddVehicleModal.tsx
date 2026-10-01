@@ -1,9 +1,11 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useMemo, useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { LOCATION_OPTIONS, STATUS_OPTIONS, VEHICLE_COLORS } from "@/lib/vehicle-catalog-dealership";
-import { formatMoneyInput } from "@/lib/format";
+import { formatMoney, formatMoneyInput } from "@/lib/format";
 import { getLatestExchangeRates, type CreateVehicleInput } from "@/lib/api/concesionario";
 import type { DealershipVehicle } from "@/types/concesionario";
 import CreatableSelect from "./CreatableSelect";
@@ -395,11 +397,11 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
                 <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-steel">
                   {priceCurrency === "USD" ? "$" : "Bs."}
                 </span>
-                <input
+                <NumberInput
                   inputMode="decimal"
                   value={priceCash}
-                  onChange={(e) => setPriceCash(formatMoneyInput(e.target.value))}
-                  placeholder="0.00"
+                  onValueChange={(value) => setPriceCash(formatMoneyInput(value))}
+                  placeholder="0,00"
                   className="w-full rounded-xl border border-navy/15 py-2.5 pl-12 pr-4 text-sm outline-none focus:border-blue"
                 />
               </div>
@@ -412,11 +414,11 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-steel">
                 {priceCurrency === "USD" ? "$" : "Bs."}
               </span>
-              <input
+              <NumberInput
                 inputMode="decimal"
                 value={priceFinanced}
-                onChange={(e) => setPriceFinanced(formatMoneyInput(e.target.value))}
-                placeholder="0.00"
+                onValueChange={(value) => setPriceFinanced(formatMoneyInput(value))}
+                placeholder="0,00"
                 className="w-full rounded-xl border border-navy/15 py-2.5 pl-12 pr-4 text-sm outline-none focus:border-blue"
               />
             </div>
@@ -429,14 +431,14 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-steel">
                 {priceCurrency === "USD" ? "$" : "Bs."}
               </span>
-              <input
+              <NumberInput
                 inputMode="decimal"
                 value={costPrice}
-                onChange={(e) => {
-                  setCostPrice(formatMoneyInput(e.target.value));
+                onValueChange={(value) => {
+                  setCostPrice(formatMoneyInput(value));
                   setFieldErrors((prev) => ({ ...prev, costPrice: undefined }));
                 }}
-                placeholder="0.00"
+                placeholder="0,00"
                 className={`w-full rounded-xl border py-2.5 pl-12 pr-4 text-sm outline-none focus:border-blue ${
                   fieldErrors.costPrice ? "border-red-400" : "border-navy/15"
                 }`}
@@ -456,13 +458,13 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
           </div>
 
           <div className="rounded-2xl border border-navy/10 bg-ash/60 p-4">
-            <div className="mb-4 flex items-start justify-between gap-3"><div><h3 className="font-semibold text-navy">Impuestos del PVP</h3><p className="text-xs text-steel">IGTF se aplica automáticamente cuando la moneda es USD.</p></div>{bcvRate && <span className="text-right text-xs text-steel">BCV: Bs. {bcvRate.toFixed(4)}<br />{bcvDate && new Date(`${bcvDate}T12:00:00`).toLocaleDateString("es-VE")}</span>}</div>
+            <div className="mb-4 flex items-start justify-between gap-3"><div><h3 className="font-semibold text-navy">Impuestos del PVP</h3><p className="text-xs text-steel">IGTF se aplica automáticamente cuando la moneda es USD.</p></div>{bcvRate && <span className="text-right text-xs text-steel">BCV: Bs. {bcvRate.toLocaleString("es-VE", { minimumFractionDigits: 4, maximumFractionDigits: 8 })}<br />{bcvDate && new Date(`${bcvDate}T12:00:00`).toLocaleDateString("es-VE")}</span>}</div>
             <div className="grid grid-cols-3 gap-3">
-              <label className="text-xs text-steel">IVA %<input inputMode="decimal" value={ivaPercentage} onChange={(e) => setIvaPercentage(formatMoneyInput(e.target.value))} className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy" /></label>
-              <label className="text-xs text-steel">IGTF %<input inputMode="decimal" disabled={priceCurrency !== "USD"} value={igtfPercentage} onChange={(e) => setIgtfPercentage(formatMoneyInput(e.target.value))} className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy disabled:opacity-50" /></label>
-              <label className="text-xs text-steel">Lujo % (manual)<input inputMode="decimal" value={luxuryTaxPercentage} onChange={(e) => setLuxuryTaxPercentage(formatMoneyInput(e.target.value))} className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy" /></label>
+              <label className="text-xs text-steel">IVA %<NumberInput inputMode="decimal" value={ivaPercentage} onValueChange={(value) => setIvaPercentage(formatMoneyInput(value))} className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy" /></label>
+              <label className="text-xs text-steel">IGTF %<NumberInput inputMode="decimal" disabled={priceCurrency !== "USD"} value={igtfPercentage} onValueChange={(value) => setIgtfPercentage(formatMoneyInput(value))} className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy disabled:opacity-50" /></label>
+              <label className="text-xs text-steel">Lujo % (manual)<NumberInput inputMode="decimal" value={luxuryTaxPercentage} onValueChange={(value) => setLuxuryTaxPercentage(formatMoneyInput(value))} className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy" /></label>
             </div>
-            <dl className="mt-4 space-y-1 border-t border-navy/10 pt-3 text-sm"><div className="flex justify-between"><dt>IVA</dt><dd>{ivaAmount.toFixed(2)}</dd></div><div className="flex justify-between"><dt>Impuesto al lujo</dt><dd>{luxuryAmount.toFixed(2)}</dd></div><div className="flex justify-between pt-1 font-bold text-navy"><dt>Precio de lista</dt><dd>{priceCurrency === "USD" ? "$" : "Bs."} {cashTotal.toFixed(2)}</dd></div>{priceCurrency === "USD" && bcvRate && <div className="flex justify-between text-xs text-steel"><dt>Equivalente BCV</dt><dd>Bs. {(cashTotal * bcvRate).toFixed(2)}</dd></div>}{priceCurrency === "USD" && <div className="flex justify-between text-xs text-steel"><dt>IGTF estimado si se cobra todo en USD</dt><dd>{igtfEstimate.toFixed(2)}</dd></div>}</dl>
+            <dl className="mt-4 space-y-1 border-t border-navy/10 pt-3 text-sm"><div className="flex justify-between"><dt>IVA</dt><dd>{formatMoney(ivaAmount)}</dd></div><div className="flex justify-between"><dt>Impuesto al lujo</dt><dd>{formatMoney(luxuryAmount)}</dd></div><div className="flex justify-between pt-1 font-bold text-navy"><dt>Precio de lista</dt><dd>{priceCurrency === "USD" ? "$" : "Bs."} {formatMoney(cashTotal)}</dd></div>{priceCurrency === "USD" && bcvRate && <div className="flex justify-between text-xs text-steel"><dt>Equivalente BCV</dt><dd>Bs. {formatMoney(cashTotal * bcvRate)}</dd></div>}{priceCurrency === "USD" && <div className="flex justify-between text-xs text-steel"><dt>IGTF estimado si se cobra todo en USD</dt><dd>{formatMoney(igtfEstimate)}</dd></div>}</dl>
             <p className="mt-2 text-xs text-steel">El IGTF real se calcula al vender, según cuánto se cobre en divisas — no forma parte del precio de lista.</p>
           </div>
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useState } from "react";
 import { X, Loader2, Plus, Search } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
@@ -232,25 +234,23 @@ export default function StockInModal({
                       )
                     )}
                   </div>
-                  <input
-                    type="number"
+                  <NumberInput
                     min="1"
                     placeholder="Cant."
                     value={line.quantity}
-                    onChange={(e) => updateLine(i, { quantity: e.target.value })}
+                    onValueChange={(value) => updateLine(i, { quantity: value })}
                     className="rounded-lg border border-navy/15 px-2 py-2 text-sm outline-none focus:border-blue"
                   />
                   <div className="relative">
                     <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm text-steel">
                       $
                     </span>
-                    <input
-                      type="number"
+                    <NumberInput
                       min="0"
                       step="0.01"
-                      placeholder="1.99"
+                      placeholder="1,99"
                       value={line.unitCost}
-                      onChange={(e) => updateLine(i, { unitCost: e.target.value })}
+                      onValueChange={(value) => updateLine(i, { unitCost: value })}
                       className="w-full rounded-lg border border-navy/15 py-2 pl-5 pr-2 text-sm outline-none focus:border-blue"
                     />
                   </div>

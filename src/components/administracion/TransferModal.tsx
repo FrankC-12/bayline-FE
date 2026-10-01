@@ -1,9 +1,12 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useMemo, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import type { Account } from "@/types/administracion";
 import type { CreateTransferInput } from "@/lib/api/administracion";
+import { formatMoney } from "@/lib/format";
 
 interface TransferModalProps {
   fromAccount: Account;
@@ -100,13 +103,12 @@ export default function TransferModal({
               <label className="mb-1.5 block text-sm font-medium text-navy">
                 Monto ({fromAccount.currency === "usd" ? "USD" : "Bs"}) *
               </label>
-              <input
-                type="number"
+              <NumberInput
                 min="0"
                 step="0.01"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
+                onValueChange={(value) => setAmount(value)}
+                placeholder="0,00"
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               />
             </div>
@@ -123,20 +125,19 @@ export default function TransferModal({
           {needsRate && (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Tasa aplicada (Bs/USD) *</label>
-              <input
-                type="number"
+              <NumberInput
                 min="0"
                 step="0.00000001"
                 value={exchangeRate}
-                onChange={(e) => setExchangeRate(e.target.value)}
-                placeholder="Ej. 40.00000000"
+                onValueChange={(value) => setExchangeRate(value)}
+                placeholder="Ej. 40,00000000"
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               />
               {amount && exchangeRate && Number(exchangeRate) > 0 && (
                 <p className="mt-1 text-xs text-steel">
                   {fromAccount.currency === "usd"
-                    ? `≈ Bs. ${(Number(amount) * Number(exchangeRate)).toLocaleString()}`
-                    : `≈ $${(Number(amount) / Number(exchangeRate)).toFixed(2)}`}
+                    ? `≈ Bs. ${formatMoney(Number(amount) * Number(exchangeRate))}`
+                    : `≈ $${formatMoney(Number(amount) / Number(exchangeRate))}`}
                 </p>
               )}
             </div>

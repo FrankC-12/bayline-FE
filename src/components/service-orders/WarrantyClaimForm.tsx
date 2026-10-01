@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Camera, FileText, Loader2, Search, ShieldCheck, ShieldX, User, Car, X } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
@@ -591,13 +593,12 @@ export default function WarrantyClaimForm({
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-navy">Kilometraje</label>
-          <input
-            type="number"
+          <NumberInput
             min="0"
             value={reportedMileage}
-            onChange={(e) => {
+            onValueChange={(value) => {
               setMileageTouched(true);
-              setReportedMileage(e.target.value);
+              setReportedMileage(value);
             }}
             className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
           />

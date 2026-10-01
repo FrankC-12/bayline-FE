@@ -23,6 +23,22 @@ export function formatMoneyInput(value: string): string {
   return decimalParts.length ? `${integer}.${decimal}` : integer;
 }
 
+/** Formats a monetary amount with Venezuelan separators (dot for thousands,
+ * comma for decimals) and a fixed number of decimals, e.g. 150000 -> "150.000,00".
+ * Does NOT include a currency symbol/prefix — callers add their own ("$"/"Bs. "). */
+export function formatMoney(value: number, decimals = 2): string {
+  return value.toLocaleString("es-VE", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+/** Formats a whole-number count/quantity with Venezuelan thousands
+ * separators, e.g. 12400 -> "12.400". No decimals — for counts, not money. */
+export function formatCount(value: number): string {
+  return value.toLocaleString("es-VE");
+}
+
 /** Capitalizes only the first letter — safe for Spanish, unlike CSS
  * text-transform:capitalize, which title-cases every word (breaking
  * articles/prepositions like "del"/"de", e.g. "pago movil" -> "Pago movil"). */

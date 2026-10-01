@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Plus, X, Loader2 } from "lucide-react";
@@ -12,6 +14,7 @@ import {
   addVehicleOrderInvoice,
   cancelVehiclePurchaseOrder,
 } from "@/lib/api/compras";
+import { formatMoney , formatCount} from "@/lib/format";
 import type { VehiclePurchaseOrderDetail, VehiclePurchaseOrderStatus } from "@/types/compras";
 
 const STATUS_LABELS: Record<VehiclePurchaseOrderStatus, string> = {
@@ -196,7 +199,7 @@ export default function VehicleOrderDetailView({ orderId }: VehicleOrderDetailVi
                 <td className="py-2 text-steel">{line.year}</td>
                 <td className="py-2 text-steel">{line.color ?? "—"}</td>
                 <td className="py-2 text-right font-semibold text-navy">
-                  {line.quantity_received} / {line.quantity}
+                  {formatCount(line.quantity_received)} / {formatCount(line.quantity)}
                 </td>
               </tr>
             ))}
@@ -235,7 +238,7 @@ export default function VehicleOrderDetailView({ orderId }: VehicleOrderDetailVi
                         </td>
                         <td className="py-2 text-right">
                           {unit.cost_price != null ? (
-                            <span className="font-semibold text-navy">${unit.cost_price.toFixed(2)}</span>
+                            <span className="font-semibold text-navy">${formatMoney(unit.cost_price)}</span>
                           ) : (
                             <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-amber-700">
                               Costo pendiente
@@ -269,9 +272,9 @@ export default function VehicleOrderDetailView({ orderId }: VehicleOrderDetailVi
                 <tr key={inv.id}>
                   <td className="py-2 font-mono text-navy">{inv.invoice_number}</td>
                   <td className="py-2 text-steel">{new Date(inv.issued_at).toLocaleDateString("es-VE")}</td>
-                  <td className="py-2 text-steel">{inv.unit_count}</td>
+                  <td className="py-2 text-steel">{formatCount(inv.unit_count)}</td>
                   <td className="py-2 text-right font-semibold text-navy">
-                    {inv.currency} {inv.total_amount.toFixed(2)}
+                    {inv.currency} {formatMoney(inv.total_amount)}
                   </td>
                 </tr>
               ))}
@@ -332,7 +335,7 @@ export default function VehicleOrderDetailView({ orderId }: VehicleOrderDetailVi
                   >
                     {order.lines.map((line) => (
                       <option key={line.id} value={line.id}>
-                        {line.brand} {line.model} {line.version ?? ""} ({line.quantity_received}/{line.quantity})
+                        {line.brand} {line.model} {line.version ?? ""} ({formatCount(line.quantity_received)}/{formatCount(line.quantity)})
                       </option>
                     ))}
                   </select>
@@ -418,13 +421,12 @@ export default function VehicleOrderDetailView({ orderId }: VehicleOrderDetailVi
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-navy">Monto total</label>
-                <input
-                  type="number"
+                <NumberInput
                   min="0"
                   step="0.01"
                   value={invoiceAmount}
-                  onChange={(e) => setInvoiceAmount(e.target.value)}
-                  placeholder="0.00"
+                  onValueChange={(value) => setInvoiceAmount(value)}
+                  placeholder="0,00"
                   className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
                 />
               </div>

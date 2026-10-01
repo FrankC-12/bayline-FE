@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, ImageIcon, Loader2, Trash2, X } from "lucide-react";
 import { availableStatusOptions, LOCATION_OPTIONS, STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
+import { formatMoney , formatCount} from "@/lib/format";
 import type { DealershipVehicle } from "@/types/concesionario";
 
 interface Props {
@@ -124,7 +125,7 @@ export default function VehicleDetailDrawer({
                       <ChevronRight className="h-4 w-4" />
                     </button>
                     <span className="absolute bottom-2 right-2 rounded-full bg-navy/60 px-2 py-0.5 text-xs font-semibold text-white">
-                      {photoIndex + 1}/{photoCount}
+                      {photoIndex + 1}/{formatCount(photoCount)}
                     </span>
                   </>
                 )}
@@ -173,7 +174,7 @@ export default function VehicleDetailDrawer({
                 <span className="font-semibold">{reservedByName ?? "—"}</span>
               </p>
               <p className="mt-1 text-steel">
-                Abono {symbol} {Number(vehicle.deposit_amount ?? 0).toFixed(2)} · vigente hasta{" "}
+                Abono {symbol} {formatMoney(Number(vehicle.deposit_amount ?? 0))} · vigente hasta{" "}
                 {vehicle.reservation_expires_at
                   ? new Date(`${vehicle.reservation_expires_at}T12:00:00`).toLocaleDateString("es-VE")
                   : "—"}
@@ -204,12 +205,12 @@ export default function VehicleDetailDrawer({
         </dl></section>
 
         <section><h3 className="mb-3 font-semibold text-navy">Precio de lista</h3><dl className="space-y-2 rounded-2xl border border-navy/10 p-5 text-sm">
-          <div className="flex justify-between"><dt>PVP contado</dt><dd className="font-semibold">{symbol} {vehicle.price_cash.toFixed(2)}</dd></div>
-          <div className="flex justify-between"><dt>IVA ({vehicle.iva_percentage}%)</dt><dd>{symbol} {vehicle.iva_amount.toFixed(2)}</dd></div>
-          {vehicle.luxury_tax_percentage > 0 && <div className="flex justify-between"><dt>Impuesto al lujo ({vehicle.luxury_tax_percentage}%)</dt><dd>{symbol} {vehicle.luxury_tax_amount.toFixed(2)}</dd></div>}
-          <div className="flex justify-between border-t border-navy/10 pt-2 font-bold text-navy"><dt>Precio de lista (contado)</dt><dd>{symbol} {vehicle.cash_total.toFixed(2)}</dd></div>
+          <div className="flex justify-between"><dt>PVP contado</dt><dd className="font-semibold">{symbol} {formatMoney(vehicle.price_cash)}</dd></div>
+          <div className="flex justify-between"><dt>IVA ({formatCount(vehicle.iva_percentage)}%)</dt><dd>{symbol} {formatMoney(vehicle.iva_amount)}</dd></div>
+          {vehicle.luxury_tax_percentage > 0 && <div className="flex justify-between"><dt>Impuesto al lujo ({formatCount(vehicle.luxury_tax_percentage)}%)</dt><dd>{symbol} {formatMoney(vehicle.luxury_tax_amount)}</dd></div>}
+          <div className="flex justify-between border-t border-navy/10 pt-2 font-bold text-navy"><dt>Precio de lista (contado)</dt><dd>{symbol} {formatMoney(vehicle.cash_total)}</dd></div>
           <p className="text-xs text-steel">No incluye IGTF — se calcula al vender, según cuánto se cobre en divisas.</p>
-          <div className="flex justify-between"><dt>Precio financiado</dt><dd className="font-semibold">{symbol} {vehicle.price_financed.toFixed(2)}</dd></div>
+          <div className="flex justify-between"><dt>Precio financiado</dt><dd className="font-semibold">{symbol} {formatMoney(vehicle.price_financed)}</dd></div>
           <div className="flex justify-between text-steel"><dt>Financiamiento</dt><dd className="capitalize">{vehicle.financing_provider ?? "Sin proveedor"}</dd></div>
           <div className="flex justify-between text-steel"><dt>Estado actual</dt><dd>{statusLabel(vehicle.status)}</dd></div>
         </dl></section>

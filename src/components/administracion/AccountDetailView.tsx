@@ -10,7 +10,7 @@ import { useAccounts } from "@/hooks/useAccounts";
 import { useLaborSettings } from "@/hooks/useLaborSettings";
 import { getAccount, getAccountMovements, createTransfer, type CreateTransferInput } from "@/lib/api/administracion";
 import type { Account, AccountMovement, CounterpartyType, ExpenseCategory, IncomeConcept } from "@/types/administracion";
-import { formatEntryDate, formatEntryDateTime } from "@/lib/format";
+import { formatEntryDate, formatEntryDateTime, formatMoney } from "@/lib/format";
 import TransferModal from "./TransferModal";
 
 /** source_type is only ever set on rows generated automatically from a real
@@ -214,14 +214,14 @@ export default function AccountDetailView({ accountId }: AccountDetailViewProps)
         <div className="rounded-xl bg-ash p-5">
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Saldo actual</p>
           <p className="mt-1 font-display text-2xl font-bold text-navy">
-            {account.currency === "usd" ? `$${account.balance.toLocaleString()}` : `Bs. ${account.balance.toLocaleString()}`}
+            {account.currency === "usd" ? `$${formatMoney(account.balance)}` : `Bs. ${formatMoney(account.balance)}`}
           </p>
-          {account.currency === "bs" && <p className="mt-1 text-xs text-steel">≈ ${account.balance_usd.toFixed(2)}</p>}
+          {account.currency === "bs" && <p className="mt-1 text-xs text-steel">≈ ${formatMoney(account.balance_usd)}</p>}
         </div>
         <div className="rounded-xl bg-ash p-5">
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Saldo inicial</p>
           <p className="mt-1 font-display text-2xl font-bold text-navy">
-            {account.currency === "usd" ? `$${account.opening_balance.toLocaleString()}` : `Bs. ${account.opening_balance.toLocaleString()}`}
+            {account.currency === "usd" ? `$${formatMoney(account.opening_balance)}` : `Bs. ${formatMoney(account.opening_balance)}`}
           </p>
         </div>
         <div className="rounded-xl bg-ash p-5">
@@ -282,7 +282,7 @@ export default function AccountDetailView({ accountId }: AccountDetailViewProps)
                     <td className={`px-6 py-4 font-semibold ${m.movement_type === "ingreso" ? "text-emerald-700" : "text-red-600"}`}>
                       {m.movement_type === "ingreso" ? "+" : "-"}
                       {m.currency === "usd" ? "$" : "Bs. "}
-                      {Math.abs(m.amount).toLocaleString()}
+                      {formatMoney(Math.abs(m.amount))}
                     </td>
                     <td className="px-6 py-4 text-steel">{registeredByName(m.registered_by_user_id)}</td>
                     <td className="px-6 py-4 text-right">
@@ -348,11 +348,14 @@ function MovementDetailModal({
           <Row label="Contraparte" value={counterpartyLabel(movement)} />
           <Row
             label="Monto"
-            value={`${movement.currency === "usd" ? "$" : "Bs. "}${Math.abs(movement.amount).toLocaleString()}`}
+            value={`${movement.currency === "usd" ? "$" : "Bs. "}${formatMoney(Math.abs(movement.amount))}`}
           />
           {movement.reference && <Row label="Referencia" value={movement.reference} />}
           {movement.source_type === "account_transfer" && movement.exchange_rate != null && (
-            <Row label="Tasa aplicada" value={`${movement.exchange_rate.toLocaleString()} Bs/USD`} />
+            <Row
+              label="Tasa aplicada"
+              value={`${movement.exchange_rate.toLocaleString("es-VE", { minimumFractionDigits: 4, maximumFractionDigits: 8 })} Bs/USD`}
+            />
           )}
           <Row label="Registrado por" value={registeredBy} />
           {movement.reversal_reason && <Row label="Motivo del reverso" value={movement.reversal_reason} />}

@@ -3,7 +3,7 @@
 import { useHoldingDashboardContext } from "@/contexts/HoldingDashboardContext";
 import HoldingMetricTable, { type HoldingMetricColumn } from "./HoldingMetricTable";
 
-const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`;
+const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const COLUMNS: HoldingMetricColumn[] = [
   { key: "count", label: "# Ventas", align: "right", render: (r) => r.ventas_vehiculos.count },

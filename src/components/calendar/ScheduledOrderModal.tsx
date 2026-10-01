@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Search } from "lucide-react";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
+import { calendarTimestamp } from "@/lib/calendar";
 import HourSelect from "@/components/common/HourSelect";
 import { listWarrantyClaims } from "@/lib/api/warrantyClaims";
 import { CLAIM_LINKED_ORDER_TYPE_LABELS, CLAIM_LINKED_ORDER_TYPES } from "@/lib/claimLinkedOrderTypes";
@@ -156,13 +157,13 @@ export default function ScheduleOrderModal({
         vehicle_id: selectedVehicleId,
         order_type: orderType,
         warranty_claim_id: requiredClaimType ? warrantyClaimId : null,
-        scheduled_at: new Date(`${date}T${time}`).toISOString(),
+        scheduled_at: calendarTimestamp(date, time),
         bay_id: bayId || null,
         technician_user_id: technicianId || null,
         notes: notes || null,
         customer_reason: customerReason.trim(),
         advisor_user_id: advisorId,
-        promised_at: new Date(`${promisedDate}T${promisedTime}`).toISOString(),
+        promised_at: calendarTimestamp(promisedDate, promisedTime),
       });
       setSearch("");
       setSelectedVehicleId(null);

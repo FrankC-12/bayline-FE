@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { useWarehouseScope } from "@/contexts/WarehouseContext";
 import { useParts } from "@/hooks/useParts";
 import { listLots } from "@/lib/api/warehouse";
+import { formatCount, formatMoney } from "@/lib/format";
 import LotDetailModal from "./LotDetailModal";
 import type { PartLot } from "@/types/warehouse";
 import type { Part } from "@/types/parts";
@@ -150,9 +151,9 @@ export default function LotsSystemView() {
                     className="cursor-pointer transition hover:bg-ash/60"
                   >
                     <td className="px-6 py-4 font-mono font-semibold text-blue">{lot.code}</td>
-                    <td className="px-6 py-4 text-navy">${lot.unit_cost.toFixed(2)}</td>
-                    <td className="px-6 py-4 text-navy">{lot.quantity_received}</td>
-                    <td className="px-6 py-4 text-navy">{lot.quantity_remaining}</td>
+                    <td className="px-6 py-4 text-navy">${formatMoney(lot.unit_cost)}</td>
+                    <td className="px-6 py-4 text-navy">{formatCount(lot.quantity_received)}</td>
+                    <td className="px-6 py-4 text-navy">{formatCount(lot.quantity_remaining)}</td>
                     <td className="px-6 py-4">
                       <span
                         className={`rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${

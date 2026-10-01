@@ -1,5 +1,8 @@
 "use client";
 
+import { formatMoney , formatCount} from "@/lib/format";
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useRef, useState } from "react";
 import { X, Loader2, Receipt, CheckCircle2 } from "lucide-react";
 import {
@@ -10,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useClients } from "@/hooks/useClients";
 import { useSuppliers } from "@/hooks/useSuppliers";
 
-const usd = (value: number | null | undefined) => `$${(value ?? 0).toFixed(2)}`;
+const usd = (value: number | null | undefined) => `$${formatMoney((value ?? 0), 2)}`;
 const bs = (value: number) => `Bs. ${value.toLocaleString("es-VE", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 const inputClass = "mt-1 w-full rounded-xl border border-navy/15 bg-white px-3 py-2.5 text-sm text-navy disabled:bg-ash";
 
@@ -193,7 +196,7 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
         <section className="space-y-5">
           <fieldset disabled={busy}><legend className="mb-2 font-semibold text-navy">Método de pago</legend><div className="grid grid-cols-3 gap-2">{([["usd","USD"],["bs","Bs."],["mixed","Mixto"]] as const).map(([value,label]) => <button type="button" key={value} aria-pressed={method === value} onClick={() => {setMethod(value); setPaidUsd(""); setPaidBs("");}} className={`rounded-xl border px-4 py-3 font-semibold ${method === value ? "border-blue bg-blue-light text-blue" : "border-navy/15 text-steel"}`}>{label}</button>)}</div></fieldset>
           <div className="rounded-xl bg-ash p-4 text-sm"><div className="flex items-center justify-between gap-2"><span className="font-semibold text-navy">Tasa BCV del día</span><button disabled={busy} onClick={updateRate} className="text-blue underline disabled:opacity-50">Actualizar BCV</button></div><p className="mt-1 text-steel">{context?.bcv_rate ? `Bs. ${context.bcv_rate.toLocaleString("es-VE", {minimumFractionDigits: 4, maximumFractionDigits: 8})} por USD · ${context.bcv_date}` : "No hay tasa registrada para hoy. Es necesaria para cobrar en Bs. o mixto."}</p></div>
-          {method === "mixed" && <label className="block text-sm font-medium text-navy">USD aplicado a la factura, antes de IGTF<input type="number" min="0.01" step="0.01" value={usdBase} disabled={busy} onChange={(e) => {setUsdBase(e.target.value); setPaidUsd(""); setPaidBs("");}} className={inputClass} /><span className="mt-1 block text-xs font-normal text-steel">El IGTF se suma a este aporte en USD. El resto de la factura se cobra en Bs.</span></label>}
+          {method === "mixed" && <label className="block text-sm font-medium text-navy">USD aplicado a la factura, antes de IGTF<NumberInput min="0.01" step="0.01" value={usdBase} disabled={busy} onValueChange={(value) => {setUsdBase(value); setPaidUsd(""); setPaidBs("");}} className={inputClass} /><span className="mt-1 block text-xs font-normal text-steel">El IGTF se suma a este aporte en USD. El resto de la factura se cobra en Bs.</span></label>}
           <fieldset disabled={busy} className="rounded-xl border border-navy/10 p-4">
             <label className="flex items-center gap-2 text-sm font-semibold text-navy">
               <input type="checkbox" checked={billToOther} onChange={(e) => { setBillToOther(e.target.checked); if (!e.target.checked) { setBilledClientId(""); setBilledSupplierId(""); setClientSearch(""); setClientConfirmed(false); setClientConfirmedNote(""); } setPaidUsd(""); setPaidBs(""); }} className="h-4 w-4 rounded border-navy/30 text-blue focus:ring-blue" />
@@ -222,15 +225,15 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
             </p>
             <div className="grid grid-cols-2 gap-3">
               <label className="block text-sm text-steel">% Retención IVA
-                <input type="number" min="0" max="100" step="0.01" value={ivaRetentionPct} onChange={(e) => setIvaRetentionPct(e.target.value)} className={inputClass} />
+                <NumberInput min="0" max="100" step="0.01" value={ivaRetentionPct} onValueChange={(value) => setIvaRetentionPct(value)} className={inputClass} />
               </label>
               <label className="block text-sm text-steel">% Retención ISLR
-                <input type="number" min="0" max="100" step="0.01" value={islrRetentionPct} onChange={(e) => setIslrRetentionPct(e.target.value)} className={inputClass} />
+                <NumberInput min="0" max="100" step="0.01" value={islrRetentionPct} onValueChange={(value) => setIslrRetentionPct(value)} className={inputClass} />
               </label>
             </div>
           </fieldset>
           <fieldset disabled={busy} className="space-y-4"><legend className="mb-2 font-semibold text-navy">Registrar pago recibido</legend>
-            {current && (["usd","bs"] as const).filter((currency) => (currency === "usd" ? current.due_usd : current.due_bs) > 0).map((currency) => <div key={currency} className="rounded-xl border border-navy/10 p-4"><p className="mb-3 font-semibold text-navy">A cobrar: {currency === "usd" ? usd(current.due_usd) : bs(current.due_bs)}</p><label className="block text-sm text-steel">Cuenta receptora ({currency === "usd" ? "USD" : "Bs."})<select value={currency === "usd" ? usdAccount : bsAccount} onChange={(e) => (currency === "usd" ? setUsdAccount : setBsAccount)(e.target.value)} className={inputClass}><option value="">Selecciona una cuenta</option>{context?.accounts.filter((a) => a.currency === currency).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>{!context?.accounts.some((a) => a.currency === currency) && <p className="mt-2 text-xs text-red-600">Registra una cuenta activa en esta moneda en Administración para recibir el pago.</p>}<label className="mt-3 block text-sm text-steel">Monto recibido<input type="number" min="0" step="0.01" value={currency === "usd" ? paidUsd : paidBs} onChange={(e) => (currency === "usd" ? setPaidUsd : setPaidBs)(e.target.value)} className={inputClass} /></label></div>)}
+            {current && (["usd","bs"] as const).filter((currency) => (currency === "usd" ? current.due_usd : current.due_bs) > 0).map((currency) => <div key={currency} className="rounded-xl border border-navy/10 p-4"><p className="mb-3 font-semibold text-navy">A cobrar: {currency === "usd" ? usd(current.due_usd) : bs(current.due_bs)}</p><label className="block text-sm text-steel">Cuenta receptora ({currency === "usd" ? "USD" : "Bs."})<select value={currency === "usd" ? usdAccount : bsAccount} onChange={(e) => (currency === "usd" ? setUsdAccount : setBsAccount)(e.target.value)} className={inputClass}><option value="">Selecciona una cuenta</option>{context?.accounts.filter((a) => a.currency === currency).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>{!context?.accounts.some((a) => a.currency === currency) && <p className="mt-2 text-xs text-red-600">Registra una cuenta activa en esta moneda en Administración para recibir el pago.</p>}<label className="mt-3 block text-sm text-steel">Monto recibido<NumberInput min="0" step="0.01" value={currency === "usd" ? paidUsd : paidBs} onValueChange={(value) => (currency === "usd" ? setPaidUsd : setPaidBs)(value)} className={inputClass} /></label></div>)}
             <label className="block text-sm text-steel">Referencia del pago (opcional)<input value={reference} onChange={(e) => setReference(e.target.value)} maxLength={120} className={inputClass} /></label>
           </fieldset>
         </section>
@@ -238,13 +241,13 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
           <Receipt className="mb-3 text-blue"/><h3 className="mb-4 font-semibold text-navy">Desglose de factura</h3><dl className="space-y-3 text-sm text-steel">
             <div className="flex justify-between"><dt>Repuestos</dt><dd>{usd(summary?.parts_subtotal)}</dd></div>
             <div className="flex justify-between"><dt>Mano de obra</dt><dd>{usd(summary?.labor_subtotal)}</dd></div>
-            <div className="flex justify-between"><dt>IVA ({summary?.iva_percentage ?? 0}%)</dt><dd>{usd(summary?.iva_amount)}</dd></div>
-            <div className="flex justify-between"><dt>IGTF ({current?.igtf_percentage ?? context?.igtf_percentage ?? 0}%)</dt><dd>{current ? usd(current.igtf_amount) : "—"}</dd></div>
+            <div className="flex justify-between"><dt>IVA ({formatCount(summary?.iva_percentage ?? 0)}%)</dt><dd>{usd(summary?.iva_amount)}</dd></div>
+            <div className="flex justify-between"><dt>IGTF ({formatCount(current?.igtf_percentage ?? context?.igtf_percentage ?? 0)}%)</dt><dd>{current ? usd(current.igtf_amount) : "—"}</dd></div>
             <div className="flex justify-between border-t border-navy/10 pt-3 font-bold text-navy"><dt>Total equivalente USD</dt><dd>{current ? usd(current.total_usd) : "—"}</dd></div>
             {current && <><div className="flex justify-between"><dt>Cobro USD (incluye IGTF)</dt><dd>{usd(current.due_usd)}</dd></div><div className="flex justify-between"><dt>Cobro Bs.</dt><dd>{bs(current.due_bs)}</dd></div></>}
             {current && (current.iva_retention_amount > 0 || current.islr_retention_amount > 0) && <>
-              <div className="flex justify-between text-red-600"><dt>Retención IVA ({current.iva_retention_percentage}%)</dt><dd>-{usd(current.iva_retention_amount)}</dd></div>
-              <div className="flex justify-between text-red-600"><dt>Retención ISLR ({current.islr_retention_percentage}%)</dt><dd>-{usd(current.islr_retention_amount)}</dd></div>
+              <div className="flex justify-between text-red-600"><dt>Retención IVA ({formatCount(current.iva_retention_percentage)}%)</dt><dd>-{usd(current.iva_retention_amount)}</dd></div>
+              <div className="flex justify-between text-red-600"><dt>Retención ISLR ({formatCount(current.islr_retention_percentage)}%)</dt><dd>-{usd(current.islr_retention_amount)}</dd></div>
               <div className="flex justify-between border-t border-navy/10 pt-3 font-bold text-navy"><dt>Neto esperado a cobrar</dt><dd>{usd(current.net_expected)}</dd></div>
             </>}
           </dl><p className="mt-4 text-xs text-steel">IGTF aplicado únicamente al aporte en USD. Su porcentaje se configura en Postventa.</p>

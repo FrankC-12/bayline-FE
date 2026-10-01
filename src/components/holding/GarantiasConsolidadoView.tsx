@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getHoldingWarrantyReceivables, type HoldingWarrantyReceivablesReport } from "@/lib/api/holding";
 import EmptyState from "@/components/common/EmptyState";
 
-const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`;
+const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function GarantiasConsolidadoView() {
   const { currentUser } = useAuth();

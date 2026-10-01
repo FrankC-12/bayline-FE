@@ -1,5 +1,7 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import { useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { useParts } from "@/hooks/useParts";
@@ -14,7 +16,7 @@ interface Props {
   onChangeLinePayer: (id: string, payer: ServiceOrderPayer) => Promise<void>;
 }
 
-const money = (value: number) => `$${value.toFixed(2)}`;
+const money = (value: number) => `$${formatMoney(value, 2)}`;
 
 export default function CoverageBreakdownCard({ summary, filialId, readOnly, onChangeTaskPayer, onChangeLinePayer }: Props) {
   const { parts } = useParts(filialId);
@@ -24,7 +26,7 @@ export default function CoverageBreakdownCard({ summary, filialId, readOnly, onC
     ...summary.tasks.map((task) => ({ id: task.id, name: task.name_snapshot, detail: `${task.code_snapshot} · Mano de obra · ${task.hours_snapshot} h`, payer: task.payer, task: true })),
     ...summary.transfers.flatMap((transfer) => transfer.lines.map((line) => {
       const part = parts.find((item) => item.id === line.part_id);
-      return { id: line.id, name: part?.name ?? "Repuesto", detail: `${transfer.code} · ${part?.code ?? ""} · Cant. ${line.quantity}`, payer: line.payer, task: false };
+      return { id: line.id, name: part?.name ?? "Repuesto", detail: `${transfer.code} · ${part?.code ?? ""} · Cant. ${formatCount(line.quantity)}`, payer: line.payer, task: false };
     })),
   ];
 

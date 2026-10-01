@@ -1,11 +1,14 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ChevronLeft, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParts } from "@/hooks/useParts";
 import { getPartSale, updatePartSaleStatus } from "@/lib/api/parts";
+import { formatMoney , formatCount} from "@/lib/format";
 import type { PartSale } from "@/types/parts";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -179,15 +182,14 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
                     <span className="font-mono text-blue">{partCode(line.part_id)}</span>{" "}
                     <span className="text-navy">{partName(line.part_id)}</span>
                   </td>
-                  <td className="py-2 text-navy">{line.quantity}</td>
+                  <td className="py-2 text-navy">{formatCount(line.quantity)}</td>
                   <td className="py-2">
                     {sale.status === "pendiente" ? (
-                      <input
-                        type="number"
+                      <NumberInput
                         min="0"
                         value={dispatchDrafts[line.id] ?? ""}
-                        onChange={(e) =>
-                          setDispatchDrafts((prev) => ({ ...prev, [line.id]: e.target.value }))
+                        onValueChange={(value) =>
+                          setDispatchDrafts((prev) => ({ ...prev, [line.id]: value }))
                         }
                         className={`w-24 rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-blue ${
                           draftMismatch ? "border-amber-400" : "border-navy/15"
@@ -195,14 +197,14 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
                       />
                     ) : line.dispatched_quantity != null ? (
                       <span className={confirmedMismatch ? "font-semibold text-red-600" : "text-navy"}>
-                        {line.dispatched_quantity}
+                        {formatCount(line.dispatched_quantity)}
                       </span>
                     ) : (
                       "—"
                     )}
                   </td>
                   <td className="py-2 text-right font-medium text-navy">
-                    ${line.line_total.toFixed(2)}
+                    ${formatMoney(line.line_total)}
                   </td>
                 </tr>
               );
@@ -210,11 +212,11 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
           </tbody>
         </table>
         <div className="mt-4 space-y-1 border-t border-navy/10 pt-4 text-right text-sm">
-          <p className="text-steel">Subtotal: ${sale.total.toFixed(2)}</p>
-          <p className="text-steel">IVA ({sale.iva_percentage}%): ${sale.iva_amount.toFixed(2)}</p>
-          <p className="text-steel">IGTF ({sale.igtf_percentage}%): ${sale.igtf_amount.toFixed(2)}</p>
+          <p className="text-steel">Subtotal: ${formatMoney(sale.total)}</p>
+          <p className="text-steel">IVA ({formatCount(sale.iva_percentage)}%): ${formatMoney(sale.iva_amount)}</p>
+          <p className="text-steel">IGTF ({formatCount(sale.igtf_percentage)}%): ${formatMoney(sale.igtf_amount)}</p>
           <p className="font-display text-lg font-bold text-navy">
-            Total: ${sale.total_with_taxes.toFixed(2)}
+            Total: ${formatMoney(sale.total_with_taxes)}
           </p>
         </div>
       </div>

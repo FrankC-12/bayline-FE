@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useState } from "react";
 import { X, Loader2, Search, Landmark, AlertTriangle } from "lucide-react";
 import { useClients } from "@/hooks/useClients";
@@ -11,7 +13,7 @@ import type { Client } from "@/types/client";
 import type { CreateClientInput } from "@/lib/api/clients";
 import { getLatestExchangeRates, type VehicleSaleInput } from "@/lib/api/concesionario";
 import type { DealershipVehicle } from "@/types/concesionario";
-import { formatDocumentId } from "@/lib/format";
+import { formatDocumentId, formatMoney , formatCount} from "@/lib/format";
 
 type PaymentMethod = "usd" | "bs" | "mixed";
 
@@ -255,21 +257,21 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
                 <dl className="space-y-1.5 text-sm">
                   <div className="flex justify-between text-steel">
                     <dt>PVP contado</dt>
-                    <dd className="font-medium text-navy">{symbol} {vehicle.price_cash.toFixed(2)}</dd>
+                    <dd className="font-medium text-navy">{symbol} {formatMoney(vehicle.price_cash)}</dd>
                   </div>
                   <div className="flex justify-between text-steel">
-                    <dt>IVA ({vehicle.iva_percentage}%)</dt>
-                    <dd className="font-medium text-navy">{symbol} {vehicle.iva_amount.toFixed(2)}</dd>
+                    <dt>IVA ({formatCount(vehicle.iva_percentage)}%)</dt>
+                    <dd className="font-medium text-navy">{symbol} {formatMoney(vehicle.iva_amount)}</dd>
                   </div>
                   {vehicle.luxury_tax_percentage > 0 && (
                     <div className="flex justify-between text-steel">
-                      <dt>Impuesto al lujo ({vehicle.luxury_tax_percentage}%)</dt>
-                      <dd className="font-medium text-navy">{symbol} {vehicle.luxury_tax_amount.toFixed(2)}</dd>
+                      <dt>Impuesto al lujo ({formatCount(vehicle.luxury_tax_percentage)}%)</dt>
+                      <dd className="font-medium text-navy">{symbol} {formatMoney(vehicle.luxury_tax_amount)}</dd>
                     </div>
                   )}
                   <div className="flex justify-between border-t border-navy/10 pt-1.5 font-bold text-navy">
                     <dt>Precio de lista</dt>
-                    <dd>{symbol} {listPrice.toFixed(2)}</dd>
+                    <dd>{symbol} {formatMoney(listPrice)}</dd>
                   </div>
                 </dl>
                 <p className="mt-2 text-xs text-steel">No incluye IGTF — se calcula al cobrar, según cuánto se pague en divisas.</p>
@@ -295,11 +297,11 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
                 {paymentMethod === "mixed" && (
                   <div className="mt-3">
                     <label className="mb-1.5 block text-xs font-medium text-navy">Monto pagado en USD</label>
-                    <input
+                    <NumberInput
                       inputMode="decimal"
                       value={usdBaseInput}
-                      onChange={(e) => setUsdBaseInput(e.target.value)}
-                      placeholder="0.00"
+                      onValueChange={(value) => setUsdBaseInput(value)}
+                      placeholder="0,00"
                       className="w-full rounded-lg border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue"
                     />
                   </div>
@@ -314,12 +316,12 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
 
                 <dl className="mt-3 space-y-1.5 border-t border-navy/10 pt-3 text-sm">
                   <div className="flex justify-between text-steel">
-                    <dt>IGTF ({vehicle.igtf_percentage}% sobre {symbol} {usdBase.toFixed(2)} en divisas)</dt>
-                    <dd className="font-medium text-navy">{symbol} {igtfPreview.toFixed(2)}</dd>
+                    <dt>IGTF ({formatCount(vehicle.igtf_percentage)}% sobre {symbol} {formatMoney(usdBase)} en divisas)</dt>
+                    <dd className="font-medium text-navy">{symbol} {formatMoney(igtfPreview)}</dd>
                   </div>
                   <div className="flex justify-between pt-1 font-bold text-navy">
                     <dt>Total a cobrar</dt>
-                    <dd>{symbol} {totalToCharge.toFixed(2)}</dd>
+                    <dd>{symbol} {formatMoney(totalToCharge)}</dd>
                   </div>
                 </dl>
               </div>
@@ -329,7 +331,7 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-steel">Precio financiado</p>
-                  <p className="font-display text-lg font-bold text-navy">{symbol} {vehicle.price_financed.toFixed(2)}</p>
+                  <p className="font-display text-lg font-bold text-navy">{symbol} {formatMoney(vehicle.price_financed)}</p>
                 </div>
                 <button
                   type="button"
@@ -352,8 +354,8 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
               <div className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <p>
-                  El precio de venta ({symbol} {projectedFinalPrice.toFixed(2)}) está por debajo del costo del
-                  vehículo ({symbol} {Number(vehicle.cost_price ?? 0).toFixed(2)}).
+                  El precio de venta ({symbol} {formatMoney(projectedFinalPrice)}) está por debajo del costo del
+                  vehículo ({symbol} {formatMoney(Number(vehicle.cost_price ?? 0))}).
                 </p>
               </div>
               {canAuthorizeBelowCost ? (

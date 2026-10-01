@@ -1,5 +1,8 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useState } from "react";
 import Link from "next/link";
 import { Loader2, X } from "lucide-react";
@@ -11,7 +14,7 @@ import type { Receivable } from "@/lib/api/serviceOrderBilling";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 
-const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`;
+const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const AGING_STYLES: Record<Receivable["aging_bucket"], string> = {
   "0-30": "bg-emerald-100 text-emerald-700",
@@ -78,7 +81,7 @@ export default function ReceivablesView() {
                   <td className="px-6 py-4 font-semibold text-amber-700">{usd(r.pending_amount)}</td>
                   <td className="px-6 py-4">
                     <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${AGING_STYLES[r.aging_bucket]}`}>
-                      {r.days_outstanding} días ({r.aging_bucket})
+                      {formatCount(r.days_outstanding)} días ({r.aging_bucket})
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -195,23 +198,21 @@ function CollectModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Retenciones</label>
-              <input
-                type="number"
+              <NumberInput
                 min="0"
                 step="0.01"
                 value={withholding}
-                onChange={(e) => setWithholding(e.target.value)}
+                onValueChange={(value) => setWithholding(value)}
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Monto neto cobrado</label>
-              <input
-                type="number"
+              <NumberInput
                 min="0"
                 step="0.01"
                 value={netAmount}
-                onChange={(e) => setNetAmount(e.target.value)}
+                onValueChange={(value) => setNetAmount(value)}
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               />
             </div>

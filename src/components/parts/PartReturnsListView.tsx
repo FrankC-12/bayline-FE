@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { useState } from "react";
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
@@ -108,7 +109,7 @@ export default function PartReturnsListView() {
                     {new Date(r.created_at).toLocaleDateString("es-VE")}
                   </td>
                   <td className="px-6 py-4 font-medium text-navy">{partName(r.part_id)}</td>
-                  <td className="px-6 py-4 text-navy">{r.quantity}</td>
+                  <td className="px-6 py-4 text-navy">{formatCount(r.quantity)}</td>
                   <td className="px-6 py-4 text-steel">{r.origin_warehouse}</td>
                   <td className="px-6 py-4 text-steel">{r.destination_warehouse}</td>
                   <td className="px-6 py-4 text-steel">{REASON_LABELS[r.reason]}</td>

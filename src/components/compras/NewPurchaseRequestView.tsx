@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -141,11 +143,10 @@ export default function NewPurchaseRequestView() {
                     </div>
                   )}
                 </div>
-                <input
-                  type="number"
+                <NumberInput
                   min="0"
                   value={line.quantity}
-                  onChange={(e) => updateLine(i, { quantity: e.target.value })}
+                  onValueChange={(value) => updateLine(i, { quantity: value })}
                   className="w-24 rounded-xl border border-navy/15 px-3 py-2.5 text-center text-sm outline-none focus:border-blue"
                 />
                 <button

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { useEffect, useState } from "react";
 
 interface GaugeDialProps {
@@ -42,7 +43,7 @@ export default function GaugeDial({ value, label, suffix = "" }: GaugeDialProps)
       </svg>
       <div className="absolute flex flex-col items-center">
         <span className="font-display text-xl font-bold text-white">
-          {Math.round(filled)}
+          {formatCount(Math.round(filled))}
           {suffix}
         </span>
         <span className="mt-1 font-mono text-[9px] uppercase tracking-widest text-slate-400">

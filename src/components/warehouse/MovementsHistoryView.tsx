@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { useWarehouseScope } from "@/contexts/WarehouseContext";
@@ -35,7 +36,7 @@ const TYPE_STYLES: Record<MovementType, string> = {
 
 function signedQuantity(movement: StockMovement): string {
   const inbound = movement.movement_type === "entrada" || movement.movement_type === "transferencia_entrada";
-  return `${inbound ? "+" : "-"}${movement.quantity}`;
+  return `${inbound ? "+" : "-"}${formatCount(movement.quantity)}`;
 }
 
 export default function MovementsHistoryView() {

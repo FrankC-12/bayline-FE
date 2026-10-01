@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useState } from "react";
 import { X, Loader2, Search } from "lucide-react";
 import { useClients } from "@/hooks/useClients";
@@ -207,11 +209,11 @@ export default function ReserveVehicleModal({
               <label className="mb-1.5 block text-sm font-medium text-navy">Monto de abono *</label>
               <div className="flex items-center gap-1">
                 <span className="text-sm text-steel">{symbol}</span>
-                <input
+                <NumberInput
                   inputMode="decimal"
                   value={depositAmount}
-                  onChange={(e) => setDepositAmount(e.target.value)}
-                  placeholder="0.00"
+                  onValueChange={(value) => setDepositAmount(value)}
+                  placeholder="0,00"
                   className="w-full rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-blue"
                 />
               </div>

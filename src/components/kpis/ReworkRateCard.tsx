@@ -1,15 +1,16 @@
 "use client";
 
+import { formatMoney , formatCount} from "@/lib/format";
 import { AlertTriangle } from "lucide-react";
 import type { ReworkReport } from "@/types/kpis";
 
 function pct(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
+  return `${formatMoney((value * 100), 1)}%`;
 }
 
 function days(value: number | null): string {
   if (value == null) return "—";
-  return `${value.toFixed(1)} días`;
+  return `${formatMoney(value, 1)} días`;
 }
 
 export default function ReworkRateCard({
@@ -35,7 +36,7 @@ export default function ReworkRateCard({
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Tasa de retrabajo</p>
           <p className="mt-1 font-display text-2xl font-bold text-navy">{pct(report.rework_rate)}</p>
           <p className="mt-1 text-xs text-steel">
-            {report.orders_with_claim_count} de {report.invoiced_orders_count} órdenes facturadas
+            {formatCount(report.orders_with_claim_count)} de {formatCount(report.invoiced_orders_count)} órdenes facturadas
           </p>
         </div>
         <div className="rounded-xl bg-ash p-5">
@@ -44,12 +45,12 @@ export default function ReworkRateCard({
         </div>
         <div className="rounded-xl bg-ash p-5">
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Reclamos rápidos (≤30 días)</p>
-          <p className="mt-1 font-display text-2xl font-bold text-navy">{report.quick_claims_count}</p>
+          <p className="mt-1 font-display text-2xl font-bold text-navy">{formatCount(report.quick_claims_count)}</p>
           <p className="mt-1 text-xs text-steel">Probable problema de mano de obra</p>
         </div>
         <div className="rounded-xl bg-ash p-5">
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Reclamos tardíos (&gt;30 días)</p>
-          <p className="mt-1 font-display text-2xl font-bold text-navy">{report.slow_claims_count}</p>
+          <p className="mt-1 font-display text-2xl font-bold text-navy">{formatCount(report.slow_claims_count)}</p>
           <p className="mt-1 text-xs text-steel">Probable desgaste normal</p>
         </div>
       </div>
@@ -121,8 +122,8 @@ function BreakdownTable({
                   <span className="font-medium text-navy">{row.label}</span>
                   {row.extra && <span className="block text-xs text-steel">{row.extra}</span>}
                 </td>
-                <td className="py-2.5 text-right text-navy">{row.count}</td>
-                <td className="py-2.5 text-right text-navy">{row.days != null ? row.days.toFixed(1) : "—"}</td>
+                <td className="py-2.5 text-right text-navy">{formatCount(row.count)}</td>
+                <td className="py-2.5 text-right text-navy">{row.days != null ? formatMoney(row.days, 1) : "—"}</td>
               </tr>
             ))}
           </tbody>

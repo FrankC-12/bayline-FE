@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useVehicles } from "@/hooks/useVehicles";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { listVehicleSales } from "@/lib/api/concesionario";
+import { formatMoney } from "@/lib/format";
 import type { VehicleSale } from "@/types/concesionario";
 import VehicleSaleDetailDrawer from "./VehicleSaleDetailDrawer";
 
@@ -73,7 +74,7 @@ export default function VehicleSalesView() {
                   <td className="px-6 py-4 text-navy">{vehicleLabel(s.vehicle_id)}</td>
                   <td className="px-6 py-4 text-steel">{advisorName(s.advisor_user_id)}</td>
                   <td className="px-6 py-4 text-steel capitalize">{s.sale_type}</td>
-                  <td className="px-6 py-4 font-display font-bold text-navy">${s.final_price.toLocaleString()}</td>
+                  <td className="px-6 py-4 font-display font-bold text-navy">${formatMoney(s.final_price)}</td>
                 </tr>
               ))}
             </tbody>

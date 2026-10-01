@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -109,7 +110,7 @@ export default function VehicleCatalogView() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[{ label: "Nuevos", value: summary.nuevos }, { label: "Usados", value: summary.usados }, { label: "En tránsito", value: summary.enTransito }, { label: "Disponibles", value: summary.disponibles }].map((item) => <div key={item.label} className="rounded-2xl border border-navy/10 bg-white p-5"><p className="font-mono text-[11px] uppercase tracking-widest text-steel">{item.label}</p><p className="mt-1 font-display text-3xl font-bold text-navy">{item.value}</p></div>)}
+        {[{ label: "Nuevos", value: summary.nuevos }, { label: "Usados", value: summary.usados }, { label: "En tránsito", value: summary.enTransito }, { label: "Disponibles", value: summary.disponibles }].map((item) => <div key={item.label} className="rounded-2xl border border-navy/10 bg-white p-5"><p className="font-mono text-[11px] uppercase tracking-widest text-steel">{item.label}</p><p className="mt-1 font-display text-3xl font-bold text-navy">{formatCount(item.value)}</p></div>)}
       </div>
 
       <div className="mb-6 flex items-center gap-3">

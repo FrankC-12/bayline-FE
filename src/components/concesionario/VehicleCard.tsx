@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, ImageIcon, Trash2 } from "lucide-react";
 import { availableStatusOptions, locationLabel, STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
+import { formatMoney , formatCount} from "@/lib/format";
 import type { DealershipVehicle } from "@/types/concesionario";
 
 interface VehicleCardProps {
@@ -54,7 +55,7 @@ export default function VehicleCard({
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
               <span className="absolute bottom-1.5 right-1.5 rounded-full bg-navy/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                {(photoIndex % photoCount) + 1}/{photoCount}
+                {(photoIndex % photoCount) + 1}/{formatCount(photoCount)}
               </span>
             </>
           )}
@@ -115,7 +116,7 @@ export default function VehicleCard({
               <span className="font-semibold">{reservedByName ?? "—"}</span>
             </p>
             <p className="mt-0.5 text-steel">
-              Abono ${Number(vehicle.deposit_amount ?? 0).toFixed(2)} · vigente hasta{" "}
+              Abono ${formatMoney(Number(vehicle.deposit_amount ?? 0))} · vigente hasta{" "}
               {vehicle.reservation_expires_at
                 ? new Date(`${vehicle.reservation_expires_at}T12:00:00`).toLocaleDateString("es-VE")
                 : "—"}
@@ -157,11 +158,11 @@ export default function VehicleCard({
         <div className="mt-4 flex items-center justify-between border-t border-navy/10 pt-3">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-steel">Contado</p>
-            <p className="font-display font-bold text-navy">${vehicle.price_cash.toLocaleString()}</p>
+            <p className="font-display font-bold text-navy">${formatMoney(vehicle.price_cash)}</p>
           </div>
           <div className="text-right">
             <p className="font-mono text-[10px] uppercase tracking-widest text-steel">Financiado</p>
-            <p className="font-display font-bold text-navy">${vehicle.price_financed.toLocaleString()}</p>
+            <p className="font-display font-bold text-navy">${formatMoney(vehicle.price_financed)}</p>
           </div>
         </div>
         {onSell && vehicle.status !== "vendido" && (

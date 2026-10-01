@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { useState } from "react";
 import { Calendar, Trophy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -255,7 +256,7 @@ export default function TorreDeControlView() {
               </div>
               <div className="rounded-xl bg-ash p-5">
                 <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Total en el período</p>
-                <p className="mt-1 font-display text-2xl font-bold text-navy">{report.overall_count}</p>
+                <p className="mt-1 font-display text-2xl font-bold text-navy">{formatCount(report.overall_count)}</p>
               </div>
             </div>
 
@@ -278,7 +279,7 @@ export default function TorreDeControlView() {
                         {i === 0 ? <Trophy className="h-4 w-4 text-amber-500" /> : <span className="text-steel">{i + 1}</span>}
                       </td>
                       <td className="py-3 font-semibold text-navy">{userName(row.user_id)}</td>
-                      <td className="py-3 text-navy">{row.count}</td>
+                      <td className="py-3 text-navy">{formatCount(row.count)}</td>
                       <td className="py-3 text-right font-medium text-navy">{formatHours(row.avg_hours)}</td>
                     </tr>
                   ))}

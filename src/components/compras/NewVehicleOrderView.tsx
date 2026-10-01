@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -142,11 +144,10 @@ export default function NewVehicleOrderView() {
                   placeholder="Color"
                   className="col-span-2 rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-blue"
                 />
-                <input
-                  type="number"
+                <NumberInput
                   min="1"
                   value={line.quantity}
-                  onChange={(e) => updateLine(i, { quantity: e.target.value })}
+                  onValueChange={(value) => updateLine(i, { quantity: value })}
                   placeholder="Cant."
                   className="col-span-1 rounded-xl border border-navy/15 px-3 py-2.5 text-center text-sm outline-none focus:border-blue"
                 />

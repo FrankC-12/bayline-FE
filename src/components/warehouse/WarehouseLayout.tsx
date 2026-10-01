@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -69,7 +70,7 @@ function WarehouseLayoutContent({ children }: { children: React.ReactNode }) {
                 <span className="flex-1">{item.label}</span>
                 {isTransfers && unseenCount > 0 && (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
-                    {unseenCount}
+                    {formatCount(unseenCount)}
                   </span>
                 )}
               </Link>

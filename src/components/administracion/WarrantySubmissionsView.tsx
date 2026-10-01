@@ -1,5 +1,8 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Plus, X, Loader2, ChevronDown, ChevronUp, Download, Trash2 } from "lucide-react";
@@ -31,7 +34,7 @@ const STATUS_STYLES: Record<WarrantySubmissionStatus, string> = {
 };
 
 function formatAmount(amount: number, currency: string): string {
-  return `${currency.toUpperCase()} ${amount.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`;
+  return `${currency.toUpperCase()} ${amount.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function WarrantySubmissionsView() {
@@ -323,7 +326,7 @@ function SubmissionRow({
                     <tr key={c.id}>
                       <td className="py-2 font-medium text-navy">{partName(c.part_id)}</td>
                       <td className="py-2 text-steel">{supplierName(c.supplier_id)}</td>
-                      <td className="py-2 text-steel">{c.quantity}</td>
+                      <td className="py-2 text-steel">{formatCount(c.quantity)}</td>
                       <td className="py-2 text-navy">
                         {c.claimed_amount != null && c.currency ? formatAmount(c.claimed_amount, c.currency) : "—"}
                       </td>
@@ -520,23 +523,21 @@ function PayModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Retenciones</label>
-              <input
-                type="number"
+              <NumberInput
                 min="0"
                 step="0.01"
                 value={withholding}
-                onChange={(e) => setWithholding(e.target.value)}
+                onValueChange={(value) => setWithholding(value)}
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Monto neto cobrado</label>
-              <input
-                type="number"
+              <NumberInput
                 min="0"
                 step="0.01"
                 value={netAmount}
-                onChange={(e) => setNetAmount(e.target.value)}
+                onValueChange={(value) => setNetAmount(value)}
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               />
             </div>

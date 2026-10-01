@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -51,7 +52,7 @@ function ServiceOrdersLayoutContent({ children }: { children: React.ReactNode })
                 <span className="flex-1">{item.label}</span>
                 {showBadge && (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
-                    {pendingCount}
+                    {formatCount(pendingCount)}
                   </span>
                 )}
               </Link>

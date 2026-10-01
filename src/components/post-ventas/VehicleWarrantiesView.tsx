@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useState } from "react";
 import { Plus, Search, Upload, X, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -233,11 +235,11 @@ function CreateWarrantyModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Meses de cobertura</label>
-              <input type="number" min="0" value={durationMonths} onChange={(e) => setDurationMonths(e.target.value)} className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue" />
+              <NumberInput min="0" value={durationMonths} onValueChange={(value) => setDurationMonths(value)} className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue" />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Kilómetros de cobertura</label>
-              <input type="number" min="0" value={durationKm} onChange={(e) => setDurationKm(e.target.value)} className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue" />
+              <NumberInput min="0" value={durationKm} onValueChange={(value) => setDurationKm(value)} className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue" />
             </div>
           </div>
           <p className="text-xs text-steel">Define al menos una de las dos.</p>

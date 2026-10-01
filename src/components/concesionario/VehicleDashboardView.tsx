@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -87,7 +88,7 @@ export default function VehicleDashboardView() {
         ].map((card) => (
           <div key={card.label} className="rounded-2xl border border-navy/10 bg-white p-5">
             <p className="font-mono text-[11px] uppercase tracking-widest text-steel">{card.label}</p>
-            <p className="mt-1 font-display text-3xl font-bold text-navy">{card.value}</p>
+            <p className="mt-1 font-display text-3xl font-bold text-navy">{formatCount(card.value)}</p>
           </div>
         ))}
       </div>

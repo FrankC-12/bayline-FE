@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -19,7 +21,7 @@ import type { Warehouse } from "@/types/warehouse";
 import PartAvailabilityHint from "@/components/warehouse/PartAvailabilityHint";
 
 import { DISCOUNT_OPTIONS, type DiscountLabel } from "@/lib/partsPricing";
-import { formatDocumentId } from "@/lib/format";
+import { formatDocumentId, formatMoney , formatCount} from "@/lib/format";
 
 interface LineDraft {
   partId: string;
@@ -351,12 +353,11 @@ export default function NewPartSaleView() {
                         </div>
                       )}
                     </div>
-                    <input
-                      type="number"
+                    <NumberInput
                       min="1"
                       step="1"
                       value={line.quantity}
-                      onChange={(e) => updateLine(i, { quantity: e.target.value })}
+                      onValueChange={(value) => updateLine(i, { quantity: value })}
                       className={`w-24 rounded-xl border px-3 py-2.5 text-center text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 ${
                         lineErrors[i] ? "border-red-400" : "border-navy/15"
                       }`}
@@ -415,19 +416,19 @@ export default function NewPartSaleView() {
                 <div className="space-y-1.5 text-sm">
                   <div className="flex items-center justify-between text-steel">
                     <span>Subtotal</span>
-                    <span className="font-medium text-navy">${currentQuote.total.toFixed(2)}</span>
+                    <span className="font-medium text-navy">${formatMoney(currentQuote.total)}</span>
                   </div>
                   <div className="flex items-center justify-between text-steel">
-                    <span>IVA ({currentQuote.iva_percentage}%)</span>
-                    <span className="font-medium text-navy">${currentQuote.iva_amount.toFixed(2)}</span>
+                    <span>IVA ({formatCount(currentQuote.iva_percentage)}%)</span>
+                    <span className="font-medium text-navy">${formatMoney(currentQuote.iva_amount)}</span>
                   </div>
                   <div className="flex items-center justify-between text-steel">
-                    <span>IGTF ({currentQuote.igtf_percentage}% sobre subtotal + IVA)</span>
-                    <span className="font-medium text-navy">${currentQuote.igtf_amount.toFixed(2)}</span>
+                    <span>IGTF ({formatCount(currentQuote.igtf_percentage)}% sobre subtotal + IVA)</span>
+                    <span className="font-medium text-navy">${formatMoney(currentQuote.igtf_amount)}</span>
                   </div>
                   <div className="flex items-center justify-between border-t border-navy/10 pt-1.5">
                     <span className="font-medium text-navy">Total</span>
-                    <span className="font-display text-lg font-bold text-blue">${currentQuote.total_with_taxes.toFixed(2)}</span>
+                    <span className="font-display text-lg font-bold text-blue">${formatMoney(currentQuote.total_with_taxes)}</span>
                   </div>
                 </div>
               ) : (
@@ -450,7 +451,7 @@ export default function NewPartSaleView() {
           {currentQuote?.lines.map((line) => (
             <div key={line.part_id} className="rounded-xl border border-navy/10 px-4 py-3 text-sm">
               <p>{parts.find((part) => part.id === line.part_id)?.name}</p>
-              <p>{line.quantity} × ${line.unit_price.toFixed(6)} = ${line.line_total.toFixed(2)}</p>
+              <p>{formatCount(line.quantity)} × ${formatMoney(line.unit_price, 6)} = ${formatMoney(line.line_total)}</p>
             </div>
           ))}
 

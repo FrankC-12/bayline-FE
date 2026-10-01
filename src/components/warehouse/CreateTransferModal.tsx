@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useState } from "react";
 import { X, Loader2, Plus, Search } from "lucide-react";
 import { useParts } from "@/hooks/useParts";
@@ -199,12 +201,11 @@ export default function CreateTransferModal({
                       )
                     )}
                   </div>
-                  <input
-                    type="number"
+                  <NumberInput
                     min="1"
                     placeholder="Cant."
                     value={line.quantity}
-                    onChange={(e) => updateLine(i, { quantity: e.target.value })}
+                    onValueChange={(value) => updateLine(i, { quantity: value })}
                     className="w-20 rounded-lg border border-navy/15 px-2 py-2 text-center text-sm outline-none focus:border-blue"
                   />
                   <button

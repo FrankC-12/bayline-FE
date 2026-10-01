@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Download, Loader2 } from "lucide-react";
@@ -9,6 +11,7 @@ import { useParts } from "@/hooks/useParts";
 import { useWarehouses } from "@/hooks/useWarehouses";
 import { getPurchaseRequest, updatePurchaseRequestStatus } from "@/lib/api/administracion";
 import { downloadPurchaseRequestExcel, downloadPurchaseRequestTxt } from "@/lib/purchaseExport";
+import { formatMoney , formatCount} from "@/lib/format";
 import type { PurchaseRequest, PurchaseRequestStatus } from "@/types/administracion";
 
 const STATUS_LABELS: Record<PurchaseRequestStatus, string> = {
@@ -203,26 +206,25 @@ export default function PurchaseRequestDetailView({ requestId }: PurchaseRequest
                   <span className="font-mono text-blue">{partCode(line.part_id)}</span>{" "}
                   <span className="text-navy">{partName(line.part_id)}</span>
                 </td>
-                <td className="py-2 text-navy">{line.quantity}</td>
+                <td className="py-2 text-navy">{formatCount(line.quantity)}</td>
                 <td className="py-2">
                   {request.status === "enviada" ? (
-                    <input
-                      type="number"
+                    <NumberInput
                       min="0"
                       step="0.01"
                       value={quoteCosts[line.id] ?? ""}
-                      onChange={(e) => setQuoteCosts((prev) => ({ ...prev, [line.id]: e.target.value }))}
-                      placeholder="0.00"
+                      onValueChange={(value) => setQuoteCosts((prev) => ({ ...prev, [line.id]: value }))}
+                      placeholder="0,00"
                       className="w-24 rounded-lg border border-navy/15 px-2 py-1.5 text-sm outline-none focus:border-blue"
                     />
                   ) : line.unit_cost != null ? (
-                    `$${line.unit_cost.toFixed(2)}`
+                    `$${formatMoney(line.unit_cost)}`
                   ) : (
                     "—"
                   )}
                 </td>
                 <td className="py-2 text-right font-medium text-navy">
-                  {line.subtotal != null ? `$${line.subtotal.toFixed(2)}` : "—"}
+                  {line.subtotal != null ? `$${formatMoney(line.subtotal)}` : "—"}
                 </td>
               </tr>
             ))}
@@ -232,7 +234,7 @@ export default function PurchaseRequestDetailView({ requestId }: PurchaseRequest
         {request.total_quoted != null && (
           <div className="mt-4 flex justify-end border-t border-navy/10 pt-4">
             <span className="font-display text-lg font-bold text-navy">
-              Total: ${request.total_quoted.toFixed(2)}
+              Total: ${formatMoney(request.total_quoted)}
             </span>
           </div>
         )}

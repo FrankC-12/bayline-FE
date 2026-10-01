@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBays } from "@/hooks/useBays";
 import { useScheduledOrders } from "@/hooks/useScheduledOrders";
-import { useServiceOrders } from "@/hooks/useServiceOrders";
+import { CALENDAR_TIME_ZONE, UNASSIGNED_BAY, calendarDate, calendarHour, calendarTimestamp, shiftCalendarDate, calendarLayout } from "@/lib/calendar";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { useRoleDirectory } from "@/hooks/useRoleDirectory";
@@ -16,39 +16,21 @@ import ErrorState from "@/components/common/ErrorState";
 import ConfigureBaysModal from "./ConfigureBaysModal";
 import ScheduleOrderModal from "./ScheduledOrderModal";
 
-const HOURS = Array.from({ length: 11 }, (_, i) => 8 + i); // 08:00 .. 18:00
-
-function toDateInputValue(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
-
 export default function CalendarView() {
   const router = useRouter();
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
-  const [selectedDate, setSelectedDate] = useState(() => toDateInputValue(new Date()));
+  const [selectedDate, setSelectedDate] = useState(() => calendarDate(new Date()));
   const { bays, addBay, toggleActive, renameBay } = useBays(filialId);
-  const { orders, loading, error, addOrder, rescheduleOrder, refresh } = useScheduledOrders(filialId, selectedDate);
-  // Every order the Kanban board shows (view=active, no date scope) — an
-  // active order missing scheduled_at (a walk-in, typically) never lands in
-  // the grid above, so it's surfaced here instead of being invisible on
-  // this screen entirely.
-  const { orders: activeOrders } = useServiceOrders(filialId, "active");
+  const { orders, activeOrders, loading, error, addOrder, rescheduleOrder, refresh } = useScheduledOrders(filialId, selectedDate);
   const unscheduledOrders = useMemo(
     () => activeOrders.filter((o) => !o.scheduled_at),
     [activeOrders]
   );
-  // An order can be scheduled (has scheduled_at) with no bay chosen yet —
-  // bay is optional in ScheduleOrderModal and the backend never requires
-  // it, but ordersByBayAndHour below can only place an order that has
-  // both. Without this, such an order silently disappears from the
-  // calendar grid entirely (it still shows in "Citas de Hoy", which is
-  // date-scoped and doesn't filter by bay) — same "never invisible"
-  // reasoning as unscheduledOrders above.
   const scheduledWithoutBay = useMemo(
-    () => activeOrders.filter((o) => !!o.scheduled_at && !o.bay_id),
-    [activeOrders]
+    () => orders.filter((o) => !o.bay_id),
+    [orders]
   );
   const { vehicleMap } = useVehicleLookup(filialId);
   const { users } = useUserDirectory({ filialId });
@@ -64,6 +46,7 @@ export default function CalendarView() {
   const [clickedSlot, setClickedSlot] = useState<{ hour: number; bayId: string } | null>(null);
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
   const draggingRef = useRef(false);
 
   function openScheduleModal(slot?: { hour: number; bayId: string }) {
@@ -73,12 +56,14 @@ export default function CalendarView() {
 
   const activeBays = useMemo(() => bays.filter((b) => b.is_active), [bays]);
 
+  const { columns: calendarBays, hours } = useMemo(() => calendarLayout(orders, bays), [orders, bays]);
+
   const ordersByBayAndHour = useMemo(() => {
     const map = new Map<string, typeof orders>();
     for (const o of orders) {
-      if (!o.scheduled_at || !o.bay_id) continue;
-      const hour = new Date(o.scheduled_at).getHours();
-      const key = `${o.bay_id}-${hour}`;
+      if (!o.scheduled_at) continue;
+      const hour = calendarHour(o.scheduled_at);
+      const key = `${o.bay_id ?? UNASSIGNED_BAY}-${hour}`;
       const arr = map.get(key) ?? [];
       arr.push(o);
       map.set(key, arr);
@@ -89,7 +74,8 @@ export default function CalendarView() {
   // Capitalize only the first letter — Spanish weekday/month names stay
   // lowercase mid-string ("viernes, 4 de septiembre", not "... De ...").
   const dateLabel = capitalizeFirst(
-    new Date(`${selectedDate}T00:00:00`).toLocaleDateString("es-VE", {
+    new Date(`${selectedDate}T12:00:00-04:00`).toLocaleDateString("es-VE", {
+      timeZone: CALENDAR_TIME_ZONE,
       weekday: "long",
       day: "numeric",
       month: "long",
@@ -97,9 +83,7 @@ export default function CalendarView() {
   );
 
   function shiftDate(days: number) {
-    const d = new Date(`${selectedDate}T00:00:00`);
-    d.setDate(d.getDate() + days);
-    setSelectedDate(toDateInputValue(d));
+    setSelectedDate(shiftCalendarDate(selectedDate, days));
   }
 
   function handleDragStart(e: React.DragEvent, orderId: string) {
@@ -136,15 +120,17 @@ export default function CalendarView() {
     const order = orders.find((o) => o.id === orderId);
     if (!order || !order.scheduled_at) return;
 
-    const current = new Date(order.scheduled_at);
-    if (current.getHours() === hour && order.bay_id === bayId) return; // dropped in place
+    const targetBay = bayId === UNASSIGNED_BAY ? null : bayId;
+    if (calendarHour(order.scheduled_at) === hour && order.bay_id === targetBay) return;
+    const minute = new Date(order.scheduled_at).getUTCMinutes();
+    const scheduledAt = calendarTimestamp(selectedDate, `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
 
-    const newDate = new Date(current);
-    newDate.setHours(hour, current.getMinutes(), 0, 0);
-
+    setMoveError(null);
     setMovingId(orderId);
     try {
-      await rescheduleOrder(orderId, { scheduled_at: newDate.toISOString(), bay_id: bayId });
+      await rescheduleOrder(orderId, { scheduled_at: scheduledAt, bay_id: targetBay, clear_bay: targetBay === null });
+    } catch (err) {
+      setMoveError(err instanceof Error ? err.message : "No se pudo reagendar la ODS.");
     } finally {
       setMovingId(null);
     }
@@ -186,7 +172,7 @@ export default function CalendarView() {
         <input
           type="date"
           value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
+          onChange={(e) => { if (e.target.value) setSelectedDate(e.target.value); }}
           className="rounded-lg border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue"
         />
         <button
@@ -197,7 +183,7 @@ export default function CalendarView() {
           <ChevronRight className="h-4 w-4" />
         </button>
         <button
-          onClick={() => setSelectedDate(toDateInputValue(new Date()))}
+          onClick={() => setSelectedDate(calendarDate(new Date()))}
           className="rounded-lg border border-navy/15 px-3 py-2 text-sm text-steel hover:text-navy"
         >
           Hoy
@@ -209,35 +195,38 @@ export default function CalendarView() {
         Arrastra una cita a otra hora o bahía para reagendarla. Haz clic en un espacio libre para agendar una nueva.
       </p>
 
+      {moveError && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{moveError}</p>}
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
         <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
-          {activeBays.length === 0 ? (
+          {loading ? (
             <div className="p-12 text-center text-sm text-steel">
-              No hay bahías activas. Configúralas para empezar a agendar.
+              Cargando agenda...
             </div>
+          ) : error ? (
+            <div className="p-6"><ErrorState error={error} onRetry={refresh} /></div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-navy/10 bg-ash">
                     <th className="w-20 px-4 py-3" />
-                    {activeBays.map((b) => (
+                    {calendarBays.map((b) => (
                       <th
                         key={b.id}
                         className="px-4 py-3 font-mono text-[11px] uppercase tracking-widest text-steel"
                       >
-                        {b.name}
+                        {b.name}{!b.is_active && " (inactiva)"}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {HOURS.map((hour) => (
+                  {hours.map((hour) => (
                     <tr key={hour} className="border-b border-navy/5">
                       <td className="px-4 py-4 font-mono text-xs text-steel">
                         {hour.toString().padStart(2, "0")}:00
                       </td>
-                      {activeBays.map((b) => {
+                      {calendarBays.map((b) => {
                         const cellKey = `${b.id}-${hour}`;
                         const cellOrders = ordersByBayAndHour.get(cellKey) ?? [];
                         const isHovered = hoveredCell === cellKey;
@@ -245,15 +234,15 @@ export default function CalendarView() {
                         return (
                           <td
                             key={b.id}
-                            onDragOver={(e) => handleDragOver(e, cellKey)}
+                            onDragOver={(e) => { if (b.is_active) handleDragOver(e, cellKey); }}
                             onDragLeave={() => setHoveredCell((prev) => (prev === cellKey ? null : prev))}
-                            onDrop={(e) => handleDrop(e, b.id, hour)}
+                            onDrop={(e) => { if (b.is_active) void handleDrop(e, b.id, hour); }}
                             onClick={() => {
-                              if (isEmpty) openScheduleModal({ hour, bayId: b.id });
+                              if (isEmpty && b.is_active) openScheduleModal({ hour, bayId: b.id === UNASSIGNED_BAY ? "" : b.id });
                             }}
-                            title={isEmpty ? "Clic para agendar una orden de servicio" : undefined}
+                            title={isEmpty && b.is_active ? "Clic para agendar una orden de servicio" : undefined}
                             className={`border-l border-navy/5 px-2 py-2 align-top transition-colors ${
-                              isHovered ? "bg-blue-light/70" : isEmpty ? "cursor-pointer hover:bg-ash" : ""
+                              isHovered ? "bg-blue-light/70" : isEmpty && b.is_active ? "cursor-pointer hover:bg-ash" : ""
                             }`}
                           >
                             {cellOrders.map((o) => {
@@ -263,12 +252,14 @@ export default function CalendarView() {
                                   key={o.id}
                                   draggable={!o.invoiced_at && !["orden_cerrada", "cancelado"].includes(o.status)}
                                   onDragStart={(e) => handleDragStart(e, o.id)}
+                                  onDragEnd={() => { draggingRef.current = false; setHoveredCell(null); }}
                                   onClick={() => handleCardClick(o.id)}
                                   className={`mb-1 cursor-grab rounded-lg bg-blue-light px-2 py-1.5 text-xs text-blue transition last:mb-0 hover:bg-blue hover:text-white active:cursor-grabbing ${
                                     movingId === o.id ? "opacity-50" : ""
                                   }`}
                                 >
-                                  <p className="font-semibold">{info?.vehicle.plate ?? o.code}</p>
+                                  <p className="font-semibold">{o.code} · {o.scheduled_at && new Date(o.scheduled_at).toLocaleTimeString("es-VE", { timeZone: CALENDAR_TIME_ZONE, hour: "2-digit", minute: "2-digit" })}</p>
+                                  <p>{info?.vehicle.plate ?? "Sin placa"}</p>
                                   <p className="opacity-80">{info?.client.full_name}</p>
                                 </div>
                               );
@@ -286,13 +277,13 @@ export default function CalendarView() {
 
         <div className="flex flex-col gap-6">
           <div className="rounded-2xl border border-navy/10 bg-white p-5">
-            <p className="mb-3 font-display font-bold text-navy">Citas de Hoy</p>
+            <p className="mb-3 font-display font-bold text-navy">Citas del día seleccionado</p>
             {loading ? (
               <p className="text-sm text-steel">Cargando...</p>
             ) : error ? (
               <ErrorState error={error} onRetry={refresh} compact />
             ) : orders.length === 0 ? (
-              <p className="text-sm italic text-steel">No hay citas programadas para hoy.</p>
+              <p className="text-sm italic text-steel">No hay citas programadas para esta fecha.</p>
             ) : (
               <div className="space-y-2">
                 {orders
@@ -309,7 +300,8 @@ export default function CalendarView() {
                         <p className="font-mono text-xs text-blue">
                           {o.scheduled_at &&
                             new Date(o.scheduled_at).toLocaleTimeString("es-VE", {
-                              hour: "2-digit",
+                              timeZone: CALENDAR_TIME_ZONE,
+                            hour: "2-digit",
                               minute: "2-digit",
                             })}
                         </p>
@@ -374,6 +366,7 @@ export default function CalendarView() {
                           new Date(o.scheduled_at).toLocaleString("es-VE", {
                             day: "2-digit",
                             month: "2-digit",
+                            timeZone: CALENDAR_TIME_ZONE,
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
@@ -409,12 +402,13 @@ export default function CalendarView() {
         defaultDate={selectedDate}
         defaultTime={clickedSlot ? `${clickedSlot.hour.toString().padStart(2, "0")}:00` : undefined}
         defaultBayId={clickedSlot?.bayId}
-        hours={HOURS}
+        hours={hours}
         bays={activeBays}
         technicians={technicians}
         advisors={advisors}
         onSubmit={async (input) => {
-          await addOrder(input);
+          const created = await addOrder(input);
+          if (created.scheduled_at) setSelectedDate(calendarDate(created.scheduled_at));
         }}
       />
     </div>

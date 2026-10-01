@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { useHoldingDashboardContext } from "@/contexts/HoldingDashboardContext";
 import HoldingMetricTable, { type HoldingMetricColumn } from "./HoldingMetricTable";
 
@@ -9,7 +10,7 @@ const COLUMNS: HoldingMetricColumn[] = [
   { key: "completado", label: "Completado", align: "right", render: (r) => r.ods.completado },
   { key: "orden_cerrada", label: "Orden cerrada", align: "right", render: (r) => r.ods.orden_cerrada },
   { key: "cancelado", label: "Cancelado", align: "right", render: (r) => r.ods.cancelado },
-  { key: "total", label: "Total", align: "right", render: (r) => <strong>{r.ods.total}</strong> },
+  { key: "total", label: "Total", align: "right", render: (r) => <strong>{formatCount(r.ods.total)}</strong> },
 ];
 
 export default function OdsPorFilialView() {

@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useState } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -124,13 +126,12 @@ export default function ParametrosView() {
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Porcentaje de IVA</label>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
+                <NumberInput step="0.01"
                   min="0"
                   max="100"
                   disabled={!canEdit}
                   value={iva}
-                  onChange={(e) => setIva(e.target.value)}
+                  onValueChange={(value) => setIva(value)}
                   className={inputClass}
                 />
                 <span className="whitespace-nowrap text-sm text-steel">% sobre el subtotal</span>
@@ -143,13 +144,12 @@ export default function ParametrosView() {
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Porcentaje de IGTF</label>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
+                <NumberInput step="0.01"
                   min="0"
                   max="100"
                   disabled={!canEdit}
                   value={igtf}
-                  onChange={(e) => setIgtf(e.target.value)}
+                  onValueChange={(value) => setIgtf(value)}
                   className={inputClass}
                 />
                 <span className="whitespace-nowrap text-sm text-steel">% sobre el monto en USD</span>
@@ -163,14 +163,13 @@ export default function ParametrosView() {
               <label className="mb-1.5 block text-sm font-medium text-navy">Tasa BCV del día (Bs. por USD)</label>
               <div className="flex items-center gap-2">
                 <span className="text-steel">Bs.</span>
-                <input
-                  type="number"
+                <NumberInput
                   min="0"
                   step="0.01"
                   disabled={!canEdit}
                   value={bcvRate}
-                  onChange={(e) => {
-                    setBcvRate(e.target.value);
+                  onValueChange={(value) => {
+                    setBcvRate(value);
                     setBcvRateTouched(true);
                   }}
                   className={inputClass}
@@ -202,13 +201,12 @@ export default function ParametrosView() {
               </label>
               <div className="flex items-center gap-2">
                 <span className="text-steel">$</span>
-                <input
-                  type="number"
+                <NumberInput
                   min="0"
                   step="0.01"
                   disabled={!canEdit}
                   value={hourlyRate}
-                  onChange={(e) => setHourlyRate(e.target.value)}
+                  onValueChange={(value) => setHourlyRate(value)}
                   className={inputClass}
                 />
                 <span className="whitespace-nowrap text-sm text-steel">/ hora</span>
@@ -223,13 +221,12 @@ export default function ParametrosView() {
                 Porcentaje de comisión sobre mano de obra
               </label>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
+                <NumberInput step="0.01"
                   min="0"
                   max="100"
                   disabled={!canEdit}
                   value={commission}
-                  onChange={(e) => setCommission(e.target.value)}
+                  onValueChange={(value) => setCommission(value)}
                   className={inputClass}
                 />
                 <span className="whitespace-nowrap text-sm text-steel">% para el técnico</span>
@@ -251,12 +248,11 @@ export default function ParametrosView() {
                 Días de garantía — repuestos vendidos en mostrador
               </label>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
+                <NumberInput
                   min="0"
                   disabled={!canEdit}
                   value={partWarrantyDays}
-                  onChange={(e) => setPartWarrantyDays(e.target.value)}
+                  onValueChange={(value) => setPartWarrantyDays(value)}
                   className={inputClass}
                 />
                 <span className="whitespace-nowrap text-sm text-steel">días</span>
@@ -272,12 +268,11 @@ export default function ParametrosView() {
                 Meses de garantía de fábrica por defecto
               </label>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
+                <NumberInput
                   min="0"
                   disabled={!canEdit}
                   value={vehicleWarrantyMonths}
-                  onChange={(e) => setVehicleWarrantyMonths(e.target.value)}
+                  onValueChange={(value) => setVehicleWarrantyMonths(value)}
                   className={inputClass}
                 />
                 <span className="whitespace-nowrap text-sm text-steel">meses</span>
@@ -293,12 +288,11 @@ export default function ParametrosView() {
                   Días de garantía del taller
                 </label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="number"
+                  <NumberInput
                     min="0"
                     disabled={!canEdit}
                     value={workshopWarrantyDays}
-                    onChange={(e) => setWorkshopWarrantyDays(e.target.value)}
+                    onValueChange={(value) => setWorkshopWarrantyDays(value)}
                     className={inputClass}
                   />
                   <span className="whitespace-nowrap text-sm text-steel">días</span>
@@ -309,12 +303,11 @@ export default function ParametrosView() {
                   Kilómetros de garantía del taller
                 </label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="number"
+                  <NumberInput
                     min="0"
                     disabled={!canEdit}
                     value={workshopWarrantyKm}
-                    onChange={(e) => setWorkshopWarrantyKm(e.target.value)}
+                    onValueChange={(value) => setWorkshopWarrantyKm(value)}
                     className={inputClass}
                   />
                   <span className="whitespace-nowrap text-sm text-steel">km</span>
@@ -337,13 +330,12 @@ export default function ParametrosView() {
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">% Retención de IVA por defecto</label>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
+                <NumberInput step="0.01"
                   min="0"
                   max="100"
                   disabled={!canEdit}
                   value={ivaRetention}
-                  onChange={(e) => setIvaRetention(e.target.value)}
+                  onValueChange={(value) => setIvaRetention(value)}
                   className={inputClass}
                 />
                 <span className="whitespace-nowrap text-sm text-steel">%</span>
@@ -352,13 +344,12 @@ export default function ParametrosView() {
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">% Retención de ISLR por defecto</label>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
+                <NumberInput step="0.01"
                   min="0"
                   max="100"
                   disabled={!canEdit}
                   value={islrRetention}
-                  onChange={(e) => setIslrRetention(e.target.value)}
+                  onValueChange={(value) => setIslrRetention(value)}
                   className={inputClass}
                 />
                 <span className="whitespace-nowrap text-sm text-steel">%</span>
@@ -381,13 +372,12 @@ export default function ParametrosView() {
             </label>
             <div className="flex items-center gap-2">
               <span className="text-steel">$</span>
-              <input
-                type="number"
+              <NumberInput
                 min="0"
                 step="0.01"
                 disabled={!canEdit}
                 value={manualMovementThreshold}
-                onChange={(e) => setManualMovementThreshold(e.target.value)}
+                onValueChange={(value) => setManualMovementThreshold(value)}
                 className={inputClass}
               />
             </div>

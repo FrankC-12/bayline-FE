@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { useEffect, useState } from "react";
 import { Phone } from "lucide-react";
 import { getMaintenanceDue } from "@/lib/api/kpis";
@@ -42,13 +43,13 @@ export default function MaintenanceDueCard({ filialId }: MaintenanceDueCardProps
                 windowDays === w ? "bg-navy text-white" : "text-steel"
               }`}
             >
-              {w} días
+              {formatCount(w)} días
             </button>
           ))}
         </div>
         {report && (
           <span className="rounded-full bg-red-100 px-4 py-1.5 text-sm font-semibold text-red-700">
-            {report.overdue_count} servicio{report.overdue_count === 1 ? "" : "s"} vencido
+            {formatCount(report.overdue_count)} servicio{report.overdue_count === 1 ? "" : "s"} vencido
             {report.overdue_count === 1 ? "" : "s"} sin atender
           </span>
         )}
@@ -61,7 +62,7 @@ export default function MaintenanceDueCard({ filialId }: MaintenanceDueCardProps
           <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
         ) : !report || report.rows.length === 0 ? (
           <p className="p-10 text-center text-sm text-steel">
-            Ningún vehículo tiene mantenimiento por vencer en los próximos {windowDays} días.
+            Ningún vehículo tiene mantenimiento por vencer en los próximos {formatCount(windowDays)} días.
           </p>
         ) : (
           <table className="w-full text-left text-sm">
@@ -94,7 +95,7 @@ export default function MaintenanceDueCard({ filialId }: MaintenanceDueCardProps
                     </a>
                   </td>
                   <td className="py-3 text-steel">{new Date(row.due_at).toLocaleDateString("es-VE")}</td>
-                  <td className="py-3 text-right font-medium text-navy">{row.days_until_due} días</td>
+                  <td className="py-3 text-right font-medium text-navy">{formatCount(row.days_until_due)} días</td>
                 </tr>
               ))}
             </tbody>

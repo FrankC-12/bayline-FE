@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { formatMoney } from "@/lib/format";
 
 export interface PurchaseExportLine {
   code: string;
@@ -40,7 +41,7 @@ export function downloadPurchaseRequestTxt(data: PurchaseExportData): void {
     ...data.lines.map(
       (l, i) =>
         `${i + 1}. ${l.code} - ${l.name} x${l.quantity}` +
-        (l.unitCost != null ? ` @ $${l.unitCost.toFixed(2)}` : "")
+        (l.unitCost != null ? ` @ $${formatMoney(l.unitCost)}` : "")
     ),
   ];
   const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });

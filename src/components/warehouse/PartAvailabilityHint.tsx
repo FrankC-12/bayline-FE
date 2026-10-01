@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { usePartAvailability } from "@/hooks/usePartAvailability";
 import type { Warehouse } from "@/types/warehouse";
 
@@ -34,7 +35,7 @@ export default function PartAvailabilityHint({
         <span key={w.id}>
           {i > 0 && " · "}
           <span className={w.id === originWarehouseId ? "font-semibold text-navy" : undefined}>
-            {w.name}: {quantityByWarehouse.get(w.id) ?? 0}
+            {w.name}: {formatCount(quantityByWarehouse.get(w.id) ?? 0)}
           </span>
         </span>
       ))}

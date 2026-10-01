@@ -1,11 +1,12 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { useHoldingDashboardContext } from "@/contexts/HoldingDashboardContext";
 import HoldingMetricTable, { type HoldingMetricColumn } from "./HoldingMetricTable";
 
 const COLUMNS: HoldingMetricColumn[] = [
   { key: "activos", label: "Activos", align: "right", render: (r) => r.almacenes_activos },
-  { key: "total", label: "Total", align: "right", render: (r) => <strong>{r.almacenes_total}</strong> },
+  { key: "total", label: "Total", align: "right", render: (r) => <strong>{formatCount(r.almacenes_total)}</strong> },
 ];
 
 export default function AlmacenesPorFilialView() {

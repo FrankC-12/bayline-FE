@@ -1,5 +1,8 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Plus, Search, X, Loader2 } from "lucide-react";
@@ -39,7 +42,7 @@ const RESOLUTION_LABELS: Record<ClaimResolution, string> = {
 };
 
 function formatAmount(amount: number, currency: string): string {
-  return `${currency.toUpperCase()} ${amount.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`;
+  return `${currency.toUpperCase()} ${amount.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function SupplierClaimsView() {
@@ -163,7 +166,7 @@ export default function SupplierClaimsView() {
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-navy">{c.quantity}</td>
+                  <td className="px-6 py-4 text-navy">{formatCount(c.quantity)}</td>
                   <td className="px-6 py-4 text-steel">{supplierName(c.supplier_id)}</td>
                   <td className="px-6 py-4 text-steel">
                     {c.claimed_amount != null && c.currency ? formatAmount(c.claimed_amount, c.currency) : "—"}
@@ -342,11 +345,10 @@ function CreateClaimModal({
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Cantidad</label>
-            <input
-              type="number"
+            <NumberInput
               min="1"
               value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
+              onValueChange={(value) => setQuantity(value)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
             />
           </div>
@@ -370,12 +372,11 @@ function CreateClaimModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Monto de la factura (opcional)</label>
-              <input
-                type="number"
+              <NumberInput
                 min="0"
                 step="0.01"
                 value={claimedAmount}
-                onChange={(e) => setClaimedAmount(e.target.value)}
+                onValueChange={(value) => setClaimedAmount(value)}
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               />
             </div>

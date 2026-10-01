@@ -1,5 +1,8 @@
 "use client";
 
+import { formatMoney , formatCount} from "@/lib/format";
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useState } from "react";
 import { Package, Search, Trash2 } from "lucide-react";
 import { useParts } from "@/hooks/useParts";
@@ -69,12 +72,11 @@ function TransferLineRow({
       </td>
       <td className="py-1.5 text-navy">
         {canEdit ? (
-          <input
-            type="number"
+          <NumberInput
             min={1}
             value={quantity}
             disabled={busy}
-            onChange={(e) => setQuantity(e.target.value)}
+            onValueChange={(value) => setQuantity(value)}
             onBlur={commit}
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.target as HTMLInputElement).blur();
@@ -86,10 +88,10 @@ function TransferLineRow({
         )}
       </td>
       <td className="py-1.5 text-right text-navy">
-        {line.unit_price == null ? "—" : `$${line.unit_price.toFixed(2)}`}
+        {line.unit_price == null ? "—" : `$${formatMoney(line.unit_price, 2)}`}
       </td>
       <td className="py-1.5 text-right font-medium text-navy">
-        {line.subtotal == null ? "—" : `$${line.subtotal.toFixed(2)}`}
+        {line.subtotal == null ? "—" : `$${formatMoney(line.subtotal, 2)}`}
       </td>
       {canEdit && (
         <td className="py-1.5 pl-2 text-right">
@@ -195,19 +197,18 @@ export default function TransfersCard({
                     <span className="text-navy">{p.name}</span>
                   </span>
                   <span className="text-xs text-steel">
-                    ${p.reference_price?.toFixed(2) ?? "Sin costo"} · stock {p.stock_total}
+                    ${(p.reference_price == null ? undefined : formatMoney(p.reference_price, 2)) ?? "Sin costo"} · stock {formatCount(p.stock_total)}
                   </span>
                 </button>
               ))}
             </div>
           )}
         </div>
-        <input
-          type="number"
+        <NumberInput
           disabled={readOnly || adding}
           min="1"
           value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
+          onValueChange={(value) => setQuantity(value)}
           className="w-16 rounded-xl border border-navy/15 px-2 py-2.5 text-center text-sm outline-none focus:border-blue"
         />
 
@@ -287,7 +288,7 @@ export default function TransfersCard({
                   </div>
                 )}
                 <div className="mt-2 flex justify-end text-sm font-semibold text-navy">
-                  Subtotal: {transfer.subtotal == null ? "—" : `$${transfer.subtotal.toFixed(2)}`}
+                  Subtotal: {transfer.subtotal == null ? "—" : `$${formatMoney(transfer.subtotal, 2)}`}
                 </div>
               </div>
             );

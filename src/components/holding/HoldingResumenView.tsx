@@ -1,12 +1,13 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { useMemo } from "react";
 import { FileText, PackageCheck, ShoppingCart, Car, Contact, Users, Warehouse } from "lucide-react";
 import { useHoldingDashboardContext } from "@/contexts/HoldingDashboardContext";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 
-const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`;
+const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function HoldingResumenView() {
   const { data, loading, error, refresh } = useHoldingDashboardContext();
@@ -80,13 +81,13 @@ export default function HoldingResumenView() {
                 {data.filiales.map((row) => (
                   <tr key={row.filial_id} className="transition hover:bg-ash/60">
                     <td className="px-6 py-4 font-semibold text-navy">{row.filial_name}</td>
-                    <td className="px-6 py-4 text-right text-navy">{row.ods.total}</td>
-                    <td className="px-6 py-4 text-right text-navy">{row.odt.pendiente}</td>
+                    <td className="px-6 py-4 text-right text-navy">{formatCount(row.ods.total)}</td>
+                    <td className="px-6 py-4 text-right text-navy">{formatCount(row.odt.pendiente)}</td>
                     <td className="px-6 py-4 text-right text-navy">{usd(row.ventas_repuestos.total_usd)}</td>
                     <td className="px-6 py-4 text-right text-navy">{usd(row.ventas_vehiculos.total_usd)}</td>
-                    <td className="px-6 py-4 text-right text-navy">{row.clientes}</td>
-                    <td className="px-6 py-4 text-right text-navy">{row.usuarios_total}</td>
-                    <td className="px-6 py-4 text-right text-navy">{row.almacenes_total}</td>
+                    <td className="px-6 py-4 text-right text-navy">{formatCount(row.clientes)}</td>
+                    <td className="px-6 py-4 text-right text-navy">{formatCount(row.usuarios_total)}</td>
+                    <td className="px-6 py-4 text-right text-navy">{formatCount(row.almacenes_total)}</td>
                   </tr>
                 ))}
               </tbody>

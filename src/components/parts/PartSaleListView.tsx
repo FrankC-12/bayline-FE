@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePartSales } from "@/hooks/usePartSales";
+import { formatMoney } from "@/lib/format";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 
@@ -114,7 +115,7 @@ export default function PartSalesListView() {
                   <td className="px-6 py-4 text-steel">
                     {new Date(s.created_at).toLocaleDateString("es-VE")}
                   </td>
-                  <td className="px-6 py-4 font-semibold text-navy">${s.total_with_taxes.toFixed(2)}</td>
+                  <td className="px-6 py-4 font-semibold text-navy">${formatMoney(s.total_with_taxes)}</td>
                   <td className="px-6 py-4">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${STATUS_STYLES[s.status]}`}

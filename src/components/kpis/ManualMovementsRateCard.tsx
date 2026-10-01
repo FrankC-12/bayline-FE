@@ -1,10 +1,11 @@
 "use client";
 
+import { formatMoney , formatCount} from "@/lib/format";
 import { AlertTriangle } from "lucide-react";
 import type { ManualMovementsRate } from "@/types/kpis";
 
 function pct(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
+  return `${formatMoney((value * 100), 1)}%`;
 }
 
 export default function ManualMovementsRateCard({ report }: { report: ManualMovementsRate }) {
@@ -30,11 +31,11 @@ export default function ManualMovementsRateCard({ report }: { report: ManualMove
         </div>
         <div className="rounded-xl bg-ash p-5">
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Movimientos manuales</p>
-          <p className="mt-1 font-display text-2xl font-bold text-navy">{report.manual_count}</p>
+          <p className="mt-1 font-display text-2xl font-bold text-navy">{formatCount(report.manual_count)}</p>
         </div>
         <div className="rounded-xl bg-ash p-5">
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Total de movimientos</p>
-          <p className="mt-1 font-display text-2xl font-bold text-navy">{report.total_count}</p>
+          <p className="mt-1 font-display text-2xl font-bold text-navy">{formatCount(report.total_count)}</p>
         </div>
       </div>
     </div>

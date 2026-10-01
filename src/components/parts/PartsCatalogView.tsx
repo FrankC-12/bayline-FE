@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Pencil, Plus, Power, PowerOff, Search, Upload } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParts } from "@/hooks/useParts";
+import { formatCount, formatMoney } from "@/lib/format";
 import type { Part } from "@/types/parts";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
@@ -165,12 +166,12 @@ export default function PartsCatalogView() {
                   <td className="px-4 py-4 text-navy">{compatibilityLabel(part)}</td>
                   <td className="px-4 py-4 text-navy">{part.location ?? "—"}</td>
                   <td className="px-4 py-4 text-navy">{part.unit}</td>
-                  <td className="px-4 py-4 text-navy">{part.min_stock}</td>
-                  <td className="px-4 py-4 font-semibold text-navy">{part.stock_total}</td>
+                  <td className="px-4 py-4 text-navy">{formatCount(part.min_stock)}</td>
+                  <td className="px-4 py-4 font-semibold text-navy">{formatCount(part.stock_total)}</td>
                   <td className="whitespace-nowrap px-4 py-4 font-semibold text-navy">
                     {part.reference_price === null
                       ? "Sin costo registrado"
-                      : `$${part.reference_price.toFixed(2)}`}
+                      : `$${formatMoney(part.reference_price)}`}
                   </td>
                   <td className="px-4 py-4">
                     <span

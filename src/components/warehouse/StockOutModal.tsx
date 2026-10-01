@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useState } from "react";
 import { X, Loader2, Search } from "lucide-react";
 import { useParts } from "@/hooks/useParts";
@@ -128,11 +130,10 @@ export default function StockOutModal({
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Cantidad</label>
-            <input
-              type="number"
+            <NumberInput
               min="1"
               value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
+              onValueChange={(value) => setQuantity(value)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
             />
           </div>

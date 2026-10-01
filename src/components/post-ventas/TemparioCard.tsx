@@ -1,3 +1,4 @@
+import { formatMoney , formatCount} from "@/lib/format";
 import { CATEGORY_STYLES, categoryLabel } from "@/lib/temparios-categories";
 import type { Tempario } from "@/types/tempario";
 
@@ -28,11 +29,11 @@ export default function TemparioCard({ tempario, onClick }: TemparioCardProps) {
       <div className="mt-6 flex items-end justify-between border-t border-navy/10 pt-4">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Horas estimadas</p>
-          <p className="font-medium text-navy">{tempario.estimated_hours} h</p>
+          <p className="font-medium text-navy">{formatCount(tempario.estimated_hours)} h</p>
         </div>
         <div className="text-right">
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Precio calculado</p>
-          <p className="font-display text-xl font-bold text-blue">${tempario.total_price.toFixed(2)}</p>
+          <p className="font-display text-xl font-bold text-blue">${formatMoney(tempario.total_price, 2)}</p>
         </div>
       </div>
     </button>

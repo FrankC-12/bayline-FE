@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { useState } from "react";
 import { Search, Trash2 } from "lucide-react";
 import { useTemparios } from "@/hooks/useTemparios";
@@ -80,7 +81,7 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRe
                       <span className="font-mono text-blue">{t.code}</span>{" "}
                       <span className="text-navy">{t.name}</span>
                     </span>
-                    <span className="text-xs text-steel">{t.estimated_hours} h</span>
+                    <span className="text-xs text-steel">{formatCount(t.estimated_hours)} h</span>
                   </button>
                 ))}
               </div>
@@ -112,7 +113,7 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRe
               <tr key={task.id}>
                 <td className="py-2.5 font-medium text-navy">{task.name_snapshot}</td>
                 <td className="py-2.5 font-mono text-blue">{task.code_snapshot}</td>
-                <td className="py-2.5 text-navy">{task.hours_snapshot} h</td>
+                <td className="py-2.5 text-navy">{formatCount(task.hours_snapshot)} h</td>
                 <td className="py-2.5">
                   <select
                     value={task.status}

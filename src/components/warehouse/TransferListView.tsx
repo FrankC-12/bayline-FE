@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, ArrowRight, Wrench, ShoppingCart } from "lucide-react";
@@ -10,6 +11,7 @@ import { usePartSaleRequests } from "@/hooks/usePartSaleRequests";
 import ErrorState from "@/components/common/ErrorState";
 import CreateTransferModal from "./CreateTransferModal";
 import { formatElapsed } from "@/lib/time";
+import { formatMoney } from "@/lib/format";
 import type {
   PartSaleRequestLine,
   ServiceOrderPartRequestLine,
@@ -43,11 +45,11 @@ const NEXT_STATUS: Partial<Record<TransferStatus, TransferStatus>> = {
 function lineWarehouseLabel(line: ServiceOrderPartRequestLine): string | null {
   if (line.warehouses.length === 0) return null;
   if (line.warehouses.length === 1) return line.warehouses[0].warehouse_name;
-  return line.warehouses.map((w) => `${w.warehouse_name}: ${w.quantity}`).join(" + ");
+  return line.warehouses.map((w) => `${w.warehouse_name}: ${formatCount(w.quantity)}`).join(" + ");
 }
 
 function partSaleLineLabel(line: PartSaleRequestLine): string {
-  return `${line.quantity}x ${line.part_name}${line.warehouse_name ? ` (${line.warehouse_name})` : ""}`;
+  return `${formatCount(line.quantity)}x ${line.part_name}${line.warehouse_name ? ` (${line.warehouse_name})` : ""}`;
 }
 
 /** A dispatched ODT (taller) and a counter parts sale (venta de repuestos)
@@ -130,7 +132,7 @@ export default function TransfersListView() {
         subtitle: `${request.vehicle_label} · ${request.lines
           .map((l) => {
             const warehouseLabel = lineWarehouseLabel(l);
-            return `${l.quantity}x ${l.part_name}${warehouseLabel ? ` (${warehouseLabel})` : ""}`;
+            return `${formatCount(l.quantity)}x ${l.part_name}${warehouseLabel ? ` (${warehouseLabel})` : ""}`;
           })
           .join(", ")}`,
         timestamp: request.fulfilled_at,
@@ -283,7 +285,7 @@ export default function TransfersListView() {
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="font-display font-semibold text-navy">${t.total_cost.toFixed(2)}</span>
+                    <span className="font-display font-semibold text-navy">${formatMoney(t.total_cost)}</span>
                     <span className="text-xs text-steel">
                       <ElapsedLabel transfer={t} />
                     </span>

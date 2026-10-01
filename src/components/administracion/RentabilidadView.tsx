@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/lib/format";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ChevronDown, ChevronUp, Lock, Unlock } from "lucide-react";
@@ -27,7 +28,7 @@ function monthBounds(monthValue: string): { from: string; to: string } {
 }
 
 function pct(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
+  return `${formatMoney((value * 100), 1)}%`;
 }
 
 const ALL_FILIALES = "__todas__";

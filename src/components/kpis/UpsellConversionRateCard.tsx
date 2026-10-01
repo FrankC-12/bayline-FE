@@ -1,10 +1,11 @@
 "use client";
 
+import { formatMoney , formatCount} from "@/lib/format";
 import { TrendingUp } from "lucide-react";
 import type { UpsellConversionRate } from "@/types/kpis";
 
 function pct(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
+  return `${formatMoney((value * 100), 1)}%`;
 }
 
 export default function UpsellConversionRateCard({ report }: { report: UpsellConversionRate }) {
@@ -30,11 +31,11 @@ export default function UpsellConversionRateCard({ report }: { report: UpsellCon
         </div>
         <div className="rounded-xl bg-ash p-5">
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Convertidos a ODS</p>
-          <p className="mt-1 font-display text-2xl font-bold text-navy">{report.converted_count}</p>
+          <p className="mt-1 font-display text-2xl font-bold text-navy">{formatCount(report.converted_count)}</p>
         </div>
         <div className="rounded-xl bg-ash p-5">
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Upsells pospuestos</p>
-          <p className="mt-1 font-display text-2xl font-bold text-navy">{report.postponed_count}</p>
+          <p className="mt-1 font-display text-2xl font-bold text-navy">{formatCount(report.postponed_count)}</p>
         </div>
       </div>
     </div>

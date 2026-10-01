@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { usePartCategories } from "@/hooks/usePartCategories";
@@ -327,12 +329,11 @@ export default function CreatePartModal({
               <label className="mb-1.5 block text-sm font-medium text-navy">
                 Stock mínimo (punto de reorden)
               </label>
-              <input
-                type="number"
+              <NumberInput
                 min="0"
                 required
                 value={form.minStock}
-                onChange={(e) => updateField("minStock", e.target.value)}
+                onValueChange={(value) => updateField("minStock", value)}
                 className={inputClass}
               />
             </div>

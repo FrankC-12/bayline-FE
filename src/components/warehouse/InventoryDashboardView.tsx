@@ -9,6 +9,7 @@ import StockInModal from "./StockInModal";
 import StockOutModal from "./StockOutModal";
 import BulkStockInModal from "./BulkStockInModal";
 import type { InventoryRow, PartLot } from "@/types/warehouse";
+import { formatCount, formatMoney } from "@/lib/format";
 import EmptyState from "@/components/common/EmptyState";
 
 function LocationCell({
@@ -218,12 +219,12 @@ export default function InventoryDashboardView() {
                               className={`flex items-center gap-1.5 font-semibold ${isLow ? "text-amber-600" : "text-navy"}`}
                             >
                               {isLow && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />}
-                              {row.quantity}
+                              {formatCount(row.quantity)}
                               {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                             </button>
                           </td>
                           <td className="px-6 py-4 text-navy">
-                            {row.fifo_unit_cost != null ? `$${row.fifo_unit_cost.toFixed(2)}` : "—"}
+                            {row.fifo_unit_cost != null ? `$${formatMoney(row.fifo_unit_cost)}` : "—"}
                           </td>
                           <td className="px-6 py-4 text-steel">
                             <LocationCell
@@ -243,7 +244,7 @@ export default function InventoryDashboardView() {
                                     <div key={lot.id} className="flex items-center justify-between text-xs">
                                       <span className="font-mono text-blue">{lot.code}</span>
                                       <span className="text-steel">
-                                        {lot.quantity_remaining} disponibles · ${lot.unit_cost.toFixed(2)} c/u
+                                        {formatCount(lot.quantity_remaining)} disponibles · ${formatMoney(lot.unit_cost)} c/u
                                       </span>
                                     </div>
                                   ))

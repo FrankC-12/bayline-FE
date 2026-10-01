@@ -1,5 +1,8 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useMemo, useState } from "react";
 import { Clock, Camera, Check, X, Loader2, Search, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -69,12 +72,12 @@ const CHANNEL_LABELS: Record<UpsellApprovalChannel, string> = {
   correo: "Correo",
 };
 
-const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`;
+const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function upsellSummary(u: Upsell): string {
   const parts = [
     ...u.tasks.map((t) => `${t.code_snapshot} · ${t.name_snapshot}`),
-    ...u.parts.map((p) => `${p.name_snapshot} ×${p.quantity}`),
+    ...u.parts.map((p) => `${p.name_snapshot} ×${formatCount(p.quantity)}`),
   ];
   return parts.join(" · ");
 }
@@ -606,7 +609,7 @@ function CreateUpsellModal({
                     >
                       <span className="font-mono text-blue">{t.code}</span>{" "}
                       <span className="text-navy">{t.name}</span>{" "}
-                      <span className="text-steel">({t.estimated_hours}h)</span>
+                      <span className="text-steel">({formatCount(t.estimated_hours)}h)</span>
                     </button>
                   ))}
                 </div>
@@ -618,7 +621,7 @@ function CreateUpsellModal({
                   <div key={t.tempario_id} className="flex items-center justify-between rounded-lg bg-ash px-3 py-2 text-sm">
                     <span>
                       <span className="font-mono text-blue">{t.code}</span> {t.name}{" "}
-                      <span className="text-steel">({t.hours}h)</span>
+                      <span className="text-steel">({formatCount(t.hours)}h)</span>
                     </span>
                     <button
                       type="button"
@@ -669,13 +672,12 @@ function CreateUpsellModal({
                     <span className="flex-1">
                       <span className="font-mono text-blue">{p.code}</span> {p.name}
                     </span>
-                    <input
-                      type="number"
+                    <NumberInput
                       min="1"
                       value={p.quantity}
-                      onChange={(e) =>
+                      onValueChange={(value) =>
                         setSelectedParts((prev) =>
-                          prev.map((x) => (x.part_id === p.part_id ? { ...x, quantity: e.target.value } : x))
+                          prev.map((x) => (x.part_id === p.part_id ? { ...x, quantity: value } : x))
                         )
                       }
                       className="w-16 rounded-lg border border-navy/15 px-2 py-1 text-center text-sm outline-none focus:border-blue"

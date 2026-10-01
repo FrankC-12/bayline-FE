@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Pencil, X } from "lucide-react";
+import { formatCount, formatMoney } from "@/lib/format";
 import type { Part } from "@/types/parts";
 
 interface PartDetailPanelProps {
@@ -83,22 +84,22 @@ export default function PartDetailPanel({ open, part, onClose, onEdit }: PartDet
 
             <div className="grid grid-cols-2 gap-4">
               <Field label="Unidad" value={part.unit} />
-              <Field label="Stock mínimo" value={part.min_stock} />
+              <Field label="Stock mínimo" value={formatCount(part.min_stock)} />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Stock total" value={part.stock_total} />
+              <Field label="Stock total" value={formatCount(part.stock_total)} />
               <Field label="Ubicación" value={part.location ?? "—"} />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <Field
                 label="Precio de referencia"
-                value={part.reference_price === null ? "Sin costo registrado" : `$${part.reference_price.toFixed(2)}`}
+                value={part.reference_price === null ? "Sin costo registrado" : `$${formatMoney(part.reference_price)}`}
               />
               <Field
                 label="Costo más reciente"
-                value={part.latest_cost === null ? "—" : `$${part.latest_cost.toFixed(2)}`}
+                value={part.latest_cost === null ? "—" : `$${formatMoney(part.latest_cost)}`}
               />
             </div>
 

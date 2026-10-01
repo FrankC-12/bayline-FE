@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useState } from "react";
 import { X, Loader2, Plus, Search } from "lucide-react";
 import { useTemparios } from "@/hooks/useTemparios";
@@ -75,22 +77,20 @@ function PlanEntryRow({ filialId, entry, onChange, onRemove }: PlanEntryRowProps
 
       <div className="mt-2 flex items-center gap-2">
         <div className="flex items-center gap-1.5">
-          <input
-            type="number"
+          <NumberInput
             min="0"
             value={entry.intervalKm}
-            onChange={(e) => onChange({ intervalKm: e.target.value })}
+            onValueChange={(value) => onChange({ intervalKm: value })}
             placeholder="—"
             className="w-24 rounded-lg border border-navy/15 px-2 py-1.5 text-sm outline-none focus:border-blue"
           />
           <span className="text-xs text-steel">km</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <input
-            type="number"
+          <NumberInput
             min="0"
             value={entry.intervalMonths}
-            onChange={(e) => onChange({ intervalMonths: e.target.value })}
+            onValueChange={(value) => onChange({ intervalMonths: value })}
             placeholder="—"
             className="w-20 rounded-lg border border-navy/15 px-2 py-1.5 text-sm outline-none focus:border-blue"
           />

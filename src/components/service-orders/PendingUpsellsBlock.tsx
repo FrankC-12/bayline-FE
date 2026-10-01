@@ -27,7 +27,7 @@ const CHANNEL_OPTIONS: { value: UpsellApprovalChannel; label: string }[] = [
   { value: "correo", label: "Correo" },
 ];
 
-const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`;
+const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 interface PendingUpsellsBlockProps {
   vehicleId: string;

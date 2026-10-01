@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { getLotDetail } from "@/lib/api/warehouse";
+import { formatCount, formatMoney } from "@/lib/format";
 import type { LotOutboundMovement, PartLotDetail } from "@/types/warehouse";
 
 interface LotDetailModalProps {
@@ -70,15 +71,15 @@ export default function LotDetailModal({ lotId, onClose }: LotDetailModalProps) 
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div>
                   <p className="text-xs text-steel">Costo unitario</p>
-                  <p className="mt-0.5 text-sm font-semibold text-navy">${detail.unit_cost.toFixed(2)}</p>
+                  <p className="mt-0.5 text-sm font-semibold text-navy">${formatMoney(detail.unit_cost)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-steel">Cant. inicial</p>
-                  <p className="mt-0.5 text-sm font-semibold text-navy">{detail.quantity_received}</p>
+                  <p className="mt-0.5 text-sm font-semibold text-navy">{formatCount(detail.quantity_received)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-steel">Cant. disponible</p>
-                  <p className="mt-0.5 text-sm font-semibold text-navy">{detail.quantity_remaining}</p>
+                  <p className="mt-0.5 text-sm font-semibold text-navy">{formatCount(detail.quantity_remaining)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-steel">Recibido</p>
@@ -122,8 +123,8 @@ export default function LotDetailModal({ lotId, onClose }: LotDetailModalProps) 
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="font-semibold text-navy">{m.quantity} un.</p>
-                          <p className="text-xs text-steel">${m.unit_cost.toFixed(2)} c/u</p>
+                          <p className="font-semibold text-navy">{formatCount(m.quantity)} un.</p>
+                          <p className="text-xs text-steel">${formatMoney(m.unit_cost)} c/u</p>
                         </div>
                       </div>
                     );

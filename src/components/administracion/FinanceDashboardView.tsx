@@ -5,6 +5,7 @@ import { AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccounts } from "@/hooks/useAccounts";
 import { getFinanceDashboard } from "@/lib/api/administracion";
+import { formatMoney } from "@/lib/format";
 import type { FinanceDashboard } from "@/types/administracion";
 
 export default function FinanceDashboardView() {
@@ -54,7 +55,7 @@ export default function FinanceDashboardView() {
     <div>
       <h1 className="font-display text-3xl font-bold text-navy">Dashboard</h1>
       <p className="mt-1 text-sm text-steel">
-        Situación financiera del negocio · Tasa BCV Bs. {dashboard.bcv_rate.toFixed(2)}
+        Situación financiera del negocio · Tasa BCV Bs. {formatMoney(dashboard.bcv_rate)}
       </p>
       {dashboard.bcv_rate_is_stale && (
         <p className="mt-2 flex w-fit items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
@@ -66,16 +67,16 @@ export default function FinanceDashboardView() {
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-navy/10 bg-white p-6">
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Ingresos del mes</p>
-          <p className="mt-1 font-display text-3xl font-bold text-navy">${dashboard.income_month.toFixed(2)}</p>
+          <p className="mt-1 font-display text-3xl font-bold text-navy">${formatMoney(dashboard.income_month)}</p>
         </div>
         <div className="rounded-2xl border border-navy/10 bg-white p-6">
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Egresos del mes</p>
-          <p className="mt-1 font-display text-3xl font-bold text-red-500">${dashboard.expense_month.toFixed(2)}</p>
+          <p className="mt-1 font-display text-3xl font-bold text-red-500">${formatMoney(dashboard.expense_month)}</p>
         </div>
         <div className={`rounded-2xl border p-6 ${netFlowStyles.card}`}>
           <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Flujo de caja neto</p>
           <p className={`mt-1 font-display text-3xl font-bold ${netFlowStyles.text}`}>
-            {dashboard.net_flow > 0 ? "+" : ""}${dashboard.net_flow.toFixed(2)}
+            {dashboard.net_flow > 0 ? "+" : ""}${formatMoney(dashboard.net_flow)}
           </p>
           <p className="mt-1 text-xs text-steel">{netFlowMessage}</p>
         </div>
@@ -99,12 +100,12 @@ export default function FinanceDashboardView() {
                 <div
                   className="w-5 rounded-t bg-emerald-600"
                   style={{ height: `${Math.max(4, (t.income / maxValue) * 100)}%` }}
-                  title={`Ingresos: $${t.income.toFixed(2)}`}
+                  title={`Ingresos: $${formatMoney(t.income)}`}
                 />
                 <div
                   className="w-5 rounded-t bg-red-500"
                   style={{ height: `${Math.max(4, (t.expense / maxValue) * 100)}%` }}
-                  title={`Egresos: $${t.expense.toFixed(2)}`}
+                  title={`Egresos: $${formatMoney(t.expense)}`}
                 />
               </div>
               <p className="text-xs font-semibold text-navy">{t.label}</p>
@@ -117,7 +118,7 @@ export default function FinanceDashboardView() {
                       : "text-steel"
                 }`}
               >
-                {t.income - t.expense > 0 ? "+" : ""}${(t.income - t.expense).toFixed(0)}
+                {t.income - t.expense > 0 ? "+" : ""}${formatMoney(t.income - t.expense, 0)}
               </p>
             </div>
           ))}
@@ -126,7 +127,7 @@ export default function FinanceDashboardView() {
 
       <div className="mt-6">
         <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">
-          Cuentas en USD ${totalUsd.toLocaleString()} · Cuentas en Bs ≈ ${totalBsUsd.toFixed(2)}
+          Cuentas en USD ${formatMoney(totalUsd)} · Cuentas en Bs ≈ ${formatMoney(totalBsUsd)}
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {accounts.map((a) => (
@@ -138,7 +139,7 @@ export default function FinanceDashboardView() {
                 </span>
               </div>
               <p className="mt-2 font-display text-xl font-bold text-navy">
-                {a.currency === "usd" ? `$${a.balance.toLocaleString()}` : `Bs. ${a.balance.toLocaleString()}`}
+                {a.currency === "usd" ? `$${formatMoney(a.balance)}` : `Bs. ${formatMoney(a.balance)}`}
               </p>
               <p className="text-xs text-steel">{a.bank ?? "Caja"}</p>
             </div>

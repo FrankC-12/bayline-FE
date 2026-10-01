@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, X, Loader2, Paperclip, Undo2, AlertTriangle } from "lucide-react";
@@ -17,7 +19,7 @@ import ErrorState from "@/components/common/ErrorState";
 import ReverseEntryModal from "./ReverseEntryModal";
 import type { CreateExpenseEntryInput } from "@/lib/api/administracion";
 import type { CounterpartyType, ExpenseCategory, ExpenseEntry } from "@/types/administracion";
-import { formatEntryDate } from "@/lib/format";
+import { formatEntryDate, formatMoney } from "@/lib/format";
 
 const CATEGORY_OPTIONS: { value: ExpenseCategory; label: string }[] = [
   { value: "nomina_comisiones", label: "Nómina y Comisiones" },
@@ -134,7 +136,7 @@ export default function ExpenseView() {
           />
         </div>
         <span className="whitespace-nowrap rounded-xl bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600">
-          Total: ${total.toFixed(2)}
+          Total: ${formatMoney(total)}
         </span>
       </div>
 
@@ -196,7 +198,7 @@ export default function ExpenseView() {
                   </td>
                   <td className="px-6 py-4 text-steel">{counterpartyLabel(e)}</td>
                   <td className="px-6 py-4 font-semibold text-navy">
-                    {e.currency === "usd" ? `$${e.amount.toLocaleString()}` : `Bs. ${e.amount.toLocaleString()}`}
+                    {e.currency === "usd" ? `$${formatMoney(e.amount)}` : `Bs. ${formatMoney(e.amount)}`}
                   </td>
                   <td className="px-6 py-4 text-steel">{accountName(e.account_id)}</td>
                   <td className="px-6 py-4 text-steel">{registeredByName(e.registered_by_user_id)}</td>
@@ -304,7 +306,7 @@ function CreateExpenseModal({
       return;
     }
     if (attachmentRequired && !attachment) {
-      setError(`Los movimientos de $${threshold.toFixed(2)} o más requieren un soporte adjunto.`);
+      setError(`Los movimientos de $${formatMoney(threshold)} o más requieren un soporte adjunto.`);
       return;
     }
     setSubmitting(true);
@@ -425,11 +427,10 @@ function CreateExpenseModal({
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-navy">Monto *</label>
-                  <input
-                    type="number"
+                  <NumberInput step="0.01"
                     min="0"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    onValueChange={(value) => setAmount(value)}
                     className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
                   />
                 </div>
@@ -521,7 +522,7 @@ function CreateExpenseModal({
                           />
                           <span className="font-mono text-blue">{r.code}</span>
                           {r.total_quoted != null && (
-                            <span className="text-steel">${r.total_quoted.toFixed(2)}</span>
+                            <span className="text-steel">${formatMoney(r.total_quoted)}</span>
                           )}
                         </label>
                       ))}
@@ -570,7 +571,7 @@ function CreateExpenseModal({
                 />
                 {threshold > 0 && (
                   <p className="mt-1 text-xs text-steel">
-                    Obligatorio para montos de ${threshold.toFixed(2)} o más.
+                    Obligatorio para montos de ${formatMoney(threshold)} o más.
                   </p>
                 )}
               </div>

@@ -1,5 +1,8 @@
 "use client";
 
+import { formatMoney , formatCount} from "@/lib/format";
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Plus, Search } from "lucide-react";
 import { CATEGORY_OPTIONS } from "@/lib/temparios-categories";
@@ -283,12 +286,11 @@ export default function CreateTemparioModal({
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Horas estimadas</label>
-            <input
-              type="number"
+            <NumberInput
               min="0"
               step="0.1"
               value={estimatedHours}
-              onChange={(e) => setEstimatedHours(e.target.value)}
+              onValueChange={(value) => setEstimatedHours(value)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
             />
           </div>
@@ -482,26 +484,24 @@ export default function CreateTemparioModal({
                             className="w-full rounded-lg border border-navy/15 py-2 pl-8 pr-3 text-sm outline-none focus:border-blue"
                           />
                         </div>
-                        <input
-                          type="number"
+                        <NumberInput
                           min="1"
                           value={p.quantity}
-                          onChange={(e) => updatePart(i, { quantity: e.target.value })}
+                          onValueChange={(value) => updatePart(i, { quantity: value })}
                           className="w-16 rounded-lg border border-navy/15 px-2 py-2 text-center text-sm outline-none focus:border-blue"
                         />
                         <div className="flex items-center gap-1">
                           <span className="text-sm text-steel">$</span>
-                          <input
-                            type="number"
+                          <NumberInput
                             min="0"
                             step="0.01"
                             value={p.unitCost}
-                            onChange={(e) => updatePart(i, { unitCost: e.target.value })}
+                            onValueChange={(value) => updatePart(i, { unitCost: value })}
                             className="w-20 rounded-lg border border-navy/15 px-2 py-2 text-sm outline-none focus:border-blue"
                           />
                         </div>
                         <span className="w-20 shrink-0 text-right text-sm font-medium text-navy">
-                          ${((Number(p.quantity) || 0) * (Number(p.unitCost) || 0)).toFixed(2)}
+                          ${formatMoney(((Number(p.quantity) || 0) * (Number(p.unitCost) || 0)), 2)}
                         </span>
                         <button
                           type="button"
@@ -532,7 +532,7 @@ export default function CreateTemparioModal({
                               <span className="font-mono text-blue">{cp.code}</span>{" "}
                               <span className="text-navy">{cp.name}</span>{" "}
                               <span className="text-steel">
-                                · costo ${cp.latest_cost?.toFixed(2) ?? "Sin costo"}
+                                · costo ${(cp.latest_cost == null ? undefined : formatMoney(cp.latest_cost, 2)) ?? "Sin costo"}
                               </span>
                             </button>
                           ))}
@@ -558,30 +558,30 @@ export default function CreateTemparioModal({
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between text-steel">
                 <span>Costo de repuestos</span>
-                <span>${partsCost.toFixed(2)}</span>
+                <span>${formatMoney(partsCost, 2)}</span>
               </div>
               <div className="flex justify-between border-b border-navy/10 pb-1.5 text-steel">
                 <span>Repuestos + 30% (margen)</span>
-                <span>${partsMargin.toFixed(2)}</span>
+                <span>${formatMoney(partsMargin, 2)}</span>
               </div>
               <div className="flex justify-between text-steel">
                 <span>
-                  Mano de obra ({estimatedHours || 0} h × ${hourlyRate.toFixed(2)}/h)
+                  Mano de obra ({estimatedHours || 0} h × ${formatMoney(hourlyRate, 2)}/h)
                 </span>
-                <span>${laborCost.toFixed(2)}</span>
+                <span>${formatMoney(laborCost, 2)}</span>
               </div>
               <div className="flex justify-between border-t border-navy/10 pt-1.5 text-steel">
-                <span>IVA ({ivaPercentage}%)</span>
-                <span>${ivaAmount.toFixed(2)}</span>
+                <span>IVA ({formatCount(ivaPercentage)}%)</span>
+                <span>${formatMoney(ivaAmount, 2)}</span>
               </div>
             </div>
             <div className="mt-3 flex items-center justify-between border-t border-navy/10 pt-3">
               <span className="font-display font-bold text-navy">Subtotal</span>
-              <span className="font-display font-bold text-navy">${subtotal.toFixed(2)}</span>
+              <span className="font-display font-bold text-navy">${formatMoney(subtotal, 2)}</span>
             </div>
             <div className="mt-1 flex items-center justify-between">
               <span className="font-display font-bold text-navy">Precio total (con IVA)</span>
-              <span className="font-display text-xl font-bold text-blue">${totalWithIva.toFixed(2)}</span>
+              <span className="font-display text-xl font-bold text-blue">${formatMoney(totalWithIva, 2)}</span>
             </div>
           </div>
 

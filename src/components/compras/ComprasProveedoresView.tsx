@@ -7,7 +7,7 @@ import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { usePurchaseRequests } from "@/hooks/usePurchaseRequests";
-import { formatVenezuelanPhone } from "@/lib/format";
+import { formatMoney, formatVenezuelanPhone } from "@/lib/format";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 import CreateSupplierModal from "./CreateSuppliermodal";
@@ -139,7 +139,7 @@ export default function ComprasProveedoresView() {
                         </span>
                       </td>
                       <td className="px-6 py-4 font-semibold text-navy">
-                        {r.total_quoted != null ? `$${r.total_quoted.toFixed(2)}` : "—"}
+                        {r.total_quoted != null ? `$${formatMoney(r.total_quoted)}` : "—"}
                       </td>
                     </tr>
                   ))}

@@ -10,6 +10,7 @@ import { useVehicles } from "@/hooks/useVehicles";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
+import { formatMoney } from "@/lib/format";
 
 export default function VentasView() {
   const { currentUser } = useAuth();
@@ -155,7 +156,7 @@ export default function VentasView() {
                       <td className="px-6 py-4 text-steel">{new Date(s.created_at).toLocaleDateString("es-VE")}</td>
                       <td className="px-6 py-4 font-semibold text-navy">{s.client_name}</td>
                       <td className="px-6 py-4 text-navy">{s.lines.map((l) => partName(l.part_id)).join(", ")}</td>
-                      <td className="px-6 py-4 font-semibold text-navy">${s.total.toFixed(2)}</td>
+                      <td className="px-6 py-4 font-semibold text-navy">${formatMoney(s.total)}</td>
                       <td className="px-6 py-4">
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-semibold ${paid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
@@ -207,7 +208,7 @@ export default function VentasView() {
                     <td className="px-6 py-4 font-semibold text-navy">{s.client_name}</td>
                     <td className="px-6 py-4 text-navy">{vehicleLabel(s.vehicle_id)}</td>
                     <td className="px-6 py-4 text-steel">{advisorName(s.advisor_user_id)}</td>
-                    <td className="px-6 py-4 font-display font-bold text-navy">${s.final_price.toLocaleString()}</td>
+                    <td className="px-6 py-4 font-display font-bold text-navy">${formatMoney(s.final_price)}</td>
                     <td className="px-6 py-4">
                       <span className="font-semibold text-blue">PDF →</span>
                     </td>

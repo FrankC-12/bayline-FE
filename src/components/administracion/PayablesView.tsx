@@ -1,5 +1,8 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,7 +14,7 @@ import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 import type { Payable } from "@/types/administracion";
 
-const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`;
+const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const AGING_STYLES: Record<Payable["aging_bucket"], string> = {
   "0-30": "bg-emerald-100 text-emerald-700",
@@ -62,7 +65,7 @@ export default function PayablesView() {
                   <td className="px-6 py-4 font-semibold text-navy">{usd(p.total_amount)}</td>
                   <td className="px-6 py-4">
                     <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${AGING_STYLES[p.aging_bucket]}`}>
-                      {p.days_outstanding} días ({p.aging_bucket})
+                      {formatCount(p.days_outstanding)} días ({p.aging_bucket})
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -182,12 +185,11 @@ function RegisterPaymentModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Monto</label>
-              <input
-                type="number"
+              <NumberInput
                 min="0"
                 step="0.01"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onValueChange={(value) => setAmount(value)}
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               />
             </div>

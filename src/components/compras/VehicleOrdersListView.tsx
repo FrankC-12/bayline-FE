@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -81,7 +82,7 @@ export default function VehicleOrdersListView() {
                     <td className="px-6 py-4 font-medium text-navy">{supplierName(o.supplier_id)}</td>
                     <td className="px-6 py-4 text-steel">{new Date(o.created_at).toLocaleDateString("es-VE")}</td>
                     <td className="px-6 py-4 text-navy">
-                      {received} / {ordered}
+                      {formatCount(received)} / {formatCount(ordered)}
                     </td>
                     <td className="px-6 py-4">
                       <span

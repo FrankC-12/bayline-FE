@@ -1,10 +1,13 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useState } from "react";
 import Link from "next/link";
 import { Plus, X, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccounts } from "@/hooks/useAccounts";
+import { formatMoney } from "@/lib/format";
 import ErrorState from "@/components/common/ErrorState";
 
 const TYPE_LABELS: Record<string, string> = { corriente: "Corriente", ahorro: "Ahorro", caja: "Caja" };
@@ -69,11 +72,11 @@ export default function AccountsView() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-navy">
-                        {a.currency === "usd" ? `$${a.balance.toLocaleString()}` : `Bs. ${a.balance.toLocaleString()}`}
+                        {a.currency === "usd" ? `$${formatMoney(a.balance)}` : `Bs. ${formatMoney(a.balance)}`}
                       </span>
                       <span className="rounded bg-ash px-1.5 py-0.5 font-mono text-[9px] font-semibold text-steel">AUTO</span>
                     </div>
-                    {a.currency === "bs" && <p className="text-xs text-steel">≈ ${a.balance_usd.toFixed(2)}</p>}
+                    {a.currency === "bs" && <p className="text-xs text-steel">≈ ${formatMoney(a.balance_usd)}</p>}
                   </td>
                   <td className="px-6 py-4">
                     <button
@@ -211,11 +214,10 @@ function CreateAccountModal({
             <label className="mb-1.5 block text-sm font-medium text-navy">Saldo inicial</label>
             <div className="flex items-center gap-2">
               <span className="text-steel">{currency === "usd" ? "$" : "Bs."}</span>
-              <input
-                type="number"
+              <NumberInput
                 step="0.01"
                 value={openingBalance}
-                onChange={(e) => setOpeningBalance(e.target.value)}
+                onValueChange={(value) => setOpeningBalance(value)}
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               />
             </div>

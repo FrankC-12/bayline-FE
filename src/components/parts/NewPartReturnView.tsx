@@ -1,5 +1,7 @@
 "use client";
 
+import { NumberInput } from "@/components/ui/NumberInput";
+
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -224,11 +226,10 @@ export default function NewPartReturnView() {
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Cantidad</label>
-            <input
-              type="number"
+            <NumberInput
               min="0"
               value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
+              onValueChange={(value) => setQuantity(value)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
             />
           </div>
