@@ -88,6 +88,8 @@ export interface PartSale {
   igtf_percentage: number;
   igtf_amount: number;
   total_with_taxes: number;
+  amount_collected: number;
+  pending_amount: number;
   lines: PartSaleLine[];
   created_at: string;
   updated_at: string;

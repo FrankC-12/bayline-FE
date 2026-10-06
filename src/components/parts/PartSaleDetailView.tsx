@@ -1,5 +1,7 @@
 "use client";
 
+import PartPaymentModal from "./PartPaymentModal";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { NumberInput } from "@/components/ui/NumberInput";
 
 import { useEffect, useState } from "react";
@@ -7,7 +9,8 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, ChevronLeft, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParts } from "@/hooks/useParts";
-import { getPartSale, updatePartSaleStatus } from "@/lib/api/parts";
+import { downloadBlob } from "@/lib/download";
+import { getPartSale, updatePartSaleStatus, getPartSalePdf } from "@/lib/api/parts";
 import { formatMoney , formatCount} from "@/lib/format";
 import type { PartSale } from "@/types/parts";
 
@@ -31,6 +34,9 @@ interface PartSaleDetailViewProps {
 
 export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) {
   const router = useRouter();
+  const { canEdit: canCollect } = useModuleAccess("finanzas-cobrar");
+  const [collecting, setCollecting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
   const { parts } = useParts(filialId);
@@ -100,6 +106,7 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
       await load();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "No se pudo actualizar la venta.");
+      throw err;
     } finally {
       setSubmitting(false);
     }
@@ -126,7 +133,7 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
     );
   }
 
-  const canCancel = sale.status === "pendiente" || sale.status === "pedido";
+  const canCancel = sale.amount_collected <= 0 && (sale.status === "pendiente" || sale.status === "pedido");
 
   return (
     <div>
@@ -215,6 +222,8 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
           <p className="text-steel">Subtotal: ${formatMoney(sale.total)}</p>
           <p className="text-steel">IVA ({formatCount(sale.iva_percentage)}%): ${formatMoney(sale.iva_amount)}</p>
           <p className="text-steel">IGTF ({formatCount(sale.igtf_percentage)}%): ${formatMoney(sale.igtf_amount)}</p>
+          <p className="text-steel">Cobrado: ${formatMoney(sale.amount_collected)} · Pendiente: ${formatMoney(sale.pending_amount)}</p>
+          <p className="font-semibold text-navy">{sale.status === "cancelado" ? "Cancelado" : sale.pending_amount <= 0 ? "Pagado" : sale.amount_collected > 0 ? "Abono registrado" : "Pendiente de pago"}</p>
           <p className="font-display text-lg font-bold text-navy">
             Total: ${formatMoney(sale.total_with_taxes)}
           </p>
@@ -270,7 +279,11 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
         <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{actionError}</p>
       )}
 
+      {collecting && <PartPaymentModal saleId={sale.id} code={sale.code} onClose={() => {setCollecting(false); setConfirming(false);}} onCollected={async () => { if (confirming) await advance("completado"); else await load(); }} onUnpaid={confirming ? async () => {await advance("completado");} : undefined} />}
+      {confirming && !collecting && <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/40 p-4"><div role="dialog" aria-modal="true" aria-label="Confirmar en Mostrador" className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6"><h2 className="font-display text-xl font-bold text-navy">¿El cliente pagó?</h2><p className="text-sm text-steel">Pendiente: ${formatMoney(sale.pending_amount)}. La entrega y el cobro se registran por separado.</p>{canCollect && sale.pending_amount > 0 && <button disabled={submitting} onClick={() => setCollecting(true)} className="w-full rounded-full bg-blue p-3 font-semibold text-white">Sí · Registrar cobro</button>}<button disabled={submitting} onClick={() => {void advance("completado").then(() => setConfirming(false)).catch(() => {});}} className="w-full p-3 font-semibold text-blue">{sale.pending_amount <= 0 ? "Ya pagado · Confirmar entrega" : "Confirmar entrega sin cobro"}</button>{!canCollect && sale.pending_amount > 0 && <p className="text-xs text-steel">Un usuario con permiso de cobro debe registrar el pago. La venta queda en Cuentas por Cobrar.</p>}<button disabled={submitting} onClick={() => setConfirming(false)} className="w-full p-2 text-steel">Volver</button>{actionError && <p role="alert" className="text-sm text-red-600">{actionError}</p>}</div></div>}
       <div className="mt-6 flex items-center gap-3">
+        {sale.status === "completado" && <button disabled={submitting} onClick={() => {setSubmitting(true); setActionError(null); void getPartSalePdf(sale.id).then((blob) => downloadBlob(blob, `${sale.code}.pdf`)).catch((err: unknown) => setActionError(err instanceof Error ? err.message : "No se pudo descargar la factura.")).finally(() => setSubmitting(false));}} className="rounded-full border border-blue px-6 py-2.5 text-sm font-semibold text-blue">Descargar factura PDF</button>}
+        {canCollect && sale.status !== "cancelado" && sale.pending_amount > 0 && <button onClick={() => {setConfirming(false); setCollecting(true);}} className="rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white">Registrar cobro</button>}
         {sale.status === "pendiente" && (
           <button
             onClick={markAsPedido}
@@ -283,7 +296,7 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
         )}
         {sale.status === "pedido" && (
           <button
-            onClick={() => advance("completado")}
+            onClick={() => setConfirming(true)}
             disabled={submitting}
             className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
           >
@@ -293,7 +306,7 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
         )}
         {canCancel && (
           <button
-            onClick={() => advance("cancelado")}
+            onClick={() => void advance("cancelado").catch(() => {})}
             disabled={submitting}
             className="text-sm font-semibold text-red-500 hover:text-red-600"
           >

@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { X, Loader2, Search } from "lucide-react";
 import { useClients } from "@/hooks/useClients";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
+import { useAuth } from "@/contexts/AuthContext";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useToast } from "@/contexts/ToastContext";
 import ClientFormPanel from "@/components/clients/ClientFormPanel";
 import type { Client } from "@/types/client";
@@ -36,6 +38,9 @@ export default function ReserveVehicleModal({
   onConfirm,
 }: ReserveVehicleModalProps) {
   const toast = useToast();
+  const {currentUser} = useAuth();
+  const {canEdit: canAssignAdvisor} = useModuleAccess("administracion");
+  const [reason, setReason] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [createClientOpen, setCreateClientOpen] = useState(false);
@@ -52,11 +57,12 @@ export default function ReserveVehicleModal({
     if (!open) return;
     setSelectedClient(null);
     setClientSearch("");
-    setAdvisorId("");
+    setAdvisorId(currentUser?.userId ?? "");
+    setReason("");
     setDepositAmount("");
     setExpiresAt(defaultExpiration());
     setError(null);
-  }, [open]);
+  }, [open, currentUser?.userId]);
 
   async function handleCreateClient(input: CreateClientInput) {
     const created = await addClient(input);
@@ -83,6 +89,7 @@ export default function ReserveVehicleModal({
       setError("Indica hasta cuándo es válida la reserva.");
       return;
     }
+    if (reason.trim().length < 3) {setError("Indica un motivo de al menos 3 caracteres."); return;}
     setSubmitting(true);
     setError(null);
     try {
@@ -91,6 +98,7 @@ export default function ReserveVehicleModal({
         advisor_user_id: advisorId,
         deposit_amount: deposit,
         expires_at: expiresAt,
+        reason: reason.trim(),
       });
       toast.success(`Reserva registrada — ${vehicle.brand} ${vehicle.model} quedó bloqueado para otros vendedores.`);
       onClose();
@@ -189,6 +197,7 @@ export default function ReserveVehicleModal({
             <label className="mb-1.5 block text-sm font-medium text-navy">Vendedor *</label>
             <select
               value={advisorId}
+              disabled={!canAssignAdvisor}
               onChange={(e) => setAdvisorId(e.target.value)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
             >
@@ -229,6 +238,7 @@ export default function ReserveVehicleModal({
             </div>
           </div>
 
+          <label className="block text-sm font-medium text-navy">Motivo de la reserva *<textarea maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} className="mt-2 w-full rounded-xl border border-navy/15 p-3" /></label>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
           <button

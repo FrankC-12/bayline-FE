@@ -51,6 +51,10 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
 
   useEffect(() => {
     if (!open) return;
+    setSelectedClient(null);
+    setAdvisorId(vehicle?.status === "reservado" ? vehicle.reserved_by_user_id ?? "" : "");
+    setClientSearch("");
+    setError(null);
     setPaymentMethod("usd");
     setUsdBaseInput("");
     setBelowCostNote("");
@@ -58,7 +62,13 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
       const usd = rates.find((rate) => rate.currency === "USD");
       if (usd) setBcvRate(usd.rate_ves);
     }).catch(() => undefined);
-  }, [open]);
+  }, [open, vehicle]);
+
+  useEffect(() => {
+    if (open && vehicle?.status === "reservado") {
+      setSelectedClient(clients.find((c) => c.id === vehicle.reserved_client_id) ?? null);
+    }
+  }, [open, vehicle?.id, vehicle?.status, vehicle?.reserved_client_id, clients]);
 
   async function handleCreateClient(input: CreateClientInput) {
     const created = await addClient(input);
@@ -101,6 +111,7 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
     setError(null);
     try {
       await onConfirm({
+        client_id: selectedClient.id,
         client_name: selectedClient.full_name,
         client_document: `${selectedClient.document_type}-${selectedClient.document_number}`,
         advisor_user_id: advisorId || null,
@@ -144,6 +155,7 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
         </div>
 
         <div className="space-y-5 p-6">
+          {vehicle.status === "reservado" && <p className="rounded-xl bg-blue-light p-3 text-sm text-blue">Esta venta conserva el cliente y el vendedor de la reserva. Para cambiar de cliente, libera primero la reserva indicando un motivo.</p>}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Cliente</label>
             {selectedClient ? (
@@ -156,6 +168,7 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
                 </div>
                 <button
                   type="button"
+                  disabled={vehicle.status === "reservado"}
                   onClick={() => setSelectedClient(null)}
                   className="text-xs font-semibold text-blue hover:text-navy"
                 >
@@ -168,12 +181,13 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
                   <input
                     value={clientSearch}
+                    disabled={vehicle.status === "reservado"}
                     onChange={(e) => setClientSearch(e.target.value)}
                     placeholder="Buscar por nombre o cédula/RIF..."
                     className="w-full rounded-xl border border-navy/15 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-blue"
                   />
                 </div>
-                {clientSearch && (
+                {vehicle.status !== "reservado" && clientSearch && (
                   <div className="mt-2 divide-y divide-navy/5 rounded-xl border border-navy/10">
                     {clients.length > 0 ? (
                       clients.slice(0, 6).map((c) => (
@@ -212,6 +226,7 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
             <label className="mb-1.5 block text-sm font-medium text-navy">Asesor</label>
             <select
               value={advisorId}
+              disabled={vehicle.status === "reservado"}
               onChange={(e) => setAdvisorId(e.target.value)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
             >

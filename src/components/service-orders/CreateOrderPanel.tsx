@@ -6,11 +6,10 @@ import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useInspections } from "@/hooks/useInspections";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { useRoleDirectory } from "@/hooks/useRoleDirectory";
+import { useServiceOrderTypes } from "@/hooks/useServiceOrderTypes";
 import HourSelect from "@/components/common/HourSelect";
 import { listWarrantyClaims } from "@/lib/api/warrantyClaims";
-import { CLAIM_LINKED_ORDER_TYPE_LABELS, CLAIM_LINKED_ORDER_TYPES } from "@/lib/claimLinkedOrderTypes";
 import type { Inspection } from "@/types/inspection";
-import type { ServiceOrderType } from "@/types/serviceOrder";
 import type { WarrantyClaim } from "@/types/warrantyClaim";
 
 export interface CreateOrderExtra {
@@ -31,7 +30,7 @@ interface CreateOrderPanelProps {
   presetInspection?: Inspection | null;
   onSubmit: (
     vehicleId: string,
-    orderType: ServiceOrderType,
+    orderTypeId: string,
     extra: CreateOrderExtra,
     inspectionId: string
   ) => Promise<void>;
@@ -48,12 +47,17 @@ export default function CreateOrderPanel({
   const { inspections: unlinkedInspections } = useInspections(presetInspection ? null : filialId, true);
   const { users } = useUserDirectory({ filialId });
   const { roles } = useRoleDirectory("filial");
+  const { orderTypes } = useServiceOrderTypes(filialId);
   const advisorRoleId = roles.find((r) => r.slug === "asesor")?.id;
   const advisors = users.filter((u) => u.role_id === advisorRoleId);
+  // "mpt"/"retrabajo" stay hidden here on purpose — mpt has no module/screen
+  // behind it yet, and retrabajo is only ever set automatically when
+  // converting a reclamo de garantía, never picked by hand.
+  const selectableOrderTypes = orderTypes.filter((t) => t.is_selectable && t.is_active);
 
   const [search, setSearch] = useState("");
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
-  const [orderType, setOrderType] = useState<ServiceOrderType>("regular");
+  const [orderTypeId, setOrderTypeId] = useState("");
   const [customerReason, setCustomerReason] = useState("");
   const [advisorUserId, setAdvisorUserId] = useState("");
   const [promisedDate, setPromisedDate] = useState("");
@@ -64,7 +68,15 @@ export default function CreateOrderPanel({
   const [matchingClaims, setMatchingClaims] = useState<WarrantyClaim[]>([]);
   const [warrantyClaimId, setWarrantyClaimId] = useState("");
   const [loadingClaims, setLoadingClaims] = useState(false);
-  const requiredClaimType = CLAIM_LINKED_ORDER_TYPES[orderType];
+  const selectedOrderType = orderTypes.find((t) => t.id === orderTypeId);
+  const requiredClaimType = selectedOrderType?.claim_type ?? null;
+
+  useEffect(() => {
+    if (!orderTypeId && selectableOrderTypes.length > 0) {
+      setOrderTypeId(selectableOrderTypes.find((t) => t.code === "regular")?.id ?? selectableOrderTypes[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectableOrderTypes]);
 
   useEffect(() => {
     setWarrantyClaimId("");
@@ -187,7 +199,7 @@ export default function CreateOrderPanel({
     try {
       await onSubmit(
         selectedVehicleId,
-        orderType,
+        orderTypeId,
         {
           customer_reason: customerReason.trim(),
           advisor_user_id: advisorUserId,
@@ -202,7 +214,7 @@ export default function CreateOrderPanel({
       setAdvisorUserId("");
       setPromisedDate("");
       setPromisedTime("");
-      setOrderType("regular");
+      setOrderTypeId("");
       setWarrantyClaimId("");
       onClose();
     } catch (err) {
@@ -277,21 +289,14 @@ export default function CreateOrderPanel({
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Tipo de orden</label>
-            {/* "mpt" (Garantías) stays hidden here on purpose — there is no
-                Garantías/MPT module or screen behind it yet (/dashboard/mpt
-                and /dashboard/garantias both 404). Re-add the option once
-                that module exists; existing orders can still hold "mpt" via
-                the API/DB, this only stops new ones from being created with
-                no workflow behind them. */}
             <select
-              value={orderType}
-              onChange={(e) => setOrderType(e.target.value as ServiceOrderType)}
+              value={orderTypeId}
+              onChange={(e) => setOrderTypeId(e.target.value)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
             >
-              <option value="regular">Regular</option>
-              {Object.entries(CLAIM_LINKED_ORDER_TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
+              {selectableOrderTypes.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
                 </option>
               ))}
             </select>

@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import { X, Loader2, Plus } from "lucide-react";
 import { formatThousands, formatVenezuelanPhone, stripThousands } from "@/lib/format";
-import { normalizeVenezuelaPlate, validateVenezuelaPlate } from "@/lib/venezuela-plate";
 import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 import type { Client } from "@/types/client";
 import type { CreateClientInput, VehicleInput as ApiVehicleInput } from "@/lib/api/clients";
-import { emptyVehicle, isPlateTouched, type VehicleFormValue } from "@/types/client-form";
+import { emptyVehicle, isPlateInvalid, plateForSubmit, type VehicleFormValue } from "@/types/client-form";
 import VehicleFields from "./VehicleFields";
 
 const CONTACT_PREFERENCES = [
@@ -153,7 +152,7 @@ export default function ClientFormPanel({
       if (!v.brand.trim() || !v.model.trim()) {
         issues.push(`Vehículo ${i + 1}: marca y modelo son obligatorios.`);
       }
-      if (v.plate && isPlateTouched(v) && !validateVenezuelaPlate(v.plate).valid) {
+      if (isPlateInvalid(v)) {
         issues.push(`Vehículo ${i + 1}: la placa venezolana no tiene un formato válido.`);
       }
       if (v.vin && v.vin.length !== 17) {
@@ -189,7 +188,7 @@ export default function ClientFormPanel({
         mileage: v.mileage ? Number(stripThousands(v.mileage)) : null,
         purchase_date: v.purchaseDate || null,
         body_type: v.bodyType || null,
-        plate: v.plate ? normalizeVenezuelaPlate(v.plate) : null,
+        plate: plateForSubmit(v),
         color: v.color || null,
         upholstery: v.upholstery || null,
         fuel_type: v.fuelType || null,

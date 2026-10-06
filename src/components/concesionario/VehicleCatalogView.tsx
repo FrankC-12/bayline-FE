@@ -7,6 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useVehicles } from "@/hooks/useVehicles";
 import { useClients } from "@/hooks/useClients";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
+import ChangeVehicleStatusModal from "./ChangeVehicleStatusModal";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import VehicleCard from "./VehicleCard";
 import AddVehicleModal from "./AddVehicleModal";
 import SellVehicleModal from "./SellVehicleModal";
@@ -14,12 +16,13 @@ import ReserveVehicleModal from "./ReserveVehicleModal";
 import VehicleDetailDrawer from "./VehicleDetailDrawer";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
-import type { DealershipVehicle, VehicleLocation } from "@/types/concesionario";
+import type { DealershipVehicle, VehicleLocation, VehicleStatus } from "@/types/concesionario";
 import type { VehicleReservationInput, VehicleSaleInput } from "@/lib/api/concesionario";
 import { LOCATION_OPTIONS } from "@/lib/vehicle-catalog-dealership";
 
 export default function VehicleCatalogView() {
   const { currentUser } = useAuth();
+  const { canEdit } = useModuleAccess("concesionario");
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
@@ -30,6 +33,7 @@ export default function VehicleCatalogView() {
   const [addOpen, setAddOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<DealershipVehicle | null>(null);
   const [sellTarget, setSellTarget] = useState<DealershipVehicle | null>(null);
+  const [statusTarget, setStatusTarget] = useState<{vehicle: DealershipVehicle; target: VehicleStatus} | null>(null);
   const [reserveTarget, setReserveTarget] = useState<DealershipVehicle | null>(null);
   const visibleVehicles = useMemo(
     () =>
@@ -55,8 +59,7 @@ export default function VehicleCatalogView() {
       setReserveTarget(selectedVehicle);
       return;
     }
-    const updated = await editVehicle(selectedVehicle.id, { status });
-    setSelectedVehicle(updated);
+    if (status !== selectedVehicle.status) setStatusTarget({vehicle: selectedVehicle, target: status as VehicleStatus});
   }
 
   async function changeLocation(location: string) {
@@ -154,7 +157,7 @@ export default function VehicleCatalogView() {
               key={v.id}
               vehicle={v}
               onClick={() => setSelectedVehicle(v)}
-              onSell={() => setSellTarget(v)}
+              onSell={canEdit ? () => setSellTarget(v) : undefined}
               reservedClientName={clients.find((c) => c.id === v.reserved_client_id)?.full_name}
               reservedByName={users.find((u) => u.id === v.reserved_by_user_id)?.full_name}
             />
@@ -162,12 +165,15 @@ export default function VehicleCatalogView() {
         </div>
       )}
 
+      {statusTarget && <ChangeVehicleStatusModal key={`${statusTarget.vehicle.id}:${statusTarget.target}`} vehicle={statusTarget.vehicle} target={statusTarget.target} onClose={() => setStatusTarget(null)} onConfirm={async (reason) => { const updated = await editVehicle(statusTarget.vehicle.id, {status: statusTarget.target, status_reason: reason}); setSelectedVehicle(updated); }} />}
       <AddVehicleModal open={addOpen} onClose={() => setAddOpen(false)} filialId={filialId} onSubmit={addVehicle} onUploadPhotos={addVehiclePhotos} />
       <VehicleDetailDrawer
         vehicle={selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
         onStatusChange={changeStatus}
         onLocationChange={changeLocation}
+        canEdit={canEdit}
+        onDetailsChange={async (input) => { if (selectedVehicle) {const updated = await editVehicle(selectedVehicle.id, input); setSelectedVehicle(updated);} }}
         onUploadPhotos={uploadPhotos}
         onDeletePhoto={deletePhoto}
         reservedClientName={clients.find((c) => c.id === selectedVehicle?.reserved_client_id)?.full_name}

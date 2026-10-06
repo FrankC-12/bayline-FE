@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   cancelServiceOrder,
+  forceCompleteServiceOrder,
   getServiceOrder,
   reopenServiceOrder,
   updateServiceOrder,
@@ -57,5 +58,11 @@ export function useServiceOrder(id: string) {
     return updated;
   }, [id]);
 
-  return { order, loading, error, update, cancel, reopen, refresh: load };
+  const forceComplete = useCallback(async () => {
+    const updated = await forceCompleteServiceOrder(id);
+    setOrder(updated);
+    return updated;
+  }, [id]);
+
+  return { order, loading, error, update, cancel, reopen, forceComplete, refresh: load };
 }

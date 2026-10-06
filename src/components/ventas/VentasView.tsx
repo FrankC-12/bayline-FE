@@ -150,18 +150,18 @@ export default function VentasView() {
               </thead>
               <tbody className="divide-y divide-navy/5">
                 {filteredPartSales.map((s) => {
-                  const paid = s.status === "completado";
+                  const paid = s.status !== "cancelado" && s.pending_amount <= 0;
                   return (
                     <tr key={s.id} className="transition hover:bg-ash/60">
                       <td className="px-6 py-4 text-steel">{new Date(s.created_at).toLocaleDateString("es-VE")}</td>
                       <td className="px-6 py-4 font-semibold text-navy">{s.client_name}</td>
                       <td className="px-6 py-4 text-navy">{s.lines.map((l) => partName(l.part_id)).join(", ")}</td>
-                      <td className="px-6 py-4 font-semibold text-navy">${formatMoney(s.total)}</td>
+                      <td className="px-6 py-4 font-semibold text-navy">${formatMoney(s.total_with_taxes)}</td>
                       <td className="px-6 py-4">
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-semibold ${paid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
                         >
-                          {paid ? "Pagado" : "Pendiente"}
+                          {s.status === "cancelado" ? "Cancelado" : paid ? "Pagado" : s.amount_collected > 0 ? "Abono" : "Pendiente"}
                         </span>
                       </td>
                       <td className="px-6 py-4">

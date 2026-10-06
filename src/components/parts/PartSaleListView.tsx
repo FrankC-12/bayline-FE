@@ -98,6 +98,9 @@ export default function PartSalesListView() {
                   Estado
                 </th>
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                  Estado de pago
+                </th>
+                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
                   Estado de almacén
                 </th>
               </tr>
@@ -123,6 +126,7 @@ export default function PartSalesListView() {
                       {STATUS_LABELS[s.status]}
                     </span>
                   </td>
+                  <td className="px-6 py-4 text-steel">{s.status === "cancelado" ? "—" : s.pending_amount <= 0 ? "Pagado" : s.amount_collected > 0 ? "Abono" : "Pendiente"}</td>
                   <td className="px-6 py-4 text-steel">{WAREHOUSE_LABELS[s.status]}</td>
                 </tr>
               ))}

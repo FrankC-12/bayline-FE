@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Plus, Search } from "lucide-react";
 import { CATEGORY_OPTIONS } from "@/lib/temparios-categories";
 import { DEFAULT_DISCOUNT, PARTS_MULTIPLIERS } from "@/lib/partsPricing";
+import { useWarrantyPolicies } from "@/hooks/useWarrantyPolicies";
 import { useParts } from "@/hooks/useParts";
 import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 import type { CreateTemparioInput } from "@/lib/api/temparios";
@@ -53,6 +54,9 @@ export default function CreateTemparioModal({
   const [selectedVehicles, setSelectedVehicles] = useState<Set<string>>(new Set());
   const [toolInput, setToolInput] = useState("");
   const [tools, setTools] = useState<string[]>([]);
+  const [laborWarranty, setLaborWarranty] = useState("");
+  const [partsWarranty, setPartsWarranty] = useState("");
+  const { policies, loading: warrantiesLoading, error: warrantiesError, refresh: refreshWarranties } = useWarrantyPolicies(open ? filialId : null);
   const [requiresParts, setRequiresParts] = useState(true);
   const [parts, setParts] = useState<PartDraft[]>([emptyPart()]);
   const [submitting, setSubmitting] = useState(false);
@@ -76,6 +80,8 @@ export default function CreateTemparioModal({
       );
       setTools(editingTempario.tools);
       setRequiresParts(editingTempario.requires_parts);
+      setLaborWarranty(editingTempario.labor_warranty_policy_id ?? "");
+      setPartsWarranty(editingTempario.parts_warranty_policy_id ?? "");
       setParts(
         editingTempario.parts.length
           ? editingTempario.parts.map((p) => ({
@@ -96,6 +102,7 @@ export default function CreateTemparioModal({
       setSelectedVehicles(new Set());
       setTools([]);
       setRequiresParts(true);
+      setLaborWarranty(""); setPartsWarranty("");
       setParts([emptyPart()]);
     }
     setError(null);
@@ -212,6 +219,8 @@ export default function CreateTemparioModal({
         compatible_vehicles,
         tools,
         requires_parts: requiresParts,
+        labor_warranty_policy_id: laborWarranty || null,
+        parts_warranty_policy_id: partsWarranty || null,
         parts: validParts,
       });
       onClose();
@@ -456,6 +465,14 @@ export default function CreateTemparioModal({
                 Este servicio no requiere repuestos
               </label>
             </div>
+
+            <section className="space-y-3 rounded-2xl border border-navy/10 p-4">
+              <h3 className="font-semibold text-navy">Garantía del servicio</h3>
+              <p className="text-xs text-steel">Estas condiciones se guardan al agregar el tempario a una ODS. Sin selección, se usan las garantías de la orden o de la filial.</p>
+              {warrantiesError && <p role="alert" className="text-xs text-red-600">{warrantiesError.message}</p>}
+              {([{label: "Mano de obra", coverage: "mano_de_obra", value: laborWarranty, setter: setLaborWarranty}, {label: "Repuestos", coverage: "repuestos", value: partsWarranty, setter: setPartsWarranty}] as const).map((field) => <label key={field.coverage} className="block text-sm text-navy">{field.label}<select disabled={warrantiesLoading} value={field.value} onChange={(event) => field.setter(event.target.value)} className="mt-1 w-full rounded-xl border border-navy/15 bg-white px-3 py-2.5"><option value="">Usar garantía de la orden / filial</option>{policies.filter((p) => p.id === field.value || (p.status === "activa" && (p.applies_to === field.coverage || p.applies_to === "ambas"))).map((p) => <option key={p.id} value={p.id}>{p.name} · {p.no_expiration ? "Sin vencimiento" : [p.duration_days != null ? `${p.duration_days} días` : "", p.duration_km != null ? `${p.duration_km} km` : ""].filter(Boolean).join(" / ")}{p.status === "inactiva" ? " (inactiva)" : ""}</option>)}</select></label>)}
+              <div className="flex gap-4 text-xs"><a href="/dashboard/post-ventas/politicas-garantia/nueva" target="_blank" rel="noopener noreferrer" className="font-semibold text-blue">Crear garantía</a><button type="button" onClick={() => void refreshWarranties()} disabled={warrantiesLoading} className="font-semibold text-blue">Actualizar garantías</button></div>
+            </section>
 
             {requiresParts && (
               <div className="space-y-2 rounded-xl border border-navy/10 p-3">

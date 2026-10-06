@@ -1,12 +1,14 @@
 "use client";
 
 import { formatMoney , formatCount} from "@/lib/format";
+import { downloadBlob } from "@/lib/download";
+import PaymentReceivedFields from "./PaymentReceivedFields";
 import { NumberInput } from "@/components/ui/NumberInput";
 
 import { useEffect, useRef, useState } from "react";
 import { X, Loader2, Receipt, CheckCircle2 } from "lucide-react";
 import {
-  getBillingContext, refreshBillingRate, quoteBilling, issueInvoice, getInvoice, getInvoiceDocument,
+  getBillingContext, refreshBillingRate, quoteBilling, issueInvoice, getInvoice, getInvoiceDocument, getInvoicePdf,
   type BillingContext, type BillingQuote, type Invoice, type PaymentMethod,
 } from "@/lib/api/serviceOrderBilling";
 import { useAuth } from "@/contexts/AuthContext";
@@ -150,11 +152,12 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
     } finally { setBusy(false); }
   }
 
-  function download() {
-    if (!document) return;
-    const url = URL.createObjectURL(new Blob([document.html], {type: "text/html;charset=utf-8"}));
-    const a = window.document.createElement("a"); a.href = url; a.download = document.filename; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  async function download() {
+    if (!invoice || busy) return;
+    setBusy(true); setError(null);
+    try { downloadBlob(await getInvoicePdf(orderId), `${invoice.code}.pdf`); }
+    catch (err) { setError(err instanceof Error ? err.message : "No se pudo descargar la factura."); }
+    finally { setBusy(false); }
   }
   function print() {
     if (!document) return;
@@ -189,7 +192,7 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
           return <div className="rounded-xl bg-emerald-50 p-5 text-emerald-800"><CheckCircle2 className="mb-2" /><h3 className="font-bold">{invoice.code} · {pending > 0.01 ? "Facturado" : "Pago registrado"}</h3><p>{invoice.client_name} · {invoice.client_document}</p><p className="mt-2 text-2xl font-bold">{usd(invoice.total_usd)}</p><p>Recibido: {usd(receivedUsd)} + {bs(receivedBs)}</p>{hasRetention && <p className="mt-1">Retenido (IVA + ISLR): {usd(invoice.iva_retention_amount + invoice.islr_retention_amount)} · Neto esperado: {usd(invoice.net_expected)}</p>}{pending > 0.01 && <p className="mt-1 font-semibold">Pendiente por cobrar: {usd(pending)} (queda en Cuentas por Cobrar)</p>}</div>;
         })()}
         {!document && <button onClick={async () => { try { setDocument(await getInvoiceDocument(orderId)); setError(null); } catch { setError("No se pudo cargar el documento. Intenta nuevamente."); } }} className="text-sm text-blue underline">Cargar documento de factura</button>}
-        <div className="flex flex-wrap gap-3"><button onClick={download} disabled={!document} className="rounded-full bg-blue px-5 py-2 text-white disabled:opacity-50">Descargar documento</button><button onClick={print} disabled={!document} className="rounded-full border border-navy/20 px-5 py-2 text-navy disabled:opacity-50">Imprimir / guardar PDF</button></div>
+        <div className="flex flex-wrap gap-3"><button onClick={() => void download()} disabled={!invoice || busy} className="rounded-full bg-blue px-5 py-2 text-white disabled:opacity-50">{busy ? "Preparando PDF…" : "Descargar factura PDF"}</button><button onClick={print} disabled={!document} className="rounded-full border border-navy/20 px-5 py-2 text-navy disabled:opacity-50">Imprimir / guardar PDF</button></div>
         <p className="text-sm text-steel">La factura conserva los importes y el pago registrados. El cierre de la orden se realiza por separado desde su pantalla.</p>
         {document && <iframe title="Documento de factura" sandbox="" srcDoc={document.html} className="h-[480px] w-full rounded-xl border border-navy/10" />}
       </div> : <div className="grid gap-6 p-6 md:grid-cols-[1fr_300px]">
@@ -233,7 +236,7 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
             </div>
           </fieldset>
           <fieldset disabled={busy} className="space-y-4"><legend className="mb-2 font-semibold text-navy">Registrar pago recibido</legend>
-            {current && (["usd","bs"] as const).filter((currency) => (currency === "usd" ? current.due_usd : current.due_bs) > 0).map((currency) => <div key={currency} className="rounded-xl border border-navy/10 p-4"><p className="mb-3 font-semibold text-navy">A cobrar: {currency === "usd" ? usd(current.due_usd) : bs(current.due_bs)}</p><label className="block text-sm text-steel">Cuenta receptora ({currency === "usd" ? "USD" : "Bs."})<select value={currency === "usd" ? usdAccount : bsAccount} onChange={(e) => (currency === "usd" ? setUsdAccount : setBsAccount)(e.target.value)} className={inputClass}><option value="">Selecciona una cuenta</option>{context?.accounts.filter((a) => a.currency === currency).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>{!context?.accounts.some((a) => a.currency === currency) && <p className="mt-2 text-xs text-red-600">Registra una cuenta activa en esta moneda en Administración para recibir el pago.</p>}<label className="mt-3 block text-sm text-steel">Monto recibido<NumberInput min="0" step="0.01" value={currency === "usd" ? paidUsd : paidBs} onValueChange={(value) => (currency === "usd" ? setPaidUsd : setPaidBs)(value)} className={inputClass} /></label></div>)}
+            <PaymentReceivedFields quote={current} accounts={context?.accounts ?? []} usdAccount={usdAccount} bsAccount={bsAccount} paidUsd={paidUsd} paidBs={paidBs} setUsdAccount={setUsdAccount} setBsAccount={setBsAccount} setPaidUsd={setPaidUsd} setPaidBs={setPaidBs} />
             <label className="block text-sm text-steel">Referencia del pago (opcional)<input value={reference} onChange={(e) => setReference(e.target.value)} maxLength={120} className={inputClass} /></label>
           </fieldset>
         </section>

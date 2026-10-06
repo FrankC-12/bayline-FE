@@ -27,10 +27,8 @@ import WarrantyClaimModal from "./WarrantyClaimModal";
 import VehicleDamageMap from "@/components/inspections/VehicleDamageMap";
 import { closeServiceOrder } from "@/lib/api/serviceOrderBilling";
 import { formatElapsed, serviceOrderStoppedAt } from "@/lib/time";
-import { CLAIM_LINKED_ORDER_TYPE_LABELS } from "@/lib/claimLinkedOrderTypes";
 import LiveDot from "@/components/common/LiveDot";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
-import { ApiError } from "@/lib/api/client";
 import type { WarrantyClaimType } from "@/types/warrantyClaim";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -49,12 +47,6 @@ const STATUS_STYLES: Record<string, string> = {
   cancelado: "bg-red-100 text-red-700",
 };
 
-const TYPE_LABELS: Record<string, string> = {
-  regular: "Regular",
-  mpt: "MPT",
-  retrabajo: "Retrabajo",
-  ...CLAIM_LINKED_ORDER_TYPE_LABELS,
-};
 
 interface OrderDetailProps {
   orderId: string;
@@ -66,7 +58,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const filialId = currentUser?.filialId ?? null;
   const toast = useToast();
 
-  const { order, loading, error, update, cancel, reopen, refresh: refreshOrder } = useServiceOrder(orderId);
+  const { order, loading, error, update, cancel, reopen, forceComplete: forceCompleteOrder, refresh: refreshOrder } = useServiceOrder(orderId);
   const { vehicleMap } = useVehicleLookup(filialId);
   const { users } = useUserDirectory({ filialId });
   const { roles } = useRoleDirectory("filial");
@@ -105,6 +97,8 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     toggleTaskStatus,
     changeTaskPayer,
     removeTask,
+    startTaskTimer,
+    pauseTaskTimer,
     addTransferLine,
     changeLinePayer,
     changeLineQuantity,
@@ -119,7 +113,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const [closePanelOpen, setClosePanelOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
-  const [incompleteCompletionWarning, setIncompleteCompletionWarning] = useState<string | null>(null);
+  const [forceCompleteDialogOpen, setForceCompleteDialogOpen] = useState(false);
   const [nextMaintenanceDate, setNextMaintenanceDate] = useState("");
   const [temparioSearch, setTemparioSearch] = useState("");
   const [nextMaintenanceTempario, setNextMaintenanceTempario] = useState<{ id: string; code: string; name: string } | null>(null);
@@ -169,6 +163,29 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const info = vehicleMap.get(order.vehicle_id);
   const readOnly = !!order.invoiced_at || order.status === "orden_cerrada" || order.status === "cancelado";
 
+  // El estado pendiente/en progreso/completado se calcula solo según las
+  // tareas (y ODTs) de la orden — forzar completado es la única excepción
+  // manual, para cuando algo queda pendiente a propósito.
+  const pendingTaskNames = (summary?.tasks ?? [])
+    .filter((t) => t.status !== "completada" && t.status !== "cancelada")
+    .map((t) => t.name_snapshot);
+  const pendingTransferCodes = (summary?.transfers ?? [])
+    .filter((t) => t.status === "pendiente")
+    .map((t) => t.code);
+  const hasPendingWork = pendingTaskNames.length > 0 || pendingTransferCodes.length > 0;
+  const canForceComplete =
+    !readOnly && (order.status === "pendiente" || order.status === "en_progreso") && hasPendingWork;
+  const pendingWorkMessage = [
+    pendingTaskNames.length > 0
+      ? `${pendingTaskNames.length} ${pendingTaskNames.length === 1 ? "tarea" : "tareas"} sin terminar (${pendingTaskNames.join(", ")})`
+      : null,
+    pendingTransferCodes.length > 0
+      ? `${pendingTransferCodes.length} ${pendingTransferCodes.length === 1 ? "ODT" : "ODTs"} sin despachar (${pendingTransferCodes.join(", ")})`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" y ");
+
   const pendingPlanTemparioId = info?.vehicle.next_maintenance_tempario_id ?? null;
   const pendingPlanAlreadyAdded = !!(
     pendingPlanTemparioId && summary?.tasks.some((t) => t.tempario_id === pendingPlanTemparioId)
@@ -201,37 +218,16 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     finally { setSaving(false); }
   }
 
-  const STATUS_TRANSITION_TOAST: Record<string, string> = {
-    en_progreso: "Orden iniciada.",
-    completado: "Orden marcada como completada.",
-  };
-
-  async function transition(status: string) {
+  async function forceComplete() {
     if (readOnly) return;
     setSaving(true);
     try {
-      await update({ status });
-      await refreshSummary();
-      if (STATUS_TRANSITION_TOAST[status]) toast.success(STATUS_TRANSITION_TOAST[status]);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function markCompleted(confirmIncomplete = false) {
-    if (readOnly) return;
-    setSaving(true);
-    try {
-      await update({ status: "completado", confirm_incomplete_completion: confirmIncomplete });
+      await forceCompleteOrder();
       await refreshSummary();
       toast.success("Orden marcada como completada.");
-      setIncompleteCompletionWarning(null);
+      setForceCompleteDialogOpen(false);
     } catch (err) {
-      if (err instanceof ApiError && err.errorCode === "order_incomplete") {
-        setIncompleteCompletionWarning(err.message);
-      } else {
-        throw err;
-      }
+      setActionError(err instanceof Error ? err.message : "No se pudo completar la orden.");
     } finally {
       setSaving(false);
     }
@@ -345,7 +341,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             {STATUS_LABELS[order.status]}
           </span>
           <span className="rounded-full bg-ash px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-steel">
-            {TYPE_LABELS[order.order_type]}
+            {order.order_type.name}
           </span>
           {order.completed_with_pending_items && (
             <span
@@ -376,22 +372,14 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         {inspection && <p className="mt-4 inline-flex rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800">✓ Inspección preliminar vinculada</p>}
 
         <div className="mt-5 flex flex-wrap gap-3 border-t border-navy/10 pt-5">
-          {order.status === "pendiente" && (
+          {canForceComplete && (
             <button
-              onClick={() => transition("en_progreso")}
-              disabled={saving || readOnly}
-              className="rounded-full bg-blue px-5 py-2 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-60"
+              onClick={() => setForceCompleteDialogOpen(true)}
+              disabled={saving}
+              title="Completa la orden aunque queden tareas u ODTs pendientes"
+              className="rounded-full border border-navy/15 px-5 py-2 text-sm font-semibold text-navy transition hover:border-blue hover:text-blue disabled:opacity-60"
             >
-              Iniciar
-            </button>
-          )}
-          {order.status === "en_progreso" && (
-            <button
-              onClick={() => markCompleted(false)}
-              disabled={saving || readOnly}
-              className="rounded-full bg-blue px-5 py-2 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-60"
-            >
-              Marcar como completado
+              Forzar completado
             </button>
           )}
           {order.status === "completado" && <>
@@ -806,6 +794,8 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             onAdd={addTask}
             onToggleStatus={toggleTaskStatus}
             onRemove={removeTask}
+            onStartTimer={startTaskTimer}
+            onPauseTimer={pauseTaskTimer}
           />
         </div>
       )}
@@ -887,14 +877,14 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         }}
       />
       <ConfirmDialog
-        open={incompleteCompletionWarning != null}
+        open={forceCompleteDialogOpen}
         title="Completar orden con pendientes"
-        description={`${incompleteCompletionWarning ?? ""} ¿Completar la orden de todas formas? Quedará registrado quién lo confirmó y cuándo.`}
+        description={`Pendiente: ${pendingWorkMessage}. ¿Completar la orden de todas formas? Quedará registrado quién lo confirmó y cuándo.`}
         confirmLabel="Completar de todas formas"
         cancelLabel="Volver"
         confirming={saving}
-        onConfirm={() => markCompleted(true)}
-        onCancel={() => setIncompleteCompletionWarning(null)}
+        onConfirm={forceComplete}
+        onCancel={() => setForceCompleteDialogOpen(false)}
       />
     </div>
   );

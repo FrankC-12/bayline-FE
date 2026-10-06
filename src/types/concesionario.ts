@@ -14,6 +14,7 @@ export interface DealershipVehicle {
   brand: string;
   model: string;
   year: number;
+  mileage: number | null;
   color: string | null;
   fuel_type: FuelType | null;
   transmission: TransmissionType | null;
@@ -45,6 +46,7 @@ export interface DealershipVehicle {
 }
 
 export interface VehicleSale {
+  mileage_at_sale: number | null;
   id: string;
   code: string;
   vehicle_id: string;

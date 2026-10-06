@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiFetch, apiFetchBlob } from "./client";
 import type { Part, PartCategory, PartMeasure, PartReturn, PartSale } from "@/types/parts";
 
 export interface CreatePartInput {
@@ -236,3 +236,24 @@ export async function quotePartSale(input: Omit<CreatePartSaleInput, "client_nam
     method: "POST", body: JSON.stringify(input),
   });
 }
+
+export interface PartPaymentInput {
+  payment_method: "usd" | "bs" | "mixed"; usd_base: string;
+  paid_usd: string; paid_bs: string; usd_account_id: string | null;
+  bs_account_id: string | null; payment_reference: string;
+}
+export interface PartBillingContext {
+  pending_amount: number; bcv_rate: number | null; bcv_date: string | null;
+  accounts: { id: string; name: string; currency: "usd" | "bs" }[];
+}
+export interface PartPaymentQuote {
+  pending_before: number; due_usd: number; due_bs: number;
+  igtf_amount: number; total_usd: number; bcv_rate: number | null;
+}
+export const getPartBilling = (id: string) => apiFetch<PartBillingContext>(`/part-sales/${id}/billing`);
+export const quotePartPayment = (id: string, input: Pick<PartPaymentInput, "payment_method" | "usd_base">) =>
+  apiFetch<PartPaymentQuote>(`/part-sales/${id}/billing/quote`, { method: "POST", body: JSON.stringify(input) });
+export const collectPartPayment = (id: string, input: PartPaymentInput) =>
+  apiFetch<PartSale>(`/part-sales/${id}/payments`, { method: "POST", body: JSON.stringify(input) });
+
+export const getPartSalePdf = (id: string) => apiFetchBlob(`/part-sales/${id}/invoice/pdf`);

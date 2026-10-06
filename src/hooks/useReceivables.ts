@@ -18,8 +18,10 @@ export function useReceivables(filialId: string | null) {
 
   const collectOne = useCallback(
     async (invoiceId: string, input: CollectInvoicePaymentInput) => {
-      await collectReceivable(invoiceId, input);
-      setReceivables((prev) => prev.filter((r) => r.invoice_id !== invoiceId));
+      const updated = await collectReceivable(invoiceId, input);
+      setReceivables((prev) => updated.pending_amount <= 0
+        ? prev.filter((r) => r.invoice_id !== invoiceId)
+        : prev.map((r) => r.invoice_id === invoiceId ? updated : r));
     },
     [setReceivables]
   );

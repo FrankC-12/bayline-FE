@@ -3,14 +3,15 @@
 import { formatCount } from "@/lib/format";
 import { NumberInput } from "@/components/ui/NumberInput";
 
-import { useState } from "react";
+import PartPaymentModal from "@/components/parts/PartPaymentModal";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useReceivables } from "@/hooks/useReceivables";
 import { useAccounts } from "@/hooks/useAccounts";
-import type { Receivable } from "@/lib/api/serviceOrderBilling";
+import { getBillingContext, type Receivable } from "@/lib/api/serviceOrderBilling";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 
@@ -41,7 +42,7 @@ export default function ReceivablesView() {
       <h1 className="mb-2 font-display text-3xl font-bold text-navy">Cuentas por Cobrar</h1>
       <p className="mb-4 text-sm text-steel">
         Toda venta o factura emitida sin cobrar por completo — facturas de ODS pendientes de cobro y ventas de
-        repuestos que aún no llegan a completado.
+        repuestos con saldo pendiente, incluidos abonos.
       </p>
 
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
@@ -85,25 +86,8 @@ export default function ReceivablesView() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {r.document_type === "service_order_invoice" ? (
-                      canCollect ? (
-                        <button
-                          onClick={() => setCollecting(r)}
-                          className="rounded-full bg-blue px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-navy"
-                        >
-                          Registrar cobro
-                        </button>
-                      ) : (
-                        <span className="text-xs italic text-steel">Sin permiso para cobrar</span>
-                      )
-                    ) : (
-                      <Link
-                        href={`/dashboard/repuestos/ventas/${r.invoice_id}`}
-                        className="text-xs font-semibold text-blue hover:underline"
-                      >
-                        Ver venta
-                      </Link>
-                    )}
+                    {canCollect && <button onClick={() => setCollecting(r)} className="rounded-full bg-blue px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-navy">Registrar cobro</button>}
+                    {r.document_type === "part_sale" && <Link href={`/dashboard/repuestos/ventas/${r.invoice_id}`} className="ml-3 text-xs font-semibold text-blue hover:underline">Ver venta</Link>}
                   </td>
                 </tr>
               ))}
@@ -112,7 +96,8 @@ export default function ReceivablesView() {
         )}
       </div>
 
-      {collecting && (
+      {collecting?.document_type === "part_sale" && <PartPaymentModal saleId={collecting.invoice_id} code={collecting.code} onClose={() => setCollecting(null)} onCollected={async () => { await refresh(); }} />}
+      {collecting?.document_type === "service_order_invoice" && (
         <CollectModal receivable={collecting} onClose={() => setCollecting(null)} onSubmit={collectOne} />
       )}
     </div>
@@ -131,7 +116,14 @@ function CollectModal({
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
   const { accounts } = useAccounts(filialId);
-  const usdAccounts = accounts.filter((a) => a.currency === "usd");
+  const paymentAccounts = accounts.filter((a) => a.is_active && (a.currency === "usd" || a.currency === "bs"));
+  const [rate, setRate] = useState<number | null>(null);
+  useEffect(() => {
+    let active = true;
+    if (receivable.service_order_id) getBillingContext(receivable.service_order_id)
+      .then((data) => { if (active) setRate(data.bcv_rate); }).catch(() => {});
+    return () => { active = false; };
+  }, [receivable.service_order_id]);
 
   const [accountId, setAccountId] = useState("");
   const [withholding, setWithholding] = useState("0");
@@ -139,6 +131,7 @@ function CollectModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const currency = paymentAccounts.find((a) => a.id === accountId)?.currency ?? "usd";
   async function handleSubmit() {
     if (!accountId) {
       setError("Elige la cuenta que recibe el pago.");
@@ -183,21 +176,26 @@ function CollectModal({
             <label className="mb-1.5 block text-sm font-medium text-navy">Cuenta que recibe el pago</label>
             <select
               value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
+              onChange={(e) => {
+                setAccountId(e.target.value);
+                const bs = paymentAccounts.find((a) => a.id === e.target.value)?.currency === "bs";
+                setNetAmount(bs ? rate ? (receivable.pending_amount * rate).toFixed(2) : "" : String(receivable.pending_amount));
+              }}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
             >
               <option value="">Selecciona una cuenta...</option>
-              {usdAccounts.map((a) => (
+              {paymentAccounts.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.name} (USD)
+                  {a.name} ({a.currency.toUpperCase()})
                 </option>
               ))}
             </select>
           </div>
 
+          <p className="text-xs text-steel">Puedes registrar el total o un abono. {currency === "bs" && `Tasa BCV: ${rate ?? "No disponible"}.`}</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Retenciones</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">Retenciones (USD)</label>
               <NumberInput
                 min="0"
                 step="0.01"
@@ -207,7 +205,7 @@ function CollectModal({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Monto neto cobrado</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">Monto neto cobrado ({currency === "bs" ? "Bs." : "USD"})</label>
               <NumberInput
                 min="0"
                 step="0.01"

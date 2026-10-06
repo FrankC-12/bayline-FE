@@ -7,13 +7,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useVehicles } from "@/hooks/useVehicles";
 import { useClients } from "@/hooks/useClients";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
+import ChangeVehicleStatusModal from "./ChangeVehicleStatusModal";
 import VehicleCard from "./VehicleCard";
 import AddVehicleModal from "./AddVehicleModal";
 import SellVehicleModal from "./SellVehicleModal";
 import ReserveVehicleModal from "./ReserveVehicleModal";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
-import type { DealershipVehicle } from "@/types/concesionario";
+import type { DealershipVehicle, VehicleStatus } from "@/types/concesionario";
 import type { VehicleReservationInput, VehicleSaleInput } from "@/lib/api/concesionario";
 
 export default function VehicleDashboardView() {
@@ -26,6 +27,7 @@ export default function VehicleDashboardView() {
   const { users } = useUserDirectory({ filialId });
   const [addOpen, setAddOpen] = useState(false);
   const [sellTarget, setSellTarget] = useState<DealershipVehicle | null>(null);
+  const [statusTarget, setStatusTarget] = useState<{vehicle: DealershipVehicle; target: VehicleStatus} | null>(null);
   const [reserveTarget, setReserveTarget] = useState<DealershipVehicle | null>(null);
 
   const summary = useMemo(() => {
@@ -46,7 +48,7 @@ export default function VehicleDashboardView() {
       setReserveTarget(vehicle);
       return;
     }
-    await editVehicle(vehicle.id, { status });
+    if (status !== vehicle.status) setStatusTarget({vehicle, target: status as VehicleStatus});
   }
 
   async function confirmSale(sale: VehicleSaleInput) {
@@ -134,6 +136,7 @@ export default function VehicleDashboardView() {
         </div>
       )}
 
+      {statusTarget && <ChangeVehicleStatusModal key={`${statusTarget.vehicle.id}:${statusTarget.target}`} vehicle={statusTarget.vehicle} target={statusTarget.target} onClose={() => setStatusTarget(null)} onConfirm={async (reason) => { await editVehicle(statusTarget.vehicle.id, {status: statusTarget.target, status_reason: reason}); }} />}
       <AddVehicleModal open={addOpen} onClose={() => setAddOpen(false)} filialId={filialId} onSubmit={addVehicle} onUploadPhotos={addVehiclePhotos} />
       <SellVehicleModal
         open={sellTarget != null}

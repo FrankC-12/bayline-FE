@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiFetch, apiFetchBlob } from "./client";
 import type { DealershipVehicle, VehicleSale } from "@/types/concesionario";
 
 export interface CreateVehicleInput {
@@ -9,6 +9,7 @@ export interface CreateVehicleInput {
   brand: string;
   model: string;
   year: number;
+  mileage?: number | null;
   color?: string | null;
   fuel_type?: string | null;
   transmission?: string | null;
@@ -40,6 +41,7 @@ export async function getLatestExchangeRates(): Promise<ExchangeRate[]> {
 }
 
 export interface VehicleSaleInput {
+  client_id?: string | null;
   client_name: string;
   client_document?: string | null;
   advisor_user_id?: string | null;
@@ -56,6 +58,7 @@ export interface VehicleSaleInput {
 }
 
 export interface VehicleReservationInput {
+  reason?: string;
   client_id: string;
   advisor_user_id: string;
   deposit_amount: number;
@@ -63,12 +66,14 @@ export interface VehicleReservationInput {
 }
 
 export interface UpdateVehicleInput {
+  status_reason?: string;
   status?: string;
   condition?: string;
   location?: string;
   brand?: string;
   model?: string;
   year?: number;
+  mileage?: number | null;
   color?: string | null;
   fuel_type?: string | null;
   transmission?: string | null;
@@ -130,3 +135,14 @@ export async function deleteVehicle(id: string): Promise<void> {
 export async function listVehicleSales(filialId: string): Promise<VehicleSale[]> {
   return apiFetch<VehicleSale[]>(`/vehicle-sales?filial_id=${filialId}`);
 }
+
+export interface VehicleStatusEvent {
+ id: string; previous_status: DealershipVehicle["status"] | null; new_status: DealershipVehicle["status"];
+ user_id: string; user_name: string; reason: string; created_at: string;
+ reservation_snapshot: {client_id: string; advisor_user_id: string | null; deposit_amount: number; expires_at: string | null} | null;
+}
+export const getVehicleStatusHistory = (id: string) => apiFetch<VehicleStatusEvent[]>(`/dealership-vehicles/${id}/status-history`);
+
+export const getVehicleSaleDocument = (id: string) => apiFetch<{filename: string; html: string}>(`/vehicle-sales/${id}/document`);
+
+export const getVehicleSalePdf = (id: string) => apiFetchBlob(`/vehicle-sales/${id}/invoice/pdf`);

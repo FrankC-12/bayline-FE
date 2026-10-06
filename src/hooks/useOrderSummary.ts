@@ -7,13 +7,15 @@ import {
   updateTaskStatus,
   updateTaskPayer,
   deleteTask,
+  startTaskTimer,
+  pauseTaskTimer,
   addTransferLine,
   updateTransferLinePayer,
   updateTransferLineQuantity,
   removeTransferLine,
   markTransferOrdered,
 } from "@/lib/api/serviceOrders";
-import type { OrderSummary, ServiceOrderPayer, TaskStatus } from "@/types/serviceOrder";
+import type { OrderSummary, ServiceOrderPayer, ServiceOrderTask, TaskStatus } from "@/types/serviceOrder";
 
 export function useOrderSummary(orderId: string | null) {
   const [summary, setSummary] = useState<OrderSummary | null>(null);
@@ -67,6 +69,28 @@ export function useOrderSummary(orderId: string | null) {
       await load();
     },
     [load]
+  );
+
+  const replaceTask = useCallback((updated: ServiceOrderTask) => {
+    setSummary((current) =>
+      current
+        ? { ...current, tasks: current.tasks.map((t) => (t.id === updated.id ? updated : t)) }
+        : current
+    );
+  }, []);
+
+  const startTaskTimerAndRefresh = useCallback(
+    async (taskId: string) => {
+      replaceTask(await startTaskTimer(taskId));
+    },
+    [replaceTask]
+  );
+
+  const pauseTaskTimerAndRefresh = useCallback(
+    async (taskId: string) => {
+      replaceTask(await pauseTaskTimer(taskId));
+    },
+    [replaceTask]
   );
 
   const addLineAndRefresh = useCallback(
@@ -125,6 +149,8 @@ export function useOrderSummary(orderId: string | null) {
     toggleTaskStatus,
     changeTaskPayer,
     removeTask,
+    startTaskTimer: startTaskTimerAndRefresh,
+    pauseTaskTimer: pauseTaskTimerAndRefresh,
     addTransferLine: addLineAndRefresh,
     changeLinePayer,
     changeLineQuantity,

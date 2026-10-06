@@ -1,5 +1,6 @@
 "use client";
 
+import { inventoryMileageError } from "@/lib/inventory-mileage";
 import { NumberInput } from "@/components/ui/NumberInput";
 
 import { useEffect, useMemo, useState } from "react";
@@ -21,11 +22,8 @@ interface FieldErrors {
   vin?: string;
   sku?: string;
   costPrice?: string;
+  mileage?: string;
 }
-
-const CURRENT_YEAR = new Date().getFullYear();
-const MIN_YEAR = 1990;
-const YEARS = Array.from({ length: CURRENT_YEAR + 1 - MIN_YEAR + 1 }, (_, i) => CURRENT_YEAR + 1 - i);
 
 interface AddVehicleModalProps {
   open: boolean;
@@ -50,8 +48,8 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [status, setStatus] = useState("en_transito");
   const [location, setLocation] = useState("patio");
-  const [years, setYears] = useState(YEARS);
   const [colors, setColors] = useState(VEHICLE_COLORS);
+  const [mileage, setMileage] = useState("");
   const [condition, setCondition] = useState("nuevo");
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
@@ -60,6 +58,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
   const [fuelType, setFuelType] = useState("gasolina");
   const [transmission, setTransmission] = useState("automatica");
   const [vin, setVin] = useState("");
+  const [noPlate, setNoPlate] = useState(false);
   const [plate, setPlate] = useState("");
   const [sku, setSku] = useState("");
   const [skuTouched, setSkuTouched] = useState(false);
@@ -82,32 +81,14 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
       const saved = localStorage.getItem("bayline.vehicleOptions");
       if (!saved) return;
       const parsed = JSON.parse(saved) as { years?: number[]; colors?: string[] };
-      // Merge with the built-in range instead of replacing it — a browser
-      // that cached a narrower list before this range was widened to
-      // 1990-current+1 must not have that stale list silently override the
-      // real default forever; only genuinely extra years (added via the
-      // "+" button) should survive from here.
-      if (parsed.years) setYears(Array.from(new Set([...YEARS, ...parsed.years])).sort((a, b) => b - a));
       if (parsed.colors) setColors(parsed.colors);
     } catch {
       // Keep the built-in options if local preferences are unavailable.
     }
   }, []);
 
-  function saveOptions(nextYears = years, nextColors = colors) {
-    localStorage.setItem("bayline.vehicleOptions", JSON.stringify({ years: nextYears, colors: nextColors }));
-  }
-
-  function addYear(value: string) {
-    const parsed = Number(value);
-    if (!Number.isInteger(parsed) || parsed < 1980 || parsed > 2100) {
-      setError("El año debe estar entre 1980 y 2100.");
-      return;
-    }
-    const next = Array.from(new Set([...years, parsed])).sort((a, b) => b - a);
-    setYears(next);
-    setYear(parsed);
-    saveOptions(next);
+  function saveOptions(nextColors = colors) {
+    localStorage.setItem("bayline.vehicleOptions", JSON.stringify({colors: nextColors}));
   }
 
   function addColor(value: string) {
@@ -118,7 +99,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
     const next = existing ? colors : [...colors, selected].sort();
     setColors(next);
     setColor(selected);
-    saveOptions(years, next);
+    saveOptions(next);
   }
 
   const suggestedSku = useMemo(() => suggestSku(brand, model, year, color), [brand, model, year, color]);
@@ -131,6 +112,8 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
     if (!open) return;
     setStatus("en_transito");
     setCondition("nuevo");
+    setMileage("");
+    setNoPlate(false);
     setBrand("");
     setModel("");
     setYear("");
@@ -174,7 +157,9 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
     const nextFieldErrors: FieldErrors = {};
     if (!brand) nextFieldErrors.brand = "Elige la marca";
     if (!model) nextFieldErrors.model = "Elige el modelo";
-    if (year === "") nextFieldErrors.year = "Selecciona el año.";
+    if (year === "" || !Number.isInteger(Number(year)) || Number(year) < 1980 || Number(year) > 2100) nextFieldErrors.year = "El año debe estar entre 1980 y 2100.";
+    const mileageError = inventoryMileageError(condition, mileage);
+    if (mileageError) nextFieldErrors.mileage = mileageError;
     if (!vin.trim()) nextFieldErrors.vin = "El VIN es obligatorio.";
     if (!sku.trim()) nextFieldErrors.sku = "El SKU es obligatorio.";
     if (!(Number(costPrice) > 0)) nextFieldErrors.costPrice = "Indica el costo de adquisición.";
@@ -191,6 +176,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
         filial_id: filialId,
         status,
         condition,
+        mileage: mileage.trim() ? Number(mileage) : null,
         location,
         brand,
         model,
@@ -199,7 +185,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
         fuel_type: fuelType || null,
         transmission: transmission || null,
         vin: vin.trim().toUpperCase(),
-        plate: plate || null,
+        plate: noPlate ? null : plate || null,
         sku: sku.trim().toUpperCase(),
         price_cash: Number(priceCash) || 0,
         price_financed: Number(priceFinanced) || 0,
@@ -245,7 +231,7 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               >
-                {STATUS_OPTIONS.map((o) => (
+                {STATUS_OPTIONS.filter((o) => o.value !== "reservado" && o.value !== "vendido").map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
@@ -298,24 +284,11 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <CreatableSelect
-              label="Año"
-              required
-              canAdd={canEdit}
-              value={year}
-              options={years}
-              onChange={(value) => {
-                setYear(value);
-                setFieldErrors((prev) => ({ ...prev, year: undefined }));
-              }}
-              onAdd={addYear}
-              inputMode="numeric"
-              placeholder="Selecciona un año..."
-              error={fieldErrors.year}
-            />
+            <div><label className="mb-1.5 block text-sm font-medium text-navy">Año *</label><NumberInput min="1980" max="2100" step="1" value={year} onValueChange={(value) => {setYear(value === "" ? "" : Number(value)); setFieldErrors((prev) => ({...prev, year: undefined}));}} placeholder="1980–2100" className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm" />{fieldErrors.year && <p className="mt-1 text-xs text-red-600">{fieldErrors.year}</p>}</div>
             <CreatableSelect label="Color" canAdd={canEdit} value={color} options={["", ...colors]} onChange={setColor} onAdd={addColor} />
           </div>
 
+          <div><label className="mb-1.5 block text-sm font-medium text-navy">Kilometraje (km){condition === "usado" ? " *" : " (opcional)"}</label><NumberInput min="0" step="1" value={mileage} onValueChange={(value) => {setMileage(value); setFieldErrors((prev) => ({...prev, mileage: undefined}));}} placeholder="Ej.: 65000" className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm" />{fieldErrors.mileage && <p role="alert" className="mt-1 text-xs text-red-600">{fieldErrors.mileage}</p>}</div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy">Combustible</label>
@@ -360,13 +333,16 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
               {fieldErrors.vin && <p className="mt-1 text-xs text-red-600">{fieldErrors.vin}</p>}
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Placa (máx. 7)</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">Placa (opcional)</label>
               <input
                 value={plate}
-                onChange={(e) => setPlate(e.target.value.slice(0, 7).toUpperCase())}
-                placeholder="ABC-123"
+                disabled={noPlate}
+                onChange={(e) => setPlate(e.target.value.slice(0, 10).toUpperCase())}
+                placeholder="AB123CD"
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               />
+              <p className="mt-1 text-xs text-steel">Ejemplo: AB123CD o ABC123.</p>
+              <label className="mt-2 flex items-center gap-2 text-xs text-steel"><input type="checkbox" checked={noPlate} onChange={(e) => setNoPlate(e.target.checked)} />Sin placa (unidad aún no registrada)</label>
             </div>
           </div>
 

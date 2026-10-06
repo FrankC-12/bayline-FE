@@ -9,6 +9,8 @@ export interface TemparioPartInput {
 }
 
 export interface CreateTemparioInput {
+  labor_warranty_policy_id?: string | null;
+  parts_warranty_policy_id?: string | null;
   filial_id: string;
   category: string;
   sequence_number?: number | null;

@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiFetch, apiFetchBlob } from "./client";
 import type { OrderSummary, ServiceOrder } from "@/types/serviceOrder";
 
 export type PaymentMethod = "usd" | "bs" | "mixed";
@@ -73,3 +73,5 @@ export const closeServiceOrder = (
       next_maintenance_tempario_id: nextMaintenanceTemparioId ?? null,
     }),
   });
+
+export const getInvoicePdf = (id: string) => apiFetchBlob(`${base(id)}/invoice/pdf`);

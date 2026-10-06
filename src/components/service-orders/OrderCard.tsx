@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 import { formatElapsed, serviceOrderStoppedAt } from "@/lib/time";
-import { CLAIM_LINKED_ORDER_TYPE_LABELS } from "@/lib/claimLinkedOrderTypes";
 import type { ServiceOrder } from "@/types/serviceOrder";
 import type { VehicleLookupEntry } from "@/hooks/useVehicleLookUp";
 import LiveDot from "@/components/common/LiveDot";
@@ -13,13 +12,6 @@ interface OrderCardProps {
   info: VehicleLookupEntry | undefined;
   technicianName: string;
 }
-
-const TYPE_LABELS: Record<string, string> = {
-  regular: "Regular",
-  mpt: "MPT",
-  retrabajo: "Retrabajo",
-  ...CLAIM_LINKED_ORDER_TYPE_LABELS,
-};
 
 export default function OrderCard({ order, info, technicianName }: OrderCardProps) {
   const stoppedAt = serviceOrderStoppedAt(order);
@@ -40,7 +32,7 @@ export default function OrderCard({ order, info, technicianName }: OrderCardProp
       <div className="flex items-center justify-between">
         <span className="font-mono text-sm font-bold text-blue">{order.code}</span>
         <span className="rounded-full bg-ash px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest text-steel">
-          {TYPE_LABELS[order.order_type] ?? order.order_type}
+          {order.order_type.name}
         </span>
       </div>
 

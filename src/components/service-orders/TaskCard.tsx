@@ -1,8 +1,9 @@
 "use client";
 
 import { formatCount } from "@/lib/format";
-import { useState } from "react";
-import { Search, Trash2 } from "lucide-react";
+import { formatDuration, taskTimerElapsedSeconds } from "@/lib/time";
+import { useEffect, useState } from "react";
+import { Pause, Play, Search, Trash2 } from "lucide-react";
 import { useTemparios } from "@/hooks/useTemparios";
 import type { ServiceOrderTask, ServiceOrderPayer, TaskStatus } from "@/types/serviceOrder";
 
@@ -29,9 +30,62 @@ interface TasksCardProps {
   onAdd: (temparioId: string, payer: ServiceOrderPayer) => Promise<void>;
   onToggleStatus: (taskId: string, status: TaskStatus) => Promise<void>;
   onRemove: (taskId: string) => Promise<void>;
+  onStartTimer: (taskId: string) => Promise<void>;
+  onPauseTimer: (taskId: string) => Promise<void>;
 }
 
-export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRemove, readOnly = false }: TasksCardProps) {
+function TaskTimerCell({
+  task,
+  disabled,
+  onStart,
+  onPause,
+}: {
+  task: ServiceOrderTask;
+  disabled: boolean;
+  onStart: (taskId: string) => Promise<void>;
+  onPause: (taskId: string) => Promise<void>;
+}) {
+  const running = task.timer_started_at !== null;
+  const [busy, setBusy] = useState(false);
+  // Forces a re-render every second while running so the live clock ticks —
+  // the actual elapsed value is always recomputed from timer_started_at,
+  // never held in state, so it stays correct across pauses/resumes.
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [running]);
+
+  async function toggle() {
+    setBusy(true);
+    try {
+      await (running ? onPause(task.id) : onStart(task.id));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`font-mono text-xs ${running ? "font-semibold text-blue" : "text-steel"}`}>
+        {formatDuration(taskTimerElapsedSeconds(task))}
+      </span>
+      <button
+        type="button"
+        disabled={disabled || busy}
+        onClick={toggle}
+        aria-label={running ? `Pausar cronómetro de ${task.name_snapshot}` : `Iniciar cronómetro de ${task.name_snapshot}`}
+        className={`rounded-lg p-1.5 disabled:opacity-50 ${running ? "text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:bg-emerald-50"}`}
+      >
+        {running ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+      </button>
+    </div>
+  );
+}
+
+export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRemove, onStartTimer, onPauseTimer, readOnly = false }: TasksCardProps) {
   const [search, setSearch] = useState("");
   const { temparios } = useTemparios(filialId, search || undefined);
   const [adding, setAdding] = useState(false);
@@ -104,6 +158,7 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRe
               <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Tarea (tempario)</th>
               <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Código</th>
               <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Horas</th>
+              <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Cronómetro</th>
               <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Estado</th>
               <th className="py-2" />
             </tr>
@@ -114,6 +169,9 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRe
                 <td className="py-2.5 font-medium text-navy">{task.name_snapshot}</td>
                 <td className="py-2.5 font-mono text-blue">{task.code_snapshot}</td>
                 <td className="py-2.5 text-navy">{formatCount(task.hours_snapshot)} h</td>
+                <td className="py-2.5">
+                  <TaskTimerCell task={task} disabled={readOnly} onStart={onStartTimer} onPause={onPauseTimer} />
+                </td>
                 <td className="py-2.5">
                   <select
                     value={task.status}

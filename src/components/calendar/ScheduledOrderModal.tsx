@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Search } from "lucide-react";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
+import { useServiceOrderTypes } from "@/hooks/useServiceOrderTypes";
 import { calendarTimestamp } from "@/lib/calendar";
 import HourSelect from "@/components/common/HourSelect";
 import { listWarrantyClaims } from "@/lib/api/warrantyClaims";
-import { CLAIM_LINKED_ORDER_TYPE_LABELS, CLAIM_LINKED_ORDER_TYPES } from "@/lib/claimLinkedOrderTypes";
-import type { Bay, ServiceOrderType } from "@/types/serviceOrder";
+import type { Bay } from "@/types/serviceOrder";
 import type { UserDirectoryEntry } from "@/types/user";
 import type { WarrantyClaim } from "@/types/warrantyClaim";
 import type { CreateServiceOrderInput } from "@/lib/api/serviceOrders";
@@ -40,6 +40,8 @@ export default function ScheduleOrderModal({
   onSubmit,
 }: ScheduleOrderModalProps) {
   const { clients } = useVehicleLookup(filialId);
+  const { orderTypes } = useServiceOrderTypes(filialId);
+  const selectableOrderTypes = orderTypes.filter((t) => t.is_selectable && t.is_active);
   const [search, setSearch] = useState("");
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [date, setDate] = useState(defaultDate);
@@ -51,13 +53,21 @@ export default function ScheduleOrderModal({
   const [advisorId, setAdvisorId] = useState("");
   const [promisedDate, setPromisedDate] = useState("");
   const [promisedTime, setPromisedTime] = useState("");
-  const [orderType, setOrderType] = useState<ServiceOrderType>("regular");
+  const [orderTypeId, setOrderTypeId] = useState("");
   const [matchingClaims, setMatchingClaims] = useState<WarrantyClaim[]>([]);
   const [warrantyClaimId, setWarrantyClaimId] = useState("");
   const [loadingClaims, setLoadingClaims] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const requiredClaimType = CLAIM_LINKED_ORDER_TYPES[orderType];
+  const selectedOrderType = orderTypes.find((t) => t.id === orderTypeId);
+  const requiredClaimType = selectedOrderType?.claim_type ?? null;
+
+  useEffect(() => {
+    if (!orderTypeId && selectableOrderTypes.length > 0) {
+      setOrderTypeId(selectableOrderTypes.find((t) => t.code === "regular")?.id ?? selectableOrderTypes[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectableOrderTypes]);
 
   // This component stays mounted while closed, so plain useState initial
   // values only apply once — re-seed a clean form (and the clicked cell's
@@ -77,7 +87,7 @@ export default function ScheduleOrderModal({
     setAdvisorId("");
     setPromisedDate("");
     setPromisedTime("");
-    setOrderType("regular");
+    setOrderTypeId("");
     setWarrantyClaimId("");
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,7 +165,7 @@ export default function ScheduleOrderModal({
       await onSubmit({
         filial_id: filialId,
         vehicle_id: selectedVehicleId,
-        order_type: orderType,
+        order_type_id: orderTypeId,
         warranty_claim_id: requiredClaimType ? warrantyClaimId : null,
         scheduled_at: calendarTimestamp(date, time),
         bay_id: bayId || null,
@@ -175,7 +185,7 @@ export default function ScheduleOrderModal({
       setAdvisorId("");
       setPromisedDate("");
       setPromisedTime("");
-      setOrderType("regular");
+      setOrderTypeId("");
       setWarrantyClaimId("");
       onClose();
     } catch (err) {
@@ -252,14 +262,13 @@ export default function ScheduleOrderModal({
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Tipo de orden</label>
             <select
-              value={orderType}
-              onChange={(e) => setOrderType(e.target.value as ServiceOrderType)}
+              value={orderTypeId}
+              onChange={(e) => setOrderTypeId(e.target.value)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
             >
-              <option value="regular">Regular</option>
-              {Object.entries(CLAIM_LINKED_ORDER_TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
+              {selectableOrderTypes.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
                 </option>
               ))}
             </select>

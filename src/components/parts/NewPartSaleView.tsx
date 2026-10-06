@@ -423,13 +423,14 @@ export default function NewPartSaleView() {
                     <span className="font-medium text-navy">${formatMoney(currentQuote.iva_amount)}</span>
                   </div>
                   <div className="flex items-center justify-between text-steel">
-                    <span>IGTF ({formatCount(currentQuote.igtf_percentage)}% sobre subtotal + IVA)</span>
+                    <span>IGTF estimado si paga todo en USD ({formatCount(currentQuote.igtf_percentage)}%)</span>
                     <span className="font-medium text-navy">${formatMoney(currentQuote.igtf_amount)}</span>
                   </div>
                   <div className="flex items-center justify-between border-t border-navy/10 pt-1.5">
-                    <span className="font-medium text-navy">Total</span>
-                    <span className="font-display text-lg font-bold text-blue">${formatMoney(currentQuote.total_with_taxes)}</span>
+                    <span className="font-medium text-navy">Total con IVA</span>
+                    <span className="font-display text-lg font-bold text-blue">${formatMoney(currentQuote.total + currentQuote.iva_amount)}</span>
                   </div>
+                  <p className="text-xs text-steel">El IGTF se registra al cobrar, según el monto recibido en USD.</p>
                 </div>
               ) : (
                 <div className="flex items-center justify-between">

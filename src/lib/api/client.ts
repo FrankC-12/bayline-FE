@@ -117,7 +117,7 @@ interface ApiFetchOptions extends RequestInit {
   toastOnError?: boolean;
 }
 
-export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
+async function apiResponse(path: string, options: ApiFetchOptions = {}): Promise<Response> {
   const { auth = true, headers, toastOnError, ...rest } = options;
   const method = (rest.method ?? "GET").toUpperCase();
   const shouldToast = toastOnError ?? method !== "GET";
@@ -171,6 +171,16 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     if (shouldToast && response.status !== 401) notifyToast("error", error.message);
     throw error;
   }
+  return response;
+}
+
+
+export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
+  const response = await apiResponse(path, options);
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+export async function apiFetchBlob(path: string, options: ApiFetchOptions = {}): Promise<Blob> {
+  return (await apiResponse(path, options)).blob();
 }

@@ -413,17 +413,39 @@ function CreateExpenseModal({
                 />
               </div>
 
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-navy">Cuenta origen *</label>
+                <select
+                  value={accountId}
+                  onChange={(e) => {
+                    const nextAccountId = e.target.value;
+                    setAccountId(nextAccountId);
+                    const account = accounts.find((a) => a.id === nextAccountId);
+                    if (account) setCurrency(account.currency);
+                  }}
+                  className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+                >
+                  <option value="">Selecciona...</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} ({a.currency === "usd" ? "USD" : "Bs"})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-navy">Moneda *</label>
+                  <label className="mb-1.5 block text-sm font-medium text-navy">Moneda</label>
                   <select
                     value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
-                    className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+                    disabled
+                    className="w-full rounded-xl border border-navy/15 bg-ash px-4 py-2.5 text-sm text-steel outline-none"
                   >
                     <option value="bs">Bs</option>
                     <option value="usd">USD</option>
                   </select>
+                  <p className="mt-1 text-xs text-steel">Se fija según la moneda de la cuenta elegida.</p>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-navy">Monto *</label>
@@ -434,22 +456,6 @@ function CreateExpenseModal({
                     className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-navy">Cuenta origen *</label>
-                <select
-                  value={accountId}
-                  onChange={(e) => setAccountId(e.target.value)}
-                  className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-                >
-                  <option value="">Selecciona...</option>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({a.currency === "usd" ? "USD" : "Bs"})
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <div>

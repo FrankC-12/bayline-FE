@@ -24,6 +24,8 @@ export interface TemparioPart {
 }
 
 export interface Tempario {
+  labor_warranty_policy_id: string | null;
+  parts_warranty_policy_id: string | null;
   id: string;
   filial_id: string;
   code: string;

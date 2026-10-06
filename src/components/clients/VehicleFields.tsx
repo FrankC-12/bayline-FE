@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import { formatThousands, stripThousands } from "@/lib/format";
-import { isPlateTouched, type VehicleFormValue } from "@/types/client-form";
+import { isPlateInvalid, type VehicleFormValue } from "@/types/client-form";
 import type { VehicleBrandOption } from "@/types/vehicleCatalog";
 import { VEHICLE_BODY_TYPES } from "@/lib/vehicleTypes";
-import { normalizeVenezuelaPlate, validateVenezuelaPlate } from "@/lib/venezuela-plate";
 import BrandModelSelect from "@/components/common/BrandModelSelect";
 
 function formatVisitDate(iso: string): string {
@@ -47,12 +46,7 @@ interface VehicleFieldsProps {
 export default function VehicleFields({ index, value, brands, onChange, onRemove, canRemove }: VehicleFieldsProps) {
   const vinLength = value.vin.length;
   const vinInvalid = vinLength > 0 && vinLength !== 17;
-  const normalizedPlate = normalizeVenezuelaPlate(value.plate);
-  // A plate loaded from an existing vehicle is never re-validated unless
-  // the user actually edits it — a plate saved before the current format
-  // rules existed must not block re-saving the rest of the form.
-  const plateInvalid =
-    !value.noPlate && isPlateTouched(value) && normalizedPlate.length > 0 && !validateVenezuelaPlate(value.plate).valid;
+  const plateInvalid = isPlateInvalid(value);
 
   // Tipo is inherited from the selected Modelo's catalog entry — it's only
   // ever manually picked as a fallback for a model that predates the
@@ -122,20 +116,14 @@ export default function VehicleFields({ index, value, brands, onChange, onRemove
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-navy">Kilometraje de registro</label>
-          <input
-            inputMode="numeric"
-            value={formatThousands(value.mileage)}
-            onChange={(e) => onChange(index, { mileage: stripThousands(e.target.value) })}
-            placeholder="0"
-            className="w-full rounded-lg border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-          />
           {value.currentMileage != null && (
-            <p className="mt-1 text-[11px] text-steel">
-              Actual: {value.currentMileage.toLocaleString("es-VE")} km
+            <div className="mb-2">
+              <p className="text-xs font-medium text-navy">Kilometraje actualizado</p>
+              <p className="text-sm font-semibold text-navy">
+                {value.currentMileage.toLocaleString("es-VE")} km
+              </p>
               {value.currentMileageVisitDate && (
-                <>
-                  {" · "}
+                <p className="mt-0.5 text-[11px] text-steel">
                   {value.currentMileageServiceOrderId ? (
                     <Link
                       href={`/dashboard/servicios/${value.currentMileageServiceOrderId}`}
@@ -146,10 +134,18 @@ export default function VehicleFields({ index, value, brands, onChange, onRemove
                   ) : (
                     <>actualizado en visita del {formatVisitDate(value.currentMileageVisitDate)}</>
                   )}
-                </>
+                </p>
               )}
-            </p>
+            </div>
           )}
+          <label className="mb-1 block text-xs font-medium text-navy">Kilometraje de registro</label>
+          <input
+            inputMode="numeric"
+            value={formatThousands(value.mileage)}
+            onChange={(e) => onChange(index, { mileage: stripThousands(e.target.value) })}
+            placeholder="0"
+            className="w-full rounded-lg border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
+          />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-navy">Fecha de compra</label>
@@ -201,6 +197,7 @@ export default function VehicleFields({ index, value, brands, onChange, onRemove
                 : "border-navy/15 focus:border-blue focus:ring-blue/20"
             }`}
           />
+          <p className="mt-1 text-[11px] text-steel">Ejemplo: AB123CD (particular) o ABC123 (formato anterior).</p>
           {plateInvalid && (
             <p className="mt-1 text-[11px] text-red-600">
               Ejemplo de formato válido: AB123CD (particular), 01 (poder público), TT12345 (tránsito)...

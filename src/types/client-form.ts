@@ -1,3 +1,5 @@
+import { normalizeVenezuelaPlate, validateVenezuelaPlate } from "@/lib/venezuela-plate";
+
 export interface VehicleFormValue {
   id?: string;
   brand: string;
@@ -48,4 +50,15 @@ export function emptyVehicle(): VehicleFormValue {
     fuelType: "",
     transmission: "",
   };
+}
+
+export function isPlateInvalid(vehicle: VehicleFormValue): boolean {
+  return !vehicle.noPlate && isPlateTouched(vehicle) && Boolean(vehicle.plate)
+    && !validateVenezuelaPlate(vehicle.plate).valid;
+}
+
+export function plateForSubmit(vehicle: VehicleFormValue): string | null {
+  if (vehicle.noPlate) return null;
+  if (!isPlateTouched(vehicle)) return vehicle.originalPlate || null;
+  return normalizeVenezuelaPlate(vehicle.plate) || null;
 }

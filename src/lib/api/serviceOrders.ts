@@ -1,14 +1,16 @@
 import type { DiscountLabel } from "@/lib/partsPricing";
 import { apiFetch } from "./client";
-import type { ServiceOrder, ServiceOrderType, Bay, OrderSummary, ServiceOrderPayer, TaskStatus } from "@/types/serviceOrder";
+import type { ServiceOrder, ServiceOrderTask, Bay, OrderSummary, ServiceOrderPayer, TaskStatus } from "@/types/serviceOrder";
 
 export interface CreateServiceOrderInput {
   discount_label?: DiscountLabel;
   filial_id: string;
   vehicle_id: string;
-  order_type?: ServiceOrderType;
-  // Required exactly when order_type is garantia_fabrica/comeback/campana —
-  // an existing, autorizado WarrantyClaim for this same vehicle_id, of the
+  // Omitted resolves to this filial's "regular" tipo de ODS server-side.
+  order_type_id?: string;
+  // Required exactly when the chosen order_type_id's catalog row has a
+  // claim_type (garantia_fabrica/comeback/campana, by default) — an
+  // existing, autorizado WarrantyClaim for this same vehicle_id, of that
   // matching claim_type.
   warranty_claim_id?: string | null;
   // intake_mileage is never sent — it's always a read-only view inherited
@@ -28,8 +30,7 @@ export interface CreateServiceOrderInput {
 
 export interface UpdateServiceOrderInput {
   discount_label?: DiscountLabel;
-  status?: string;
-  order_type?: string;
+  order_type_id?: string;
   technician_user_id?: string | null;
   advisor_user_id?: string | null;
   bay_id?: string | null;
@@ -42,10 +43,6 @@ export interface UpdateServiceOrderInput {
   parts_warranty_policy_id?: string | null;
   clear_labor_warranty_policy?: boolean;
   clear_parts_warranty_policy?: boolean;
-  // Only meaningful when status="completado" while a task or ODT isn't
-  // finished — the server decides that, this just carries the explicit
-  // confirmation to go ahead anyway.
-  confirm_incomplete_completion?: boolean;
 }
 
 export async function listServiceOrders(
@@ -87,6 +84,10 @@ export async function reopenServiceOrder(id: string): Promise<ServiceOrder> {
   return apiFetch<ServiceOrder>(`/service-orders/${id}/reopen`, { method: "POST" });
 }
 
+export async function forceCompleteServiceOrder(id: string): Promise<ServiceOrder> {
+  return apiFetch<ServiceOrder>(`/service-orders/${id}/force-complete`, { method: "POST" });
+}
+
 export async function listBays(filialId: string): Promise<Bay[]> {
   return apiFetch<Bay[]>(`/bays?filial_id=${filialId}`);
 }
@@ -125,6 +126,14 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus): Prom
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
+}
+
+export async function startTaskTimer(taskId: string): Promise<ServiceOrderTask> {
+  return apiFetch<ServiceOrderTask>(`/service-order-tasks/${taskId}/timer/start`, { method: "POST" });
+}
+
+export async function pauseTaskTimer(taskId: string): Promise<ServiceOrderTask> {
+  return apiFetch<ServiceOrderTask>(`/service-order-tasks/${taskId}/timer/pause`, { method: "POST" });
 }
 
 export async function updateTaskPayer(

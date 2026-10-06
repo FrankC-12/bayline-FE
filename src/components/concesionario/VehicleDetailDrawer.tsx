@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, ImageIcon, Loader2, Trash2, X } from "lucide-react";
-import { availableStatusOptions, LOCATION_OPTIONS, STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
+import EditInventoryVehicleModal from "./EditInventoryVehicleModal";
+import { getVehicleStatusHistory, type UpdateVehicleInput, type VehicleStatusEvent } from "@/lib/api/concesionario";
+import { useAuth } from "@/contexts/AuthContext";
+import { availableStatusOptions, ALLOWED_STATUS_TRANSITIONS, LOCATION_OPTIONS, STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
 import { formatMoney , formatCount} from "@/lib/format";
 import type { DealershipVehicle } from "@/types/concesionario";
 
@@ -13,6 +16,8 @@ interface Props {
   onLocationChange: (location: string) => Promise<void>;
   onUploadPhotos: (vehicleId: string, photos: File[]) => Promise<unknown>;
   onDeletePhoto: (vehicleId: string, photoUrl: string) => Promise<unknown>;
+  onDetailsChange: (input: UpdateVehicleInput) => Promise<void>;
+  canEdit?: boolean;
   reservedClientName?: string;
   reservedByName?: string;
 }
@@ -24,9 +29,22 @@ export default function VehicleDetailDrawer({
   onLocationChange,
   onUploadPhotos,
   onDeletePhoto,
+  onDetailsChange,
+  canEdit = false,
   reservedClientName,
   reservedByName,
 }: Props) {
+  const [editingDetails, setEditingDetails] = useState(false);
+  useEffect(() => {setEditingDetails(false);}, [vehicle?.id]);
+  const { currentUser } = useAuth();
+  const [history, setHistory] = useState<VehicleStatusEvent[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const canManage = canEdit && (vehicle?.status !== "reservado" || vehicle.reserved_by_user_id === currentUser?.userId || currentUser?.roleSlug === "filial-admin");
+  useEffect(() => {
+    let active = true; setHistory([]); setHistoryError(null);
+    if (vehicle) getVehicleStatusHistory(vehicle.id).then((data) => { if (active) setHistory(data); }).catch((err) => { if (active) setHistoryError(err instanceof Error ? err.message : "No se pudo cargar el historial."); });
+    return () => {active = false;};
+  }, [vehicle]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [deletingPhoto, setDeletingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -72,11 +90,12 @@ export default function VehicleDetailDrawer({
 
   return <div className="fixed inset-0 z-50 flex justify-end">
     <button onClick={onClose} aria-label="Cerrar detalle" className="absolute inset-0 bg-navy/40" />
+    {editingDetails && <EditInventoryVehicleModal key={vehicle.id} vehicle={vehicle} onClose={() => setEditingDetails(false)} onSave={onDetailsChange} />}
     <aside className="relative h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl">
       <header className="sticky top-0 z-10 flex items-start justify-between border-b border-navy/10 bg-white px-7 py-5">
         <div><p className="font-mono text-[10px] uppercase tracking-widest text-steel">Detalle del vehículo</p><h2 className="font-display text-2xl font-bold text-navy">{vehicle.brand} {vehicle.model}</h2><p className="text-sm text-steel">{vehicle.year} · {vehicle.sku}</p></div>
         <div className="flex items-center gap-2">
-          {vehicle.status !== "vendido" && (
+          {canManage && ALLOWED_STATUS_TRANSITIONS[vehicle.status].includes("vendido") && (
             <button
               onClick={() => void onStatusChange("vendido")}
               className="rounded-full bg-blue px-4 py-2 text-sm font-semibold text-white transition hover:bg-navy"
@@ -84,10 +103,12 @@ export default function VehicleDetailDrawer({
               Vender vehículo
             </button>
           )}
+          {canManage && <button onClick={() => setEditingDetails(true)} className="rounded-full border border-blue/30 px-3 py-2 text-sm font-semibold text-blue">Editar datos</button>}
           <button onClick={onClose} className="rounded-lg p-2 text-steel hover:bg-ash"><X className="h-5 w-5" /></button>
         </div>
       </header>
       <div className="space-y-6 p-7">
+        <section><h3 className="mb-3 font-semibold text-navy">Historial de estados</h3>{historyError && <p role="alert" className="text-sm text-red-600">{historyError}</p>}{!historyError && history.length === 0 && <p className="text-sm text-steel">Sin cambios registrados.</p>}<ol className="space-y-3">{history.map((event) => <li key={event.id} className="rounded-xl border border-navy/10 p-3 text-sm"><p className="font-semibold text-navy">{event.previous_status ? statusLabel(event.previous_status) : "Alta"} → {statusLabel(event.new_status)}</p><p className="text-xs text-steel">{event.user_name} · {new Date(event.created_at).toLocaleString("es-VE", {timeZone: "America/Caracas"})}</p><p className="mt-1 break-words text-steel">{event.reason}</p>{event.reservation_snapshot && <p className="mt-1 text-xs text-steel">Abono: {vehicle.price_currency === "VES" ? "Bs." : "$"} {formatMoney(event.reservation_snapshot.deposit_amount)} · Vigencia: {event.reservation_snapshot.expires_at ?? "—"}</p>}</li>)}</ol></section>
         <section>
           <div className="mb-2 flex items-center justify-between">
             <h3 className="font-semibold text-navy">Fotos</h3>
@@ -163,10 +184,10 @@ export default function VehicleDetailDrawer({
 
         <section className="rounded-2xl border border-navy/10 p-5">
           <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-steel">Estado operativo</label>
-          <select value={vehicle.status} onChange={(event) => void onStatusChange(event.target.value)} className={`w-full rounded-xl border px-4 py-3 text-sm font-semibold outline-none ${STATUS_STYLES[vehicle.status]}`}>
+          <select disabled={!canManage} value={vehicle.status} onChange={(event) => void onStatusChange(event.target.value)} className={`w-full rounded-xl border px-4 py-3 text-sm font-semibold outline-none ${STATUS_STYLES[vehicle.status]}`}>
             {availableStatusOptions(vehicle.status).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
-          <p className="mt-2 text-xs text-steel">Reservar o marcarlo como vendido abre un formulario con los datos requeridos.</p>
+          <p className="mt-2 text-xs text-steel">Cada cambio requiere confirmación y deja usuario, fecha y motivo en el historial.</p>
           {vehicle.status === "reservado" && (
             <div className="mt-3 rounded-xl border border-blue/20 bg-blue-light/40 p-4 text-sm">
               <p className="text-navy">
@@ -185,6 +206,7 @@ export default function VehicleDetailDrawer({
 
         <section><h3 className="mb-3 font-semibold text-navy">Identificación y características</h3><dl className="grid grid-cols-2 gap-4 rounded-2xl bg-ash/60 p-5 text-sm">
           <div><dt className="text-steel">VIN</dt><dd className="break-all font-medium text-navy">{vehicle.vin}</dd></div><div><dt className="text-steel">Placa</dt><dd className="font-medium text-navy">{vehicle.plate ?? "—"}</dd></div>
+          <div><dt className="text-steel">Kilometraje</dt><dd className="font-medium text-navy">{vehicle.mileage == null ? "No registrado" : `${formatCount(vehicle.mileage)} km`}</dd></div>
           <div><dt className="text-steel">Condición</dt><dd className="font-medium capitalize text-navy">{vehicle.condition}</dd></div><div><dt className="text-steel">Color</dt><dd className="font-medium text-navy">{vehicle.color ?? "—"}</dd></div>
           <div><dt className="text-steel">Combustible</dt><dd className="font-medium capitalize text-navy">{vehicle.fuel_type ?? "—"}</dd></div><div><dt className="text-steel">Transmisión</dt><dd className="font-medium capitalize text-navy">{vehicle.transmission ?? "—"}</dd></div>
           <div>

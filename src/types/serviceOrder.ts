@@ -1,4 +1,5 @@
 import type { DiscountLabel } from "@/lib/partsPricing";
+import type { ServiceOrderTypeCatalog } from "./serviceOrderType";
 
 export type ServiceOrderStatus =
   | "pendiente"
@@ -7,14 +8,6 @@ export type ServiceOrderStatus =
   | "orden_cerrada"
   | "cancelado";
 
-export type ServiceOrderType =
-  | "regular"
-  | "mpt"
-  | "retrabajo"
-  | "garantia_fabrica"
-  | "comeback"
-  | "campana";
-
 export interface ServiceOrder {
   discount_label: DiscountLabel;
   id: string;
@@ -22,7 +15,7 @@ export interface ServiceOrder {
   code: string;
   vehicle_id: string;
   status: ServiceOrderStatus;
-  order_type: ServiceOrderType;
+  order_type: ServiceOrderTypeCatalog;
   warranty_claim_id: string | null;
   labor_warranty_policy_id: string | null;
   parts_warranty_policy_id: string | null;
@@ -80,6 +73,8 @@ export interface ServiceOrderTask {
   status: TaskStatus;
   payer: ServiceOrderPayer;
   created_at: string;
+  timer_started_at: string | null;
+  timer_accumulated_seconds: number;
 }
 
 export interface TransferLine {

@@ -1,3 +1,7 @@
+"use client";
+
+import { useAuth } from "@/contexts/AuthContext";
+import { ALLOWED_STATUS_TRANSITIONS } from "@/lib/vehicle-catalog-dealership";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, ImageIcon, Trash2 } from "lucide-react";
 import { availableStatusOptions, locationLabel, STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
@@ -27,6 +31,8 @@ export default function VehicleCard({
   reservedClientName,
   reservedByName,
 }: VehicleCardProps) {
+  const {currentUser} = useAuth();
+  const reservationLocked = vehicle.status === "reservado" && vehicle.reserved_by_user_id !== currentUser?.userId && currentUser?.roleSlug !== "filial-admin";
   const [photoIndex, setPhotoIndex] = useState(0);
   const photoCount = vehicle.images.length;
 
@@ -87,7 +93,7 @@ export default function VehicleCard({
           <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
             {vehicle.condition === "nuevo" ? "Nuevo" : "Usado"}
           </span>
-          {editable && onStatusChange ? (
+          {editable && onStatusChange && !reservationLocked ? (
             <select
               value={vehicle.status}
               onClick={(event) => event.stopPropagation()}
@@ -124,6 +130,7 @@ export default function VehicleCard({
           </div>
         )}
 
+        <p className="mt-3 text-sm text-steel">Kilometraje: {vehicle.mileage == null ? "No registrado" : `${formatCount(vehicle.mileage)} km`}</p>
         <div className="mt-4 grid grid-cols-2 gap-y-2 text-sm">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-steel">VIN</p>
@@ -165,7 +172,7 @@ export default function VehicleCard({
             <p className="font-display font-bold text-navy">${formatMoney(vehicle.price_financed)}</p>
           </div>
         </div>
-        {onSell && vehicle.status !== "vendido" && (
+        {onSell && !reservationLocked && ALLOWED_STATUS_TRANSITIONS[vehicle.status].includes("vendido") && (
           <button
             onClick={(event) => { event.stopPropagation(); onSell(); }}
             className="mt-3 w-full rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white transition hover:bg-navy"
