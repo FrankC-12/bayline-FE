@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMoney , formatCount} from "@/lib/format";
+import { createRequestId } from "@/lib/request-id";
 import { downloadBlob } from "@/lib/download";
 import PaymentReceivedFields from "./PaymentReceivedFields";
 import { NumberInput } from "@/components/ui/NumberInput";
@@ -132,9 +133,9 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
       iva_retention_percentage: Number(ivaRetentionPct) || 0,
       islr_retention_percentage: Number(islrRetentionPct) || 0 };
     const requestKey = JSON.stringify(body);
-    if (requestRef.current?.key !== requestKey) requestRef.current = {key: requestKey, id: crypto.randomUUID()};
     setBusy(true); setError(null);
     try {
+      if (requestRef.current?.key !== requestKey) requestRef.current = {key: requestKey, id: createRequestId()};
       let saved: Invoice;
       try { saved = await issueInvoice(orderId, {...body, request_id: requestRef.current.id}); }
       catch (err) {
