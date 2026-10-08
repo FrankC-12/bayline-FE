@@ -198,6 +198,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     setActionError(null);
     try {
       await addTask(pendingPlanTemparioId);
+      await refreshOrder();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "No se pudo cargar la tarea del plan.");
     } finally {
@@ -791,9 +792,9 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             readOnly={readOnly || saving}
             filialId={filialId}
             tasks={summary?.tasks ?? []}
-            onAdd={addTask}
-            onToggleStatus={toggleTaskStatus}
-            onRemove={removeTask}
+            onAdd={async (...args) => { await addTask(...args); await refreshOrder(); }}
+            onToggleStatus={async (...args) => { await toggleTaskStatus(...args); await refreshOrder(); }}
+            onRemove={async (...args) => { await removeTask(...args); await refreshOrder(); }}
             onStartTimer={startTaskTimer}
             onPauseTimer={pauseTaskTimer}
           />

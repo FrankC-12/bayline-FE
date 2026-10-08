@@ -20,7 +20,8 @@ export function useServiceOrders(filialId: string | null, view: "active" | "hist
     refresh,
   } = useListLoader<ServiceOrder>(
     () => (filialId ? listServiceOrders(filialId, view) : Promise.resolve([])),
-    [filialId, view]
+    [filialId, view],
+    filialId ? 15000 : 0
   );
 
   const addOrder = useCallback(

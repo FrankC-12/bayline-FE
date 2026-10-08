@@ -17,7 +17,7 @@ export function useTransfers(filialId: string | null) {
     loading,
     error,
     refresh,
-  } = useListLoader<Transfer>(() => (filialId ? listTransfers(filialId) : Promise.resolve([])), [filialId]);
+  } = useListLoader<Transfer>(() => (filialId ? listTransfers(filialId) : Promise.resolve([])), [filialId], filialId ? 15000 : 0);
 
   const addTransfer = useCallback(
     async (originWarehouseId: string, destinationWarehouseId: string, lines: TransferLineInput[], note?: string) => {

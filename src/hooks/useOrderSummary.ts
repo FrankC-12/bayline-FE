@@ -15,27 +15,34 @@ import {
   removeTransferLine,
   markTransferOrdered,
 } from "@/lib/api/serviceOrders";
+import { useAutoRefresh } from "./useAutoRefresh";
 import type { OrderSummary, ServiceOrderPayer, ServiceOrderTask, TaskStatus } from "@/types/serviceOrder";
 
 export function useOrderSummary(orderId: string | null) {
   const [summary, setSummary] = useState<OrderSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (background = false) => {
     if (!orderId) {
       setSummary(null);
       setLoading(false);
       return;
     }
-    setLoading(true);
-    const data = await getOrderSummary(orderId);
-    setSummary(data);
-    setLoading(false);
+    if (!background) setLoading(true);
+    try {
+      const data = await getOrderSummary(orderId);
+      setSummary(data);
+    } finally {
+      if (!background) setLoading(false);
+    }
   }, [orderId]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const refreshQuietly = useCallback(() => load(true), [load]);
+  useAutoRefresh(refreshQuietly, orderId ? 15000 : 0);
 
   const addTaskAndRefresh = useCallback(
     async (temparioId: string, payer: ServiceOrderPayer = "cliente") => {

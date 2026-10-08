@@ -8,15 +8,10 @@ import type { ServiceOrderPartRequest } from "@/types/warehouse";
 
 export function useServiceOrderPartRequests(filialId: string | null) {
   const { data: requests, loading, error, refresh } = useListLoader<ServiceOrderPartRequest>(
-    () => filialId ? listServiceOrderRequests(filialId) : Promise.resolve([]), [filialId]
+    () => filialId ? listServiceOrderRequests(filialId) : Promise.resolve([]), [filialId], filialId ? 15000 : 0
   );
   const [actionError, setActionError] = useState<ListErrorInfo | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!filialId) return;
-    const id = setInterval(() => void refresh(), 30000);
-    return () => clearInterval(id);
-  }, [filialId, refresh]);
   useEffect(() => { setActionError(null); }, [filialId]);
 
   const acknowledge = useCallback(async (transferId: string) => {

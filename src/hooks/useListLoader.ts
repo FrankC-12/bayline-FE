@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type DependencyList } from "react";
+import { useAutoRefresh } from "./useAutoRefresh";
 import { classifyListError, type ListErrorInfo } from "@/lib/api/listError";
 
 /** Shared "fetch a list" state machine — loading/data/error, with a retry
@@ -12,20 +13,20 @@ import { classifyListError, type ListErrorInfo } from "@/lib/api/listError";
  * `fetcher` must not throw for the "nothing to fetch yet" case (e.g. no
  * filialId selected) — resolve with `[]` instead, the same way a real empty
  * result would. */
-export function useListLoader<T>(fetcher: () => Promise<T[]>, deps: DependencyList) {
+export function useListLoader<T>(fetcher: () => Promise<T[]>, deps: DependencyList, refreshIntervalMs = 0) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ListErrorInfo | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (background = false) => {
+    if (!background) { setLoading(true); setError(null); }
     try {
       setData(await fetcher());
+      setError(null);
     } catch (err) {
-      setError(classifyListError(err));
+      if (!background) setError(classifyListError(err));
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
@@ -33,6 +34,9 @@ export function useListLoader<T>(fetcher: () => Promise<T[]>, deps: DependencyLi
   useEffect(() => {
     load();
   }, [load]);
+
+  const refreshQuietly = useCallback(() => load(true), [load]);
+  useAutoRefresh(refreshQuietly, refreshIntervalMs);
 
   return { data, setData, loading, error, refresh: load };
 }

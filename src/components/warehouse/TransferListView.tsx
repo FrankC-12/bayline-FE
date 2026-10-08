@@ -1,9 +1,9 @@
 "use client";
 
 import { formatCount } from "@/lib/format";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Plus, ArrowRight, Wrench, ShoppingCart } from "lucide-react";
+import { Plus, ArrowRight, Wrench, ShoppingCart, X } from "lucide-react";
 import { useWarehouseScope } from "@/contexts/WarehouseContext";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useTransfers } from "@/hooks/useTransfers";
@@ -74,6 +74,14 @@ interface WarehouseRequestRow {
   onComplete?: () => void;
 }
 
+function RequestTarget({ request, children }: { request: WarehouseRequestRow; children: ReactNode }) {
+  const className = "flex flex-1 items-center gap-3 text-left";
+  if (request.destination === "taller") {
+    return <button type="button" onClick={request.onClick} className={className}>{children}</button>;
+  }
+  return <Link href={request.href} onClick={request.onClick} className={className}>{children}</Link>;
+}
+
 /** Same idea as ElapsedLabel below, generalized to any {start, end} pair —
  * ticks while running (isRunning), freezes once an end time is set. */
 function RequestElapsedCounter({
@@ -121,6 +129,9 @@ export default function TransfersListView() {
   } = useServiceOrderPartRequests(filialId);
   const { requests: partSaleRequests, loading: partSaleRequestsLoading, error: partSaleRequestsError, refresh: refreshPartSales } = usePartSaleRequests(filialId);
   const [createOpen, setCreateOpen] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const selectedRequest = serviceOrderRequests.find((request) => request.id === selectedRequestId);
+  const { access: serviceOrdersAccess } = useModuleAccess("asesor-servicios");
   const { canEdit } = useModuleAccess("almacen");
 
   const requestsLoading = serviceOrderRequestsLoading || partSaleRequestsLoading;
@@ -129,7 +140,7 @@ export default function TransfersListView() {
       (request): WarehouseRequestRow => ({
         key: `taller-${request.id}`,
         href: `/dashboard/servicios/${request.service_order_id}`,
-        onClick: () => acknowledge(request.id),
+        onClick: () => { setSelectedRequestId(request.id); void acknowledge(request.id); },
         destination: "taller",
         title: `${request.code} · ${request.service_order_code}`,
         badge: !request.warehouse_seen ? "Nuevo" : undefined,
@@ -207,7 +218,7 @@ export default function TransfersListView() {
                 key={request.key}
                 className="flex items-center justify-between gap-4 px-6 py-4 transition hover:bg-ash/60"
               >
-                <Link href={request.href} onClick={request.onClick} className="flex flex-1 items-center gap-3">
+                <RequestTarget request={request}>
                   {request.destination === "taller" ? (
                     <Wrench className="h-4 w-4 shrink-0 text-blue" />
                   ) : (
@@ -238,7 +249,7 @@ export default function TransfersListView() {
                     </p>
                     <p className="text-xs text-steel">{request.subtitle}</p>
                   </div>
-                </Link>
+                </RequestTarget>
                 <div className="flex shrink-0 items-center gap-3">
                   {request.counter && (
                     <span
@@ -326,6 +337,32 @@ export default function TransfersListView() {
           </div>
         )}
       </div>
+
+      {selectedRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/40 p-4" onClick={() => setSelectedRequestId(null)}>
+          <section role="dialog" aria-modal="true" aria-labelledby="odt-detail-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => { if (event.key === "Escape") setSelectedRequestId(null); }}>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 id="odt-detail-title" className="font-display text-xl font-bold text-navy">{selectedRequest.code}</h2>
+                <p className="text-sm text-steel">{selectedRequest.service_order_code} · {selectedRequest.vehicle_label}</p>
+                <p className="mt-2 text-sm font-semibold text-navy">{selectedRequest.status === "completado" ? "Completado" : "Pedido"}</p>
+              </div>
+              <button type="button" autoFocus aria-label="Cerrar detalle de ODT" onClick={() => setSelectedRequestId(null)} className="rounded-full p-2 text-steel hover:bg-ash"><X className="h-5 w-5" /></button>
+            </div>
+            <table className="w-full text-left text-sm">
+              <thead><tr className="border-b border-navy/10 text-steel"><th className="py-2">Repuesto</th><th className="py-2">Cantidad</th><th className="py-2">Almacén</th></tr></thead>
+              <tbody>{selectedRequest.lines.map((line) => (
+                <tr key={line.part_id} className="border-b border-navy/5"><td className="py-3">{line.part_code} · {line.part_name}</td><td className="py-3">{formatCount(line.quantity)}</td><td className="py-3">{lineWarehouseLabel(line) ?? "—"}</td></tr>
+              ))}</tbody>
+            </table>
+            {actionError && <p role="alert" className="mt-3 text-sm text-red-600">{actionError.message}</p>}
+            <div className="mt-5 flex flex-wrap justify-end gap-3">
+              {serviceOrdersAccess && <Link href={`/dashboard/servicios/${selectedRequest.service_order_id}`} className="rounded-full border border-navy/15 px-4 py-2 text-sm font-semibold text-navy">Ver ODS</Link>}
+              {selectedRequest.status === "pedido" && canEdit && <button type="button" disabled={!!pendingId} onClick={() => void complete(selectedRequest.id)} className="rounded-full bg-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{pendingId ? "Guardando…" : "Marcar como Completado"}</button>}
+            </div>
+          </section>
+        </div>
+      )}
 
       <CreateTransferModal
         open={createOpen}

@@ -9,6 +9,7 @@ import {
   updateServiceOrder,
   type UpdateServiceOrderInput,
 } from "@/lib/api/serviceOrders";
+import { useAutoRefresh } from "./useAutoRefresh";
 import type { ServiceOrder } from "@/types/serviceOrder";
 
 export function useServiceOrder(id: string) {
@@ -16,23 +17,28 @@ export function useServiceOrder(id: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (background = false) => {
+    if (!background) { setLoading(true); setError(null); }
     try {
       const data = await getServiceOrder(id);
       setOrder(data);
+      setError(null);
     } catch (err) {
-      setOrder(null);
-      setError(err instanceof Error ? err.message : "No se pudo cargar la orden.");
+      if (!background) {
+        setOrder(null);
+        setError(err instanceof Error ? err.message : "No se pudo cargar la orden.");
+      }
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const refreshQuietly = useCallback(() => load(true), [load]);
+  useAutoRefresh(refreshQuietly);
 
   const update = useCallback(
     async (input: UpdateServiceOrderInput) => {
