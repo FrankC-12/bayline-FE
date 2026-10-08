@@ -64,6 +64,7 @@ export interface ApiErrorBody {
   path: string;
   timestamp: string;
   details?: ApiFieldError[] | unknown;
+  requestId?: string;
 }
 
 function isFieldErrorList(details: unknown): details is ApiFieldError[] {
@@ -81,9 +82,11 @@ export class ApiError extends Error {
   statusCode: number;
   errorCode: string;
   fieldErrors: ApiFieldError[];
+  requestId?: string;
 
   constructor(body: ApiErrorBody) {
-    super(body.message);
+    super(body.message + (body.statusCode >= 500 && body.requestId ? ` Referencia: ${body.requestId}` : ""));
+    this.requestId = body.requestId;
     this.statusCode = body.statusCode;
     this.errorCode = body.errorCode;
     this.fieldErrors = isFieldErrorList(body.details) ? body.details : [];

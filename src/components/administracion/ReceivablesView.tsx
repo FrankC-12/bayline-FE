@@ -4,7 +4,8 @@ import { formatCount } from "@/lib/format";
 import { NumberInput } from "@/components/ui/NumberInput";
 
 import PartPaymentModal from "@/components/parts/PartPaymentModal";
-import { useEffect, useState } from "react";
+import { createRequestId } from "@/lib/request-id";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -111,7 +112,7 @@ function CollectModal({
 }: {
   receivable: Receivable;
   onClose: () => void;
-  onSubmit: (invoiceId: string, input: { account_id: string; withholding_amount: number; net_collected_amount: number }) => Promise<void>;
+  onSubmit: (invoiceId: string, input: { request_id?: string; account_id: string; withholding_amount: number; net_collected_amount: number }) => Promise<void>;
 }) {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
@@ -125,6 +126,7 @@ function CollectModal({
     return () => { active = false; };
   }, [receivable.service_order_id]);
 
+  const collectionRequest = useRef<{key: string; id: string} | null>(null);
   const [accountId, setAccountId] = useState("");
   const [withholding, setWithholding] = useState("0");
   const [netAmount, setNetAmount] = useState(String(receivable.pending_amount));
@@ -140,11 +142,14 @@ function CollectModal({
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit(receivable.invoice_id, {
+      const input = {
         account_id: accountId,
         withholding_amount: Number(withholding) || 0,
         net_collected_amount: Number(netAmount) || 0,
-      });
+      };
+      const key = JSON.stringify([receivable.invoice_id, input]);
+      if (collectionRequest.current?.key !== key) collectionRequest.current = {key, id: createRequestId()};
+      await onSubmit(receivable.invoice_id, {...input, request_id: collectionRequest.current.id});
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo registrar el cobro.");

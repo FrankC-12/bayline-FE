@@ -1,58 +1,38 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  acknowledgeServiceOrderRequest,
-  completeServiceOrderRequest,
-  listServiceOrderRequests,
-} from "@/lib/api/warehouse";
+import { acknowledgeServiceOrderRequest, completeServiceOrderRequest, listServiceOrderRequests } from "@/lib/api/warehouse";
+import { classifyListError, type ListErrorInfo } from "@/lib/api/listError";
+import { useListLoader } from "./useListLoader";
 import type { ServiceOrderPartRequest } from "@/types/warehouse";
 
-const POLL_INTERVAL_MS = 30000;
-
 export function useServiceOrderPartRequests(filialId: string | null) {
-  const [requests, setRequests] = useState<ServiceOrderPartRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    if (!filialId) {
-      setRequests([]);
-      setLoading(false);
-      return;
-    }
-    const data = await listServiceOrderRequests(filialId);
-    setRequests(data);
-    setLoading(false);
-  }, [filialId]);
-
+  const { data: requests, loading, error, refresh } = useListLoader<ServiceOrderPartRequest>(
+    () => filialId ? listServiceOrderRequests(filialId) : Promise.resolve([]), [filialId]
+  );
+  const [actionError, setActionError] = useState<ListErrorInfo | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
   useEffect(() => {
-    load();
-    const id = setInterval(load, POLL_INTERVAL_MS);
+    if (!filialId) return;
+    const id = setInterval(() => void refresh(), 30000);
     return () => clearInterval(id);
-  }, [load]);
+  }, [filialId, refresh]);
+  useEffect(() => { setActionError(null); }, [filialId]);
 
-  const acknowledge = useCallback(
-    async (transferId: string) => {
-      if (!filialId) return;
-      setRequests((prev) => prev.map((r) => (r.id === transferId ? { ...r, warehouse_seen: true } : r)));
-      await acknowledgeServiceOrderRequest(filialId, transferId);
-    },
-    [filialId]
-  );
+  const acknowledge = useCallback(async (transferId: string) => {
+    if (!filialId) return;
+    try { await acknowledgeServiceOrderRequest(filialId, transferId); await refresh(); }
+    catch (err) { setActionError(classifyListError(err)); }
+  }, [filialId, refresh]);
+  const complete = useCallback(async (transferId: string) => {
+    if (!filialId || pendingId) return;
+    setPendingId(transferId); setActionError(null);
+    try { await completeServiceOrderRequest(filialId, transferId); await refresh(); }
+    catch (err) { setActionError(classifyListError(err)); }
+    finally { setPendingId(null); }
+  }, [filialId, pendingId, refresh]);
 
-  const complete = useCallback(
-    async (transferId: string) => {
-      if (!filialId) return;
-      const now = new Date().toISOString();
-      setRequests((prev) =>
-        prev.map((r) => (r.id === transferId ? { ...r, status: "completado", completed_at: now } : r))
-      );
-      await completeServiceOrderRequest(filialId, transferId);
-    },
-    [filialId]
-  );
-
-  const unseenCount = requests.filter((r) => !r.warehouse_seen).length;
-
-  return { requests, loading, unseenCount, acknowledge, complete, refresh: load };
+  return { requests, loading, error, actionError, pendingId,
+    unseenCount: requests.filter((r) => !r.warehouse_seen).length,
+    acknowledge, complete, refresh };
 }

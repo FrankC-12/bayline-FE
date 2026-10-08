@@ -41,3 +41,13 @@ test("PDF errors stay API errors; existing JSON requests still parse correctly",
   await assert.rejects(api.apiFetchBlob("/document.pdf"), (err) => err instanceof api.ApiError && err.statusCode === 403 && err.message === "Sin permiso");
   assert.deepEqual(await api.apiFetch("/document"), {ok: true});
 });
+
+test("unexpected API errors expose a support reference without changing validation messages", () => {
+  const {ApiError} = client();
+  const unexpected = new ApiError({statusCode: 500, errorCode: "internal_error", message: "Ocurrió un error", requestId: "server-reference"});
+  assert.equal(unexpected.requestId, "server-reference");
+  assert.equal(unexpected.message, "Ocurrió un error Referencia: server-reference");
+  const validation = new ApiError({statusCode: 422, errorCode: "validation_error", message: "Monto inválido", requestId: "other-reference", details: [{field: "amount", message: "Debe ser mayor a cero"}]});
+  assert.equal(validation.message, "Monto inválido");
+  assert.equal(validation.fieldErrors[0].field, "amount");
+});

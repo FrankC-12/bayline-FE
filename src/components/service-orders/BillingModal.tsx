@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMoney , formatCount} from "@/lib/format";
+import { ApiError } from "@/lib/api/client";
 import { createRequestId } from "@/lib/request-id";
 import { downloadBlob } from "@/lib/download";
 import PaymentReceivedFields from "./PaymentReceivedFields";
@@ -139,6 +140,7 @@ export default function BillingModal({ orderId, orderCode, invoiced, onClose, on
       let saved: Invoice;
       try { saved = await issueInvoice(orderId, {...body, request_id: requestRef.current.id}); }
       catch (err) {
+        if (err instanceof ApiError && err.statusCode < 500 && err.errorCode !== "already_invoiced") throw err;
         // If the response was lost after commit, recover the already-issued invoice.
         const recovered = await getInvoice(orderId).catch(() => null);
         if (!recovered) throw err;

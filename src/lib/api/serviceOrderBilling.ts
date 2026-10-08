@@ -49,6 +49,7 @@ export interface Receivable {
   days_outstanding: number; aging_bucket: "0-30" | "31-60" | "61-90" | "90+";
 }
 export interface CollectInvoicePaymentInput {
+  request_id?: string;
   account_id: string; withholding_amount: number; net_collected_amount: number;
 }
 const base = (id: string) => `/service-orders/${id}`;

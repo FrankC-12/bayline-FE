@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, ArrowRight, Wrench, ShoppingCart } from "lucide-react";
 import { useWarehouseScope } from "@/contexts/WarehouseContext";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useTransfers } from "@/hooks/useTransfers";
 import { useServiceOrderPartRequests } from "@/hooks/useServiceOrderPartRequests";
 import { usePartSaleRequests } from "@/hooks/usePartSaleRequests";
@@ -113,11 +114,14 @@ export default function TransfersListView() {
   const {
     requests: serviceOrderRequests,
     loading: serviceOrderRequestsLoading,
+    error: serviceOrderRequestsError,
+    actionError, pendingId, refresh: refreshServiceOrders,
     acknowledge,
     complete,
   } = useServiceOrderPartRequests(filialId);
-  const { requests: partSaleRequests, loading: partSaleRequestsLoading } = usePartSaleRequests(filialId);
+  const { requests: partSaleRequests, loading: partSaleRequestsLoading, error: partSaleRequestsError, refresh: refreshPartSales } = usePartSaleRequests(filialId);
   const [createOpen, setCreateOpen] = useState(false);
+  const { canEdit } = useModuleAccess("almacen");
 
   const requestsLoading = serviceOrderRequestsLoading || partSaleRequestsLoading;
   const warehouseRequests: WarehouseRequestRow[] = [
@@ -127,7 +131,7 @@ export default function TransfersListView() {
         href: `/dashboard/servicios/${request.service_order_id}`,
         onClick: () => acknowledge(request.id),
         destination: "taller",
-        title: request.service_order_code,
+        title: `${request.code} · ${request.service_order_code}`,
         badge: !request.warehouse_seen ? "Nuevo" : undefined,
         subtitle: `${request.vehicle_label} · ${request.lines
           .map((l) => {
@@ -139,7 +143,7 @@ export default function TransfersListView() {
         counter: request.fulfilled_at
           ? { startedAt: request.fulfilled_at, endedAt: request.completed_at, isRunning: request.status === "pedido" }
           : undefined,
-        onComplete: request.status === "pedido" ? () => complete(request.id) : undefined,
+        onComplete: request.status === "pedido" && canEdit && !pendingId ? () => complete(request.id) : undefined,
       })
     ),
     ...partSaleRequests.map(
@@ -182,7 +186,7 @@ export default function TransfersListView() {
           : "Selecciona o crea un almacén en la barra izquierda"}
       </p>
 
-      {!requestsLoading && warehouseRequests.length > 0 && (
+      {filialId && (
         <div className="mb-6 overflow-hidden rounded-2xl border border-navy/10 bg-white">
           <div className="border-b border-navy/10 px-6 py-3">
             <h2 className="font-display text-sm font-bold text-navy">Solicitudes de Repuestos</h2>
@@ -192,6 +196,11 @@ export default function TransfersListView() {
               entregarlas.
             </p>
           </div>
+          {serviceOrderRequestsError && <ErrorState error={serviceOrderRequestsError} onRetry={refreshServiceOrders} compact />}
+          {partSaleRequestsError && <ErrorState error={partSaleRequestsError} onRetry={refreshPartSales} compact />}
+          {actionError && <p role="alert" className="px-6 py-3 text-sm text-red-600">{actionError.message}</p>}
+          {requestsLoading && warehouseRequests.length === 0 && <p className="px-6 py-5 text-sm text-steel">Cargando solicitudes de repuestos…</p>}
+          {!requestsLoading && !serviceOrderRequestsError && !partSaleRequestsError && warehouseRequests.length === 0 && <p className="px-6 py-5 text-sm text-steel">No hay solicitudes enviadas. Las ODT del taller aparecen aquí al marcarlas como Pedido.</p>}
           <div className="divide-y divide-navy/5">
             {warehouseRequests.map((request) => (
               <div
