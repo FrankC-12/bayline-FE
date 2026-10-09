@@ -93,6 +93,11 @@ export interface ServiceOrderTransfer {
   lines: TransferLine[];
   subtotal: number | null;
   created_at: string;
+  warehouse_id?: string | null;
+  preparation_started_at?: string | null;
+  picked_up_at?: string | null;
+  pickup_photo_url?: string | null;
+  stock_deducted?: boolean;
 }
 
 export interface OrderSummary {

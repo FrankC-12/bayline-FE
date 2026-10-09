@@ -194,3 +194,14 @@ export async function removeTransferLine(orderId: string, lineId: string): Promi
 export async function markTransferOrdered(transferId: string): Promise<void> {
   await apiFetch(`/service-order-transfers/${transferId}/mark-ordered`, { method: "POST" });
 }
+export interface WorkshopRequestPreview {
+  id: string; order_code: string; vehicle_label: string; warehouse_id: string; warehouse_name: string;
+  lines: { id: string; part_id: string; part_code: string; part_name: string; quantity: number; local_quantity: number; transfer_quantity: number; shortfall_quantity: number; allocations: { warehouse_id: string; warehouse_name: string; quantity: number }[] }[];
+}
+export async function previewWorkshopRequest(id: string): Promise<WorkshopRequestPreview> {
+  return apiFetch(`/service-order-transfers/${id}/request-preview`);
+}
+export async function confirmWorkshopPickup(id: string, photo: File): Promise<void> {
+  const body = new FormData(); body.append("photo", photo);
+  await apiFetch(`/service-order-transfers/${id}/pickup`, { method: "POST", body });
+}

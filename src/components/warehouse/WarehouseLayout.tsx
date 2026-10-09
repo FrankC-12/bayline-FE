@@ -18,7 +18,7 @@ import { NAV_ITEMS } from "./nav-items";
 function WarehouseLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { filialId, warehouses, activeWarehouseId, loading, selectWarehouse, createWarehouse } = useWarehouseScope();
-  const { unseenCount } = useServiceOrderPartRequests(filialId);
+  const { unseenCount, requests } = useServiceOrderPartRequests(filialId);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -103,7 +103,8 @@ function WarehouseLayoutContent({ children }: { children: React.ReactNode }) {
                 }`}
               >
                 <WarehouseIcon className="h-4 w-4 shrink-0" />
-                <span className="min-w-0 truncate">{warehouse.name}</span>
+                <span className="min-w-0 flex-1"><span className="block truncate">{warehouse.name}</span><span className="block text-[10px] font-normal opacity-80">{warehouse.is_workshop_default ? "Atiende: Taller (ODS)" : "Inventario y traslados"}</span></span>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${active ? "bg-white text-blue" : "bg-ash text-steel"}`}>{requests.filter((request) => request.warehouse_id === warehouse.id && request.stage !== "completado").length}</span>
               </button>
             );
           })}

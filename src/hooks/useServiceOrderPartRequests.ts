@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { acknowledgeServiceOrderRequest, completeServiceOrderRequest, listServiceOrderRequests } from "@/lib/api/warehouse";
+import { acknowledgeServiceOrderRequest, completeServiceOrderRequest, startServiceOrderRequest, listServiceOrderRequests } from "@/lib/api/warehouse";
 import { classifyListError, type ListErrorInfo } from "@/lib/api/listError";
 import { useListLoader } from "./useListLoader";
 import type { ServiceOrderPartRequest } from "@/types/warehouse";
@@ -27,7 +27,15 @@ export function useServiceOrderPartRequests(filialId: string | null) {
     finally { setPendingId(null); }
   }, [filialId, pendingId, refresh]);
 
+  const start = useCallback(async (transferId: string) => {
+    if (!filialId || pendingId) return;
+    setPendingId(transferId); setActionError(null);
+    try { await startServiceOrderRequest(filialId, transferId); await refresh(); }
+    catch (err) { setActionError(classifyListError(err)); }
+    finally { setPendingId(null); }
+  }, [filialId, pendingId, refresh]);
+
   return { requests, loading, error, actionError, pendingId,
     unseenCount: requests.filter((r) => !r.warehouse_seen).length,
-    acknowledge, complete, refresh };
+    acknowledge, complete, start, refresh };
 }

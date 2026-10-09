@@ -4,6 +4,7 @@ export interface Warehouse {
   name: string;
   is_active: boolean;
   created_at: string;
+  is_workshop_default?: boolean;
 }
 
 export interface StockInReason {
@@ -53,11 +54,14 @@ export interface ServiceOrderPartRequestLineWarehouse {
 }
 
 export interface ServiceOrderPartRequestLine {
+  id: string;
   part_id: string;
   part_code: string;
   part_name: string;
   quantity: number;
   warehouses: ServiceOrderPartRequestLineWarehouse[];
+  shortfall_quantity: number;
+  transfer_quantity: number;
 }
 
 export interface ServiceOrderPartRequest {
@@ -70,6 +74,15 @@ export interface ServiceOrderPartRequest {
   fulfilled_at: string | null;
   completed_at: string | null;
   warehouse_seen: boolean;
+  warehouse_id: string | null;
+  warehouse_name: string | null;
+  advisor_name: string | null;
+  stage: "pendiente" | "en_progreso" | "por_retirar" | "completado";
+  preparation_started_at: string | null;
+  picked_up_at: string | null;
+  pickup_photo_url: string | null;
+  backorder_notified_at: string | null;
+  created_at: string | null;
   lines: ServiceOrderPartRequestLine[];
 }
 

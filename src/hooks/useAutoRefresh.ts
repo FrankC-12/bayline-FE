@@ -18,11 +18,13 @@ export function useAutoRefresh(refresh: () => Promise<unknown>, intervalMs = 150
     const onVisible = () => { void run(); };
     const timer = setInterval(onVisible, intervalMs);
     window.addEventListener("focus", onVisible);
+    window.addEventListener("bayline:workshop-updated", onVisible);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       disposed = true;
       clearInterval(timer);
       window.removeEventListener("focus", onVisible);
+      window.removeEventListener("bayline:workshop-updated", onVisible);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [refresh, intervalMs]);

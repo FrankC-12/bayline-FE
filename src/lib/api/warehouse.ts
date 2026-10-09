@@ -223,3 +223,14 @@ export async function listMovements(
   if (warehouseId) query.set("warehouse_id", warehouseId);
   return apiFetch<StockMovement[]>(`/almacen/movements?${query.toString()}`);
 }
+
+export async function startServiceOrderRequest(filialId: string, transferId: string): Promise<void> {
+  await apiFetch(`/almacen/service-order-requests/${transferId}/start?filial_id=${filialId}`, { method: "POST" });
+}
+export async function setWorkshopWarehouse(warehouseId: string): Promise<void> {
+  await apiFetch(`/warehouses/${warehouseId}`, { method: "PATCH", body: JSON.stringify({ is_workshop_default: true }) });
+}
+export interface WorkshopBackorder { request_id: string; order_code: string; request_code: string; warehouse_name: string | null; part_id: string; part_code: string; part_name: string; quantity: number; notified_at: string | null }
+export async function listWorkshopBackorders(filialId: string): Promise<WorkshopBackorder[]> {
+  return apiFetch(`/almacen/workshop-backorders?filial_id=${filialId}`);
+}

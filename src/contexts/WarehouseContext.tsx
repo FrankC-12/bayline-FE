@@ -11,6 +11,7 @@ interface WarehouseContextValue {
   activeWarehouse: Warehouse | null;
   activeWarehouseId: string | null;
   loading: boolean;
+  refreshWarehouses: () => Promise<void>;
   selectWarehouse: (id: string) => void;
   createWarehouse: (name: string) => Promise<Warehouse | undefined>;
 }
@@ -20,7 +21,7 @@ const WarehouseContext = createContext<WarehouseContextValue | undefined>(undefi
 export function WarehouseProvider({ children }: { children: ReactNode }) {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
-  const { warehouses: allWarehouses, loading, addWarehouse } = useWarehouses(filialId);
+  const { warehouses: allWarehouses, loading, addWarehouse, refresh: refreshWarehouses } = useWarehouses(filialId);
   const warehouses = useMemo(
     () => allWarehouses.filter((warehouse) => warehouse.is_active),
     [allWarehouses]
@@ -61,6 +62,7 @@ export function WarehouseProvider({ children }: { children: ReactNode }) {
         activeWarehouse,
         activeWarehouseId: activeWarehouse?.id ?? null,
         loading,
+        refreshWarehouses,
         selectWarehouse,
         createWarehouse,
       }}

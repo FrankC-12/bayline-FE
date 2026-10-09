@@ -7,7 +7,8 @@ import { useEffect, useState } from "react";
 import { Package, Search, Trash2 } from "lucide-react";
 import { useParts } from "@/hooks/useParts";
 import { useToast } from "@/contexts/ToastContext";
-import ConfirmDialog from "@/components/common/ConfirmDialog";
+import RequestPartsModal from "./RequestPartsModal";
+import { confirmWorkshopPickup } from "@/lib/api/serviceOrders";
 import type { ServiceOrderTransfer, ServiceOrderPayer, TransferLine } from "@/types/serviceOrder";
 import type { Part } from "@/types/parts";
 
@@ -127,6 +128,7 @@ export default function TransfersCard({
   const [adding, setAdding] = useState(false);
   const [confirmingTransferId, setConfirmingTransferId] = useState<string | null>(null);
   const [dispatching, setDispatching] = useState(false);
+  const [pickupBusy, setPickupBusy] = useState<string | null>(null);
   const toast = useToast();
 
   async function handleConfirmMarkOrdered() {
@@ -169,7 +171,7 @@ export default function TransfersCard({
     <div className="rounded-2xl border border-navy/10 bg-white p-6">
       <h3 className="mb-1 font-display text-lg font-bold text-navy">Órdenes de Transferencia</h3>
       <p className="mb-4 text-sm text-steel">
-        Repuestos pedidos al almacén para esta orden. El stock se descuenta al marcar como Pedido.
+        Repuestos pedidos al almacén para esta orden. El stock se reserva al enviar y se descuenta cuando Almacén completa el despacho.
       </p>
 
       <div className="mb-5 flex items-end gap-2">
@@ -237,7 +239,7 @@ export default function TransfersCard({
                             : "bg-amber-100 text-amber-700"
                       }`}
                     >
-                      {transfer.status === "completado" ? "Completado" : transfer.status === "pedido" ? "Pedido" : "Pendiente"}
+                      {transfer.status === "completado" ? (transfer.picked_up_at ? "Retirado" : "Por retirar") : transfer.status === "pedido" ? "Pedido" : "Pendiente"}
                     </span>
                   </div>
                   {transfer.status === "pendiente" && transfer.lines.length > 0 && (
@@ -247,7 +249,7 @@ export default function TransfersCard({
                       onClick={() => setConfirmingTransferId(transfer.id)}
                       className="rounded-full bg-blue px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-navy"
                     >
-                      Marcar como Pedido
+                      Solicitar repuestos
                     </button>
                   )}
                 </div>
@@ -287,6 +289,18 @@ export default function TransfersCard({
                     </table>
                   </div>
                 )}
+                {transfer.status === "completado" && !transfer.picked_up_at && !readOnly && (
+                  <label className="mt-3 inline-flex cursor-pointer items-center rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white">
+                    {pickupBusy === transfer.id ? "Confirmando retiro…" : "Confirmar retiro con foto"}
+                    <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={!!pickupBusy} onChange={async (event) => {
+                      const photo = event.target.files?.[0]; if (!photo) return;
+                      setPickupBusy(transfer.id);
+                      try { await confirmWorkshopPickup(transfer.id, photo); toast.success("Retiro confirmado con foto."); window.dispatchEvent(new Event("bayline:workshop-updated")); }
+                      catch (error) { toast.error(error instanceof Error ? error.message : "No se pudo confirmar el retiro."); }
+                      finally { setPickupBusy(null); event.target.value = ""; }
+                    }} />
+                  </label>
+                )}
                 <div className="mt-2 flex justify-end text-sm font-semibold text-navy">
                   Subtotal: {transfer.subtotal == null ? "—" : `$${formatMoney(transfer.subtotal, 2)}`}
                 </div>
@@ -302,14 +316,11 @@ export default function TransfersCard({
         </p>
       )}
 
-      <ConfirmDialog
-        open={confirmingTransferId !== null}
-        title="¿Confirmar envío al almacén?"
-        description={`Una vez marcada como "Pedido", esta Orden de Transferencia ya no podrá modificarse ni eliminarse. Verifica que los repuestos y cantidades sean correctos antes de continuar.`}
-        confirmLabel="Sí, marcar como Pedido"
-        confirming={dispatching}
-        onConfirm={handleConfirmMarkOrdered}
-        onCancel={() => setConfirmingTransferId(null)}
+      <RequestPartsModal
+        requestId={confirmingTransferId}
+        busy={dispatching}
+        onSend={handleConfirmMarkOrdered}
+        onClose={() => setConfirmingTransferId(null)}
       />
     </div>
   );

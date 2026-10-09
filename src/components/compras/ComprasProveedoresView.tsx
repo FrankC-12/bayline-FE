@@ -1,5 +1,6 @@
 "use client";
 
+import WorkshopBackorders from "./WorkshopBackorders";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -67,6 +68,7 @@ export default function ComprasProveedoresView() {
 
   return (
     <div>
+      {tab === "compras" && filialId && <WorkshopBackorders filialId={filialId} />}
       <div className="mb-6 flex rounded-full border border-navy/15 p-1" style={{ width: "fit-content" }}>
         <button
           onClick={() => setTab("compras")}
