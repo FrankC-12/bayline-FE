@@ -1,8 +1,10 @@
 "use client";
 
+import { createOperationAttempt } from "@/lib/operation-attempt";
+
 import { NumberInput } from "@/components/ui/NumberInput";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Loader2, Plus, Search } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { useParts } from "@/hooks/useParts";
@@ -81,6 +83,8 @@ export default function StockInModal({
     return parts.filter((p) => p.code.toLowerCase().includes(t) || p.name.toLowerCase().includes(t)).slice(0, 6);
   }
 
+  const attempt = useRef(createOperationAttempt());
+
   async function handleSubmit() {
     const wh = warehouseId || warehouses[0]?.id;
 
@@ -114,21 +118,18 @@ export default function StockInModal({
     setSubmitting(true);
     setError(null);
     try {
-      await createStockIn(
-        filialId,
-        wh,
-        reason === "Otro" ? otherReason.trim() : reason,
-        validLines.map((l) => ({
-          part_id: l.partId,
-          quantity: Number(l.quantity),
-          unit_cost: Number(l.unitCost) || 0,
-          location: l.location || null,
-        }))
-      );
+      const operationReason = reason === "Otro" ? otherReason.trim() : reason;
+      const operationLines = validLines.map((l) => ({
+        part_id: l.partId, quantity: Number(l.quantity),
+        unit_cost: Number(l.unitCost) || 0, location: l.location || null,
+      }));
+      const requestId = attempt.current.idFor({filialId, wh, reason: operationReason, lines: operationLines});
+      await createStockIn(filialId, wh, operationReason, operationLines, requestId);
       setLines([emptyLine()]);
       toast.success("Entrada registrada — se crearon los lotes correspondientes.");
       onSaved();
       onClose();
+      attempt.current.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo registrar la entrada.");
     } finally {

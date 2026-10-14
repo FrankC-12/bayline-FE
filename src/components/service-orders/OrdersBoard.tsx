@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -27,6 +27,8 @@ export default function OrdersBoard() {
   const { orders, loading, error, addOrder, refresh } = useServiceOrders(filialId, "active");
   const { vehicleMap } = useVehicleLookup(filialId);
   const { users } = useUserDirectory({ filialId });
+  const [presetVehicleId,setPresetVehicleId]=useState<string | null>(null);
+  useEffect(()=> {const query=new URLSearchParams(window.location.search);if(query.get("create")==="1") {setPresetVehicleId(query.get("vehicle_id"));setPanelOpen(true);}},[]);
   const [panelOpen, setPanelOpen] = useState(false);
 
   const technicianName = (id: string | null) => users.find((u) => u.id === id)?.full_name ?? "";
@@ -118,6 +120,7 @@ export default function OrdersBoard() {
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
         filialId={filialId}
+        presetVehicleId={presetVehicleId}
         onSubmit={handleCreate}
       />
     </div>

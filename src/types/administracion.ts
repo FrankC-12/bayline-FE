@@ -28,6 +28,7 @@ export type IncomeConcept =
   | "otro_ingreso";
 export type CounterpartyType = "cliente" | "proveedor" | "tercero" | "socio";
 export type MovementSourceType =
+  | "purchase_request"
   | "vehicle_sale"
   | "part_sale"
   | "service_order"
@@ -74,6 +75,11 @@ export interface SupplierDetail extends Supplier {
 }
 
 export interface PurchaseRequestLine {
+  part_name: string;
+  part_code: string;
+  received_quantity: number;
+  invoiced_unit_cost: number | null;
+  receipts: { lot_id: string; lot_code: string; quantity: number; location: string | null }[];
   id: string;
   part_id: string;
   quantity: number;
@@ -82,6 +88,18 @@ export interface PurchaseRequestLine {
 }
 
 export interface PurchaseRequest {
+  default_iva_percentage?: number;
+  supplier_name: string;
+  invoice_number: string | null;
+  invoice_control_number: string | null;
+  invoice_date: string | null;
+  credit_days: number | null;
+  due_date: string | null;
+  invoice_iva_percentage: number | null;
+  invoice_total: number | null;
+  paid_amount_usd: number;
+  balance_usd: number | null;
+  activity: { action: string; user_name?: string | null; occurred_at: string; lot_code?: string; quantity?: number; total?: number; amount_usd?: number; balance_usd?: number; invoice_number?: string }[];
   id: string;
   filial_id: string;
   code: string;
@@ -99,6 +117,9 @@ export interface PurchaseRequest {
 }
 
 export interface Payable {
+  invoice_number: string | null;
+  due_date: string | null;
+  balance_usd: number | null;
   purchase_request_id: string;
   code: string;
   filial_id: string;

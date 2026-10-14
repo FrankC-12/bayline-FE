@@ -4,5 +4,6 @@ export const NAV_ITEMS = [
   { href: "/dashboard/almacen", label: "Dashboard de Inventario", icon: LayoutGrid },
   { href: "/dashboard/almacen/movimientos", label: "Historial de Movimientos", icon: Clock },
   { href: "/dashboard/almacen/transferencias", label: "Despachos y Transferencias", icon: ArrowLeftRight },
+  { href: "/dashboard/almacen/compras", label: "Recepción de compras", icon: Boxes },
   { href: "/dashboard/almacen/lotes", label: "Sistema de Lotes", icon: Boxes },
 ];

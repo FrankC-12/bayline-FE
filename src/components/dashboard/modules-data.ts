@@ -3,7 +3,6 @@ import {
   Smartphone,
   ClipboardList,
   ShieldCheck,
-  Clock,
   BarChart3,
   User,
   ShoppingCart,
@@ -17,7 +16,6 @@ import {
 import { NAV_ITEMS as SERVICE_ORDERS_ITEMS } from "@/components/service-orders/nav-items";
 import { ADMIN_ITEMS, FINANCE_ITEMS } from "@/components/administracion/nav-items";
 import { COMPRAS_ITEMS } from "@/components/compras/nav-items";
-import { NAV_ITEMS as POST_VENTAS_ITEMS } from "@/components/post-ventas/nav-items";
 import { NAV_ITEMS as KPIS_ITEMS } from "@/components/kpis/nav-items";
 import { NAV_ITEMS as PARTS_ITEMS } from "@/components/parts/nav-items";
 import { NAV_ITEMS as WAREHOUSE_ITEMS } from "@/components/warehouse/nav-items";
@@ -90,16 +88,6 @@ export const modules: ModuleCardData[] = [
     moduleId: "usuarios-accesos",
   },
   {
-    icon: Clock,
-    title: "Post Ventas",
-    description:
-      "Catálogo oficial de tempario: tiempos estándar, repuestos y precio calculado por servicio.",
-    badge: moduleBadge(POST_VENTAS_ITEMS.length),
-    tint: "bg-rose-100 text-rose-600",
-    href: "/dashboard/post-ventas",
-    moduleId: "post-ventas",
-  },
-  {
     icon: BarChart3,
     title: "KPIs",
     description: "Métricas de tiempos operativos del taller: técnicos, asesores y almacenistas.",
@@ -158,8 +146,8 @@ export const modules: ModuleCardData[] = [
   {
     icon: Settings,
     title: "Ajustes",
-    description: "Parámetros financieros y operativos del negocio: IVA, IGTF, tasa BCV, comisión y mano de obra.",
-    badge: "1 MÓDULO",
+    description: "Reglas y catálogos del negocio: impuestos, mano de obra, temparios, garantías y repuestos.",
+    badge: "11 SECCIONES",
     tint: "bg-slate-100 text-slate-600",
     href: "/dashboard/ajustes",
     moduleId: "ajustes",

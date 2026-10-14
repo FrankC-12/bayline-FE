@@ -1,304 +1,66 @@
 "use client";
-
-import { NumberInput } from "@/components/ui/NumberInput";
-
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, Download, Loader2 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSuppliers } from "@/hooks/useSuppliers";
-import { useParts } from "@/hooks/useParts";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useWarehouses } from "@/hooks/useWarehouses";
-import { getPurchaseRequest, updatePurchaseRequestStatus } from "@/lib/api/administracion";
+import { getPurchaseRequest, updatePurchaseRequestStatus, receivePurchase, reconcilePurchase } from "@/lib/api/administracion";
+import { createOperationAttempt } from "@/lib/operation-attempt";
 import { downloadPurchaseRequestExcel, downloadPurchaseRequestTxt } from "@/lib/purchaseExport";
-import { formatMoney , formatCount} from "@/lib/format";
-import type { PurchaseRequest, PurchaseRequestStatus } from "@/types/administracion";
-
-const STATUS_LABELS: Record<PurchaseRequestStatus, string> = {
-  enviada: "Enviada, esperando cotización",
-  cotizada: "Cotizada",
-  pagada: "Pagada",
-  recibida: "Recibida",
-  conciliada: "Conciliada",
-  cancelada: "Cancelada",
-};
-
-const NEXT_STATUS: Partial<Record<PurchaseRequestStatus, PurchaseRequestStatus>> = {
-  enviada: "cotizada",
-  cotizada: "pagada",
-  pagada: "recibida",
-  recibida: "conciliada",
-};
-
-interface PurchaseRequestDetailViewProps {
-  requestId: string;
-}
-
-export default function PurchaseRequestDetailView({ requestId }: PurchaseRequestDetailViewProps) {
-  const { currentUser } = useAuth();
-  const filialId = currentUser?.filialId ?? null;
-
-  const { suppliers } = useSuppliers(filialId);
-  const { parts } = useParts(filialId);
-  const { warehouses } = useWarehouses(filialId);
-
-  const [request, setRequest] = useState<PurchaseRequest | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [quoteCosts, setQuoteCosts] = useState<Record<string, string>>({});
-  const [warehouseId, setWarehouseId] = useState("");
-  const [location, setLocation] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function load() {
-    setLoading(true);
-    const data = await getPurchaseRequest(requestId);
-    setRequest(data);
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestId]);
-
-  const partName = (id: string) => parts.find((p) => p.id === id)?.name ?? "—";
-  const partCode = (id: string) => parts.find((p) => p.id === id)?.code ?? "—";
-  const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.business_name ?? "—";
-
-  async function handleAdvance() {
-    if (!request) return;
-    const next = NEXT_STATUS[request.status];
-    if (!next) return;
-
-    setSubmitting(true);
-    setError(null);
-    try {
-      if (next === "cotizada") {
-        const quotes = request.lines.map((line) => ({
-          line_id: line.id,
-          unit_cost: Number(quoteCosts[line.id]) || 0,
-        }));
-        if (quotes.some((q) => q.unit_cost <= 0)) {
-          setError("Ingresa un costo unitario mayor a 0 para cada línea.");
-          setSubmitting(false);
-          return;
-        }
-        await updatePurchaseRequestStatus(request.id, next, quotes);
-      } else if (next === "recibida") {
-        if (!warehouseId) {
-          setError("Selecciona el almacén que recibe la mercancía.");
-          setSubmitting(false);
-          return;
-        }
-        await updatePurchaseRequestStatus(request.id, next, undefined, warehouseId, location.trim());
-      } else {
-        await updatePurchaseRequestStatus(request.id, next);
-      }
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo avanzar el estado.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleCancel() {
-    if (!request) return;
-    setSubmitting(true);
-    try {
-      await updatePurchaseRequestStatus(request.id, "cancelada");
-      await load();
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  if (loading || !request) {
-    return <div className="p-12 text-center text-sm text-steel">Cargando solicitud...</div>;
-  }
-
-  const next = NEXT_STATUS[request.status];
-
-  function exportData() {
-    // Only ever called from buttons rendered below the `!request` guard above.
-    const current = request as PurchaseRequest;
-    return {
-      requestCode: current.code,
-      supplierName: supplierName(current.supplier_id),
-      date: new Date(current.created_at).toLocaleDateString("es-VE"),
-      lines: current.lines.map((line) => ({
-        code: partCode(line.part_id),
-        name: partName(line.part_id),
-        quantity: line.quantity,
-        unitCost: line.unit_cost,
-      })),
-    };
-  }
-
-  return (
-    <div>
-      <Link
-        href="/dashboard/compras"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-steel hover:text-navy"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        Volver al historial de compras
-      </Link>
-
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-navy">{request.code}</h1>
-          <p className="mt-1 text-sm text-steel">{supplierName(request.supplier_id)}</p>
-          {request.status === "conciliada" && (
-            <p className="mt-2 text-sm">
-              <span className="text-steel">Estado de pago a proveedor: </span>
-              {request.paid_at ? (
-                <span className="font-semibold text-emerald-700">
-                  Pagada ({new Date(request.paid_at).toLocaleDateString("es-VE")})
-                </span>
-              ) : (
-                <span className="font-semibold text-amber-700">Pendiente de pago</span>
-              )}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => downloadPurchaseRequestTxt(exportData())}
-              className="inline-flex items-center gap-1.5 rounded-full border border-navy/15 px-4 py-1.5 text-xs font-semibold text-navy transition hover:border-navy/40"
-            >
-              <Download className="h-3.5 w-3.5" />
-              TXT
-            </button>
-            <button
-              type="button"
-              onClick={() => downloadPurchaseRequestExcel(exportData())}
-              className="inline-flex items-center gap-1.5 rounded-full border border-navy/15 px-4 py-1.5 text-xs font-semibold text-navy transition hover:border-navy/40"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Excel
-            </button>
-          </div>
-          <span className="rounded-full bg-blue-light px-4 py-2 text-sm font-semibold text-blue">
-            {STATUS_LABELS[request.status]}
-          </span>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-navy/10 bg-white p-6">
-        <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">Líneas de repuesto</p>
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-navy/10 text-steel">
-              <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">Repuesto</th>
-              <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">Cant.</th>
-              <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">Costo unit.</th>
-              <th className="pb-2 text-right font-mono text-[10px] uppercase tracking-widest">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-navy/5">
-            {request.lines.map((line) => (
-              <tr key={line.id}>
-                <td className="py-2">
-                  <span className="font-mono text-blue">{partCode(line.part_id)}</span>{" "}
-                  <span className="text-navy">{partName(line.part_id)}</span>
-                </td>
-                <td className="py-2 text-navy">{formatCount(line.quantity)}</td>
-                <td className="py-2">
-                  {request.status === "enviada" ? (
-                    <NumberInput
-                      min="0"
-                      step="0.01"
-                      value={quoteCosts[line.id] ?? ""}
-                      onValueChange={(value) => setQuoteCosts((prev) => ({ ...prev, [line.id]: value }))}
-                      placeholder="0,00"
-                      className="w-24 rounded-lg border border-navy/15 px-2 py-1.5 text-sm outline-none focus:border-blue"
-                    />
-                  ) : line.unit_cost != null ? (
-                    `$${formatMoney(line.unit_cost)}`
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td className="py-2 text-right font-medium text-navy">
-                  {line.subtotal != null ? `$${formatMoney(line.subtotal)}` : "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {request.total_quoted != null && (
-          <div className="mt-4 flex justify-end border-t border-navy/10 pt-4">
-            <span className="font-display text-lg font-bold text-navy">
-              Total: ${formatMoney(request.total_quoted)}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {request.status === "pagada" && next === "recibida" && (
-        <div className="mt-4 grid gap-4 rounded-2xl border border-navy/10 bg-white p-6 sm:grid-cols-2">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Almacén que recibe</label>
-            <select
-              value={warehouseId}
-              onChange={(e) => setWarehouseId(e.target.value)}
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            >
-              <option value="">Selecciona un almacén...</option>
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Ubicación (opcional)</label>
-            <input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Pasillo 3, Estante B"
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            />
-          </div>
-          <p className="sm:col-span-2 -mt-2 text-xs text-steel">
-            Al recibir, se crea un lote FIFO por cada línea en el almacén elegido, con el costo
-            cotizado. La ubicación se aplica a todos los lotes de esta recepción y alimenta la
-            columna &ldquo;Ubicación&rdquo; del Catálogo de Repuestos.
-          </p>
-        </div>
-      )}
-
-      {error && <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-
-      {(next || request.status === "enviada" || request.status === "cotizada" || request.status === "pagada") && (
-        <div className="mt-6 flex items-center gap-3">
-          {next && (
-            <button
-              onClick={handleAdvance}
-              disabled={submitting}
-              className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
-            >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Marcar como {STATUS_LABELS[next]}
-            </button>
-          )}
-          {(request.status === "enviada" || request.status === "cotizada" || request.status === "pagada") && (
-            <button
-              onClick={handleCancel}
-              disabled={submitting}
-              className="text-sm font-semibold text-red-500 hover:text-red-600"
-            >
-              Cancelar solicitud
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
+import { formatMoney } from "@/lib/format";
+import { NumberInput } from "@/components/ui/NumberInput";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import LotDetailModal from "@/components/warehouse/LotDetailModal";
+import type { PurchaseRequest } from "@/types/administracion";
+const today=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/Caracas"});
+const inputClass="w-full rounded-xl border border-navy/15 px-3 py-2.5 text-sm disabled:bg-ash";
+export default function PurchaseRequestDetailView({ requestId }: { requestId: string }) {
+ const { currentUser }=useAuth(); const filialId=currentUser?.filialId ?? null;
+ const { canEdit: canReceive }=useModuleAccess("almacen");
+ const { canEdit: canReconcile }=useModuleAccess("administracion");
+ const { canEdit: canBuy }=useModuleAccess("compras");
+ const { warehouses }=useWarehouses(canReceive ? filialId : null);
+ const [request,setRequest]=useState<PurchaseRequest | null>(null);const [loading,setLoading]=useState(true);
+ const [error,setError]=useState<string | null>(null);const [busy,setBusy]=useState(false);
+ const [warehouse,setWarehouse]=useState("");const [received,setReceived]=useState<Record<string,string>>({});
+ const [locations,setLocations]=useState<Record<string,string>>({});const [costs,setCosts]=useState<Record<string,string>>({});
+ const [invoice,setInvoice]=useState("");const [control,setControl]=useState("");const [date,setDate]=useState(today);
+ const [days,setDays]=useState("30");const [iva,setIva]=useState("16");
+ const [cancelOpen,setCancelOpen]=useState(false);const [lotId,setLotId]=useState<string | null>(null);
+ const attempt=useRef(createOperationAttempt());const lock=useRef(false);const pathname=usePathname();
+ const back=pathname.startsWith("/dashboard/almacen") ? "/dashboard/almacen/compras" : pathname.startsWith("/dashboard/administracion") ? "/dashboard/administracion/finanzas/cuentas-por-pagar" : "/dashboard/compras";
+ function apply(data: PurchaseRequest) { setRequest(data);setIva(String(data.invoice_iva_percentage ?? data.default_iva_percentage ?? 16));setReceived(Object.fromEntries(data.lines.map(line=>[line.id,String(Math.max(0,line.quantity-line.received_quantity))])));setCosts(Object.fromEntries(data.lines.map(line=>[line.id,String(line.invoiced_unit_cost ?? line.unit_cost ?? "")]))); }
+ useEffect(()=> { let active=true;setLoading(true);setError(null);getPurchaseRequest(requestId).then(data=> {if(active) apply(data);}).catch(err=> {if(active) setError(err instanceof Error ? err.message : "No se pudo cargar la compra.");}).finally(()=> {if(active) setLoading(false);});return ()=> {active=false;}; },[requestId]);
+ async function run(action: ()=>Promise<PurchaseRequest>) {if(lock.current) return;lock.current=true;setBusy(true);setError(null);try { apply(await action());attempt.current.reset();setCancelOpen(false); } catch(err) {setError(err instanceof Error ? err.message : "No se pudo guardar.");} finally {lock.current=false;setBusy(false);} }
+ if(loading) return <p className="p-8 text-sm text-steel">Cargando compra…</p>;
+ if(!request) return <p role="alert" className="p-8 text-red-700">{error}</p>;
+ const activeStage=request.paid_at ? 3 : request.invoice_number ? 2 : request.status==="recibida" || request.status==="conciliada" ? 1 : 0;
+ const receivedAll=activeStage>=1;const needsQuote=request.lines.some(line=>line.unit_cost===null);
+ const cancelled=request.status==="cancelada";
+ const subtotal=request.lines.reduce((sum,line)=>sum+line.received_quantity*(Number(costs[line.id]) || 0),0);
+ const total=subtotal*(1+(Number(iva)||0)/100);
+ const dueDate=new Date(`${date}T12:00:00`);dueDate.setDate(dueDate.getDate()+(Number(days)||0));
+ function exportData() {return {requestCode:request!.code,supplierName:request!.supplier_name,date:new Date(request!.created_at).toLocaleDateString("es-VE"),lines:request!.lines.map(line=>({code:line.part_code,name:line.part_name,quantity:line.quantity,unitCost:line.unit_cost}))};}
+ return <div className="space-y-6">
+  <Link href={back} className="text-sm text-steel">‹ Historial de compras</Link>
+  <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="font-display text-3xl font-bold text-navy">{request.code}<span className="ml-3 rounded-full bg-blue-light px-3 py-1 align-middle text-xs font-semibold text-blue">{cancelled ? "Cancelada" : ["Solicitada","Recibida","Conciliada · pendiente de pago","Pagada"][activeStage]}</span></h1><p className="mt-2 text-sm text-steel">{request.supplier_name} · creada {new Date(request.created_at).toLocaleDateString("es-VE")}</p></div><div className="flex gap-2"><button onClick={()=>downloadPurchaseRequestTxt(exportData())} className="rounded-full border px-4 py-2 text-xs font-semibold">Descargar TXT</button><button onClick={()=>downloadPurchaseRequestExcel(exportData())} className="rounded-full border px-4 py-2 text-xs font-semibold">Descargar Excel</button></div></header>
+  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[{title:"Solicitada",help:"Compras"},{title:"Recibida",help:"Almacén · crea lotes"},{title:"Conciliada",help:"Factura · crea CxP"},{title:"Pagada",help:"Finanzas"}].map((step,index)=><div key={step.title} className={`rounded-xl border bg-white p-4 ${index===activeStage && !cancelled ? "border-blue" : "border-navy/10"}`}><p className="text-sm font-semibold">{index<activeStage ? "✓" : index+1} · {step.title}</p><p className="mt-1 text-xs text-steel">{step.help}</p></div>)}</div>
+  <section className="overflow-x-auto rounded-2xl border border-navy/10 bg-white p-5"><h2 className="mb-4 font-mono text-xs uppercase tracking-widest text-blue">Líneas de repuesto</h2><table className="w-full text-left text-sm"><thead className="border-b text-xs uppercase text-steel"><tr>{["Repuesto","Pedido","Costo cotizado","Recibido","Ubicación · lote","Costo facturado","Subtotal"].map(label=><th key={label} className="px-3 py-3">{label}</th>)}</tr></thead><tbody>{request.lines.map(line=><tr key={line.id} className="border-b border-navy/5"><td className="p-3"><span className="font-mono text-blue">{line.part_code}</span> {line.part_name}</td><td className="p-3">{line.quantity}</td><td className="p-3">{line.unit_cost!==null ? `$${formatMoney(line.unit_cost)}` : "—"}</td><td className="p-3">{line.received_quantity || "—"}</td><td className="p-3 text-xs">{line.receipts.map(receipt=><p key={receipt.lot_id}>{receipt.location || "Sin ubicación"} · <button onClick={()=>setLotId(receipt.lot_id)} className="font-mono text-blue underline">{receipt.lot_code}</button> ({receipt.quantity})</p>)}{!line.receipts.length && "—"}</td><td className="p-3">{line.invoiced_unit_cost!==null ? `$${formatMoney(line.invoiced_unit_cost)}` : "—"}</td><td className="p-3 font-semibold">${formatMoney((line.invoiced_unit_cost ?? line.unit_cost ?? 0)*(receivedAll ? line.received_quantity : line.quantity))}</td></tr>)}</tbody></table></section>
+  {!cancelled && !receivedAll && needsQuote && canBuy && <section className="rounded-2xl border border-navy/10 bg-white p-6"><h2 className="mb-4 font-semibold">Costos cotizados</h2>{request.lines.map(line=><label key={line.id} className="mb-3 flex items-center justify-between gap-3 text-sm">{line.part_name}<NumberInput min={0} step={0.01} value={costs[line.id] ?? ""} onValueChange={value=>setCosts(prev=>({...prev,[line.id]:value}))} disabled={busy} className={inputClass+" max-w-40"} /></label>)}<button disabled={busy || request.lines.some(line=>!costs[line.id]?.trim() || Number(costs[line.id])<0)} onClick={()=>void run(()=>updatePurchaseRequestStatus(request.id,"cotizada",request.lines.map(line=>({line_id:line.id,unit_cost:Number(costs[line.id])}))))} className="rounded-full bg-blue px-5 py-2 text-sm text-white">Guardar cotización</button></section>}
+  {!cancelled && !receivedAll && canReceive && <section className="rounded-2xl border border-navy/10 bg-white p-6"><h2 className="font-mono text-xs uppercase tracking-widest text-blue">Recibir mercancía</h2><p className="my-3 text-xs text-steel">Crea un lote FIFO por línea al costo cotizado. Si recibes menos, la compra sigue abierta por lo pendiente.</p><label className="block max-w-sm text-sm font-semibold">Almacén que recibe<select value={warehouse} onChange={event=>setWarehouse(event.target.value)} disabled={busy} className={inputClass+" mt-2"}><option value="">Selecciona un almacén…</option>{warehouses.filter(item=>item.is_active).map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+   <div className="my-5 space-y-3">{request.lines.filter(line=>line.received_quantity<line.quantity).map(line=><div key={line.id} className="grid items-center gap-3 border-b border-navy/10 pb-3 sm:grid-cols-[1fr_80px_110px_1fr]"><span className="text-sm">{line.part_name}</span><span className="text-xs text-steel">Pendiente: {line.quantity-line.received_quantity}</span><NumberInput aria-label={`Cantidad recibida de ${line.part_name}`} min={0} max={line.quantity-line.received_quantity} value={received[line.id] ?? "0"} onValueChange={value=>setReceived(prev=>({...prev,[line.id]:value}))} disabled={busy} className={inputClass} /><input aria-label={`Ubicación de ${line.part_name}`} maxLength={30} value={locations[line.id] ?? ""} onChange={event=>setLocations(prev=>({...prev,[line.id]:event.target.value}))} disabled={busy} placeholder="Pasillo 3, estante B" className={inputClass} /></div>)}</div>
+   <button disabled={busy || !warehouse || needsQuote} onClick={()=>void run(()=> {const input={warehouse_id:warehouse,lines:request.lines.map(line=>({line_id:line.id,quantity:Number(received[line.id] || 0),location:locations[line.id]?.trim() || null}))};return receivePurchase(request.id,{...input,request_id:attempt.current.idFor(input)});})} className="rounded-full bg-blue px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">Confirmar recepción</button>
+  </section>}
+  {!cancelled && receivedAll && !request.invoice_number && canReconcile && <section className="rounded-2xl border border-navy/10 bg-white p-6"><h2 className="font-mono text-xs uppercase tracking-widest text-blue">Conciliar con la factura del proveedor</h2><p className="my-3 text-xs text-steel">Compara lo recibido contra la factura. Corrige el costo de los lotes y crea la cuenta por pagar.</p><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><label className="text-sm font-semibold">N.º de factura<input value={invoice} onChange={event=>setInvoice(event.target.value)} className={inputClass+" mt-2"} maxLength={80} disabled={busy} /></label><label className="text-sm font-semibold">N.º de control<input value={control} onChange={event=>setControl(event.target.value)} className={inputClass+" mt-2"} maxLength={80} disabled={busy} /></label><label className="text-sm font-semibold">Fecha de factura<input type="date" value={date} onChange={event=>setDate(event.target.value)} className={inputClass+" mt-2"} disabled={busy} /></label><label className="text-sm font-semibold">Días de crédito<NumberInput min={0} max={3650} value={days} onValueChange={setDays} disabled={busy} className={inputClass+" mt-2"} /><span className="mt-2 block text-xs font-normal text-steel">Vence {Number.isNaN(dueDate.getTime()) ? "—" : dueDate.toLocaleDateString("es-VE")}</span></label></div>
+   <div className="my-5 space-y-3">{request.lines.map(line=><div key={line.id} className="grid items-center gap-3 border-b pb-3 text-sm sm:grid-cols-4"><span>{line.part_name} · {line.received_quantity} recibidos</span><span>Cotizado: ${formatMoney(line.unit_cost ?? 0)}</span><NumberInput aria-label={`Costo facturado de ${line.part_name}`} min={0} step={0.01} value={costs[line.id] ?? ""} onValueChange={value=>setCosts(prev=>({...prev,[line.id]:value}))} disabled={busy} className={inputClass} /><span className={Number(costs[line.id])===(line.unit_cost ?? 0) ? "text-emerald-700" : "text-amber-700"}>{Number(costs[line.id])===(line.unit_cost ?? 0) ? "Sin diferencia" : `Diferencia: $${formatMoney(Number(costs[line.id])-(line.unit_cost ?? 0))}`}</span></div>)}</div>
+   <div className="flex flex-wrap items-end justify-between gap-4"><div className="space-y-3 rounded-xl bg-blue-light/50 p-4 text-sm"><p>Subtotal: <b>${formatMoney(subtotal)}</b></p><label className="flex items-center gap-2">IVA %<NumberInput min={0} max={100} step={0.01} value={iva} onValueChange={setIva} disabled={busy} className="w-20 rounded-lg border p-2" /></label><p>Total factura · cuenta por pagar: <b>${formatMoney(total)}</b></p></div><button disabled={busy || !invoice.trim() || !control.trim() || !date || request.lines.some(line=>!costs[line.id]?.trim())} onClick={()=>void run(()=>reconcilePurchase(request.id,{invoice_number:invoice.trim(),invoice_control_number:control.trim(),invoice_date:date,credit_days:Number(days),iva_percentage:Number(iva),lines:request.lines.map(line=>({line_id:line.id,unit_cost:Number(costs[line.id])}))}))} className="rounded-full bg-blue px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">Conciliar y crear cuenta por pagar</button></div>
+  </section>}
+  {request.invoice_number && <section className="rounded-2xl border border-navy/10 bg-white p-6"><h2 className="mb-4 font-mono text-xs uppercase tracking-widest text-blue">Factura y cuenta por pagar</h2><div className="grid grid-cols-2 gap-4 text-sm lg:grid-cols-5">{[{label:"Factura",value:request.invoice_number},{label:"Control",value:request.invoice_control_number},{label:"Total",value:`$${formatMoney(request.invoice_total ?? 0)}`},{label:"Saldo",value:`$${formatMoney(request.balance_usd ?? 0)}`},{label:"Vence",value:request.due_date ?? "—"}].map(item=><div key={item.label}><p className="text-xs text-steel">{item.label}</p><p className="mt-1 font-semibold">{item.value}</p></div>)}</div>{!request.paid_at && <Link href="/dashboard/administracion/finanzas/cuentas-por-pagar" className="mt-5 inline-block rounded-full bg-blue px-5 py-3 text-sm font-semibold text-white">Registrar pago en Finanzas</Link>}</section>}
+  {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+  {!cancelled && !receivedAll && canBuy && request.lines.every(line=>!line.received_quantity) && <button disabled={busy} onClick={()=>setCancelOpen(true)} className="text-sm font-semibold text-red-700">Cancelar solicitud</button>}
+  <section className="rounded-2xl border border-navy/10 bg-white p-6"><h2 className="mb-4 font-mono text-xs uppercase tracking-widest text-blue">Actividad</h2>{!request.activity.some(event=>event.action==="created") && <p className="text-sm">Solicitud creada · {new Date(request.created_at).toLocaleString("es-VE")}</p>}{request.activity.map((event,index)=><p key={index} className="mt-3 text-sm">• {event.action==="created" ? "Solicitud creada" : event.action==="quoted" ? "Cotización registrada" : event.action==="cancelled" ? "Solicitud cancelada" : event.action==="received" ? `Recibida: ${event.quantity} un. · lote ${event.lot_code}` : event.action==="reconciled" ? `Conciliada con factura ${event.invoice_number} · CxP $${formatMoney(event.total ?? 0)}` : event.action==="payment" ? `Pago $${formatMoney(event.amount_usd ?? 0)} · saldo $${formatMoney(event.balance_usd ?? 0)}` : event.action} · {event.user_name || "Usuario no disponible"} · {new Date(event.occurred_at).toLocaleString("es-VE")}</p>)}</section>
+  <ConfirmDialog open={cancelOpen} title="Cancelar compra" description="Esta solicitud no recibió mercancía. La cancelación no mueve inventario." confirmLabel="Cancelar solicitud" confirming={busy} onCancel={()=> {if(!busy) setCancelOpen(false);}} onConfirm={()=>void run(()=>updatePurchaseRequestStatus(request.id,"cancelada"))} />
+  <LotDetailModal lotId={lotId} onClose={()=>setLotId(null)} />
+ </div>;
 }

@@ -5,8 +5,10 @@ import { NumberInput } from "@/components/ui/NumberInput";
 
 import { useEffect, useState } from "react";
 import { Package, Search, Trash2 } from "lucide-react";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useParts } from "@/hooks/useParts";
 import { useToast } from "@/contexts/ToastContext";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import RequestPartsModal from "./RequestPartsModal";
 import { confirmWorkshopPickup } from "@/lib/api/serviceOrders";
 import type { ServiceOrderTransfer, ServiceOrderPayer, TransferLine } from "@/types/serviceOrder";
@@ -19,6 +21,7 @@ interface TransfersCardProps {
   onAddLine: (partId: string, quantity: number, payer: ServiceOrderPayer) => Promise<void>;
   onChangeQuantity: (lineId: string, quantity: number) => Promise<void>;
   onRemoveLine: (lineId: string) => Promise<void>;
+  onDeleteTransfer: (transferId: string) => Promise<void>;
   onMarkOrdered: (transferId: string) => Promise<void>;
 }
 
@@ -118,9 +121,11 @@ export default function TransfersCard({
   onChangeQuantity,
   onRemoveLine,
   onMarkOrdered,
+  onDeleteTransfer,
   readOnly = false,
 }: TransfersCardProps) {
   const { parts } = useParts(filialId);
+  const { canEdit: canDelete } = useModuleAccess("asesor-servicios");
   const partById = (id: string): Part | undefined => parts.find((p) => p.id === id);
 
   const [search, setSearch] = useState("");
@@ -130,6 +135,19 @@ export default function TransfersCard({
   const [dispatching, setDispatching] = useState(false);
   const [pickupBusy, setPickupBusy] = useState<string | null>(null);
   const toast = useToast();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  async function removeTransfer() {
+    if (!deletingId || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      await onDeleteTransfer(deletingId);
+      setDeletingId(null);
+      toast.success("ODT eliminada; reservas liberadas.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo eliminar la ODT.");
+    } finally { setDeleteBusy(false); }
+  }
 
   async function handleConfirmMarkOrdered() {
     if (!confirmingTransferId) return;
@@ -169,6 +187,7 @@ export default function TransfersCard({
 
   return (
     <div className="rounded-2xl border border-navy/10 bg-white p-6">
+      <ConfirmDialog open={!!deletingId} title="Eliminar ODT" description="Se eliminarán sus repuestos, reservas y traslados pendientes. Los traslados ya recibidos se conservarán en el historial. Esta acción no se puede deshacer." confirmLabel="Eliminar ODT" confirming={deleteBusy} onConfirm={() => void removeTransfer()} onCancel={() => { if (!deleteBusy) setDeletingId(null); }} />
       <h3 className="mb-1 font-display text-lg font-bold text-navy">Órdenes de Transferencia</h3>
       <p className="mb-4 text-sm text-steel">
         Repuestos pedidos al almacén para esta orden. El stock se reserva al enviar y se descuenta cuando Almacén completa el despacho.
@@ -230,6 +249,7 @@ export default function TransfersCard({
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-blue" />
                     <span className="font-mono text-sm font-semibold text-navy">{transfer.code}</span>
+                    {canDelete && !readOnly && transfer.status !== "completado" && !transfer.stock_deducted && <button type="button" onClick={() => setDeletingId(transfer.id)} className="rounded-lg px-2 py-1 text-xs text-red-700">Eliminar ODT</button>}
                     <span
                       className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest ${
                         transfer.status === "completado"

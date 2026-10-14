@@ -205,3 +205,18 @@ export async function confirmWorkshopPickup(id: string, photo: File): Promise<vo
   const body = new FormData(); body.append("photo", photo);
   await apiFetch(`/service-order-transfers/${id}/pickup`, { method: "POST", body });
 }
+
+export interface ServiceOrderPageItem extends ServiceOrder {
+  client_name: string; vehicle_label: string; vehicle_plate: string | null; technician_name: string | null;
+}
+export async function listServiceOrderPage(filialId: string, page: number, pageSize: number, filters: {
+  view: "active" | "history" | "all"; search?: string; status?: string; date_from?: string; date_to?: string;
+}) {
+  const query = new URLSearchParams({filial_id: filialId, page: String(page), page_size: String(pageSize)});
+  Object.entries(filters).forEach(([key, value]) => { if (value) query.set(key, value); });
+  return apiFetch<import("@/types/pagination").Page<ServiceOrderPageItem>>(`/service-orders/page?${query}`);
+}
+
+export function deleteServiceOrderTransfer(id: string): Promise<void> {
+  return apiFetch<void>(`/service-order-transfers/${id}`, { method: "DELETE" });
+}

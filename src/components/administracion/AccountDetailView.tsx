@@ -66,6 +66,8 @@ function sourceHref(m: AccountMovement): string | null {
       return `/dashboard/repuestos/ventas/${m.source_id}`;
     case "service_order":
       return `/dashboard/servicios/${m.source_id}`;
+    case "purchase_request":
+      return `/dashboard/administracion/finanzas/compras/${m.source_id}`;
     case "supplier_claim":
       return `/dashboard/administracion/reclamos?claim=${m.source_id}`;
     case "warranty_submission":

@@ -4,9 +4,9 @@ import { formatCount } from "@/lib/format";
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { useWarehouseScope } from "@/contexts/WarehouseContext";
-import { useParts } from "@/hooks/useParts";
-import { useUserDirectory } from "@/hooks/useUserDirectory";
-import { listMovements } from "@/lib/api/warehouse";
+import { useListLoader } from "@/hooks/useListLoader";
+import ErrorState from "@/components/common/ErrorState";
+import { listMovementPage, type MovementPage } from "@/lib/api/warehouse";
 import type { MovementType, StockMovement } from "@/types/warehouse";
 import EmptyState from "@/components/common/EmptyState";
 
@@ -40,45 +40,35 @@ function signedQuantity(movement: StockMovement): string {
 }
 
 export default function MovementsHistoryView() {
-  const { filialId, warehouses, activeWarehouse, activeWarehouseId } = useWarehouseScope();
-  const { parts } = useParts(filialId);
-  const { users } = useUserDirectory({ filialId });
-
-  const [movements, setMovements] = useState<StockMovement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { filialId, activeWarehouse, activeWarehouseId } = useWarehouseScope();
   const [typeFilter, setTypeFilter] = useState<MovementType | "todos">("todos");
   const [search, setSearch] = useState("");
-
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [pageSize, setPageSize] = useState(50);
+  const filterScope = JSON.stringify([filialId, activeWarehouseId, typeFilter, debouncedSearch, dateFrom, dateTo, pageSize]);
+  const [selection, setSelection] = useState({scope: filterScope, page: 1});
+  const page = selection.scope === filterScope ? selection.page : 1;
   useEffect(() => {
-    if (!filialId) return;
-    setLoading(true);
-    listMovements(filialId, undefined, activeWarehouseId ?? undefined).then((data) => {
-      setMovements(data);
-      setLoading(false);
-    });
-  }, [activeWarehouseId, filialId]);
-
-  const partById = (id: string) => parts.find((p) => p.id === id);
-  const warehouseName = (id: string) => warehouses.find((w) => w.id === id)?.name ?? "—";
-  const userName = (id: string | null) => (id ? users.find((u) => u.id === id)?.full_name ?? "—" : "—");
-
-  const filtered = movements.filter((m) => {
-    if (typeFilter !== "todos") {
-      if (typeFilter === "transferencia_salida") {
-        if (m.movement_type !== "transferencia_salida" && m.movement_type !== "transferencia_entrada") return false;
-      } else if (m.movement_type !== typeFilter) {
-        return false;
-      }
-    }
-    if (search) {
-      const term = search.toLowerCase();
-      const part = partById(m.part_id);
-      const matchesPart = part && (part.name.toLowerCase().includes(term) || part.code.toLowerCase().includes(term));
-      const matchesUser = userName(m.responsible_user_id).toLowerCase().includes(term);
-      if (!matchesPart && !matchesUser) return false;
-    }
-    return true;
-  });
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+  const {data, loading, error, refresh} = useListLoader<MovementPage>(
+    () => filialId ? listMovementPage(filialId, {
+      page, page_size: pageSize, warehouse_id: activeWarehouseId ?? undefined,
+      movement_type: typeFilter === "todos" ? undefined : typeFilter === "transferencia_salida" ? "transferencia" : typeFilter,
+      search: debouncedSearch, date_from: dateFrom, date_to: dateTo,
+    }).then((result) => [result]) : Promise.resolve([]),
+    [filterScope, page],
+    30000,
+  );
+  const result = data[0];
+  const filtered = result?.items ?? [];
+  const actualPage = result?.page ?? page;
+  const totalPages = result?.total_pages ?? 1;
+  const total = result?.total ?? 0;
+  const changePage = (next: number) => setSelection({scope: filterScope, page: next});
 
   const isOutbound = (type: MovementType) => type === "salida" || type === "transferencia_salida" || type === "devolucion";
 
@@ -97,10 +87,13 @@ export default function MovementsHistoryView() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por repuesto o responsable..."
+            maxLength={120}
+            placeholder="Buscar por repuesto, responsable o referencia..."
             className="w-full rounded-full border border-navy/15 bg-white py-3 pl-11 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
           />
         </div>
+        <label className="text-xs text-steel">Desde<input aria-label="Fecha inicial" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="ml-2 rounded-lg border border-navy/15 bg-white p-2 text-sm" /></label>
+        <label className="text-xs text-steel">Hasta<input aria-label="Fecha final" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="ml-2 rounded-lg border border-navy/15 bg-white p-2 text-sm" /></label>
         <div className="flex rounded-full border border-navy/15 p-1">
           {TYPE_TABS.map((tab) => (
             <button
@@ -119,6 +112,8 @@ export default function MovementsHistoryView() {
       <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
         {loading ? (
           <div className="p-12 text-center text-sm text-steel">Cargando movimientos...</div>
+        ) : error ? (
+          <ErrorState error={error} onRetry={refresh} />
         ) : filtered.length === 0 ? (
           <EmptyState
             compact
@@ -142,10 +137,9 @@ export default function MovementsHistoryView() {
             </thead>
             <tbody className="divide-y divide-navy/5">
               {filtered.map((m) => {
-                const part = partById(m.part_id);
                 return (
                   <tr key={m.id} className="transition hover:bg-ash/60">
-                    <td className="px-6 py-4 text-steel">{new Date(m.created_at).toLocaleDateString("es-VE")}</td>
+                    <td className="px-6 py-4 text-steel">{new Date(m.created_at).toLocaleDateString("es-VE", {timeZone: "America/Caracas"})}</td>
                     <td className="px-6 py-4">
                       <span
                         className={`rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${TYPE_STYLES[m.movement_type]}`}
@@ -154,14 +148,14 @@ export default function MovementsHistoryView() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="font-medium text-navy">{part?.name ?? "—"}</span>{" "}
+                      <span className="font-medium text-navy">{m.part_name}</span>{" "}
                       <span className={isOutbound(m.movement_type) ? "text-red-500" : "text-emerald-600"}>
                         {signedQuantity(m)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-steel">{warehouseName(m.warehouse_id)}</td>
+                    <td className="px-6 py-4 text-steel">{m.warehouse_name}</td>
                     <td className="px-6 py-4 text-steel">{m.reference ?? m.note ?? "—"}</td>
-                    <td className="px-6 py-4 text-steel">{userName(m.responsible_user_id)}</td>
+                    <td className="px-6 py-4 text-steel">{m.responsible_name ?? "—"}</td>
                   </tr>
                 );
               })}
@@ -169,6 +163,14 @@ export default function MovementsHistoryView() {
           </table>
         )}
       </div>
+      {!loading && !error && <nav aria-label="Paginación de movimientos" className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-steel">
+        <span>{formatCount(total)} movimientos · Página {actualPage} de {totalPages}</span>
+        <div className="flex items-center gap-2">
+          <label>Por página<select aria-label="Movimientos por página" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="ml-2 rounded-lg border border-navy/15 bg-white p-2"><option value={20}>20</option><option value={50}>50</option><option value={100}>100</option></select></label>
+          <button type="button" disabled={actualPage <= 1} onClick={() => changePage(actualPage - 1)} className="rounded-full border border-navy/15 px-4 py-2 disabled:opacity-40">Anterior</button>
+          <button type="button" disabled={actualPage >= totalPages} onClick={() => changePage(actualPage + 1)} className="rounded-full border border-navy/15 px-4 py-2 disabled:opacity-40">Siguiente</button>
+        </div>
+      </nav>}
     </div>
   );
 }

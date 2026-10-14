@@ -1,5 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { createOperationAttempt } from "@/lib/operation-attempt";
+import { useEffect, useRef, useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { NumberInput } from "@/components/ui/NumberInput";
 import PaymentReceivedFields from "@/components/service-orders/PaymentReceivedFields";
@@ -18,6 +20,7 @@ export default function PartPaymentModal({saleId, code, onClose, onCollected, on
  const [quote, setQuote] = useState<{key: string; value: PartPaymentQuote} | null>(null);
  const [busy, setBusy] = useState(false);
  const [collected, setCollected] = useState(false);
+ const attempt = useRef(createOperationAttempt());
  const key = JSON.stringify([saleId, method, usdBase]);
  const current = quote?.key === key ? quote.value : null;
  useEffect(() => { let active = true;
@@ -41,14 +44,16 @@ export default function PartPaymentModal({saleId, code, onClose, onCollected, on
    else {
     if (!current) throw new Error("Espera el cálculo del cobro.");
     if (!collected) {
-    await collectPartPayment(saleId, { payment_method: method, usd_base: method === "mixed" ? usdBase : "0",
+    const payment = { payment_method: method, usd_base: method === "mixed" ? usdBase : "0",
      paid_usd: method !== "bs" ? paidUsd || "0" : "0", paid_bs: method !== "usd" ? paidBs || "0" : "0",
-     usd_account_id: usdAccount || null, bs_account_id: bsAccount || null, payment_reference: reference });
+     usd_account_id: usdAccount || null, bs_account_id: bsAccount || null, payment_reference: reference };
+    await collectPartPayment(saleId, {...payment, request_id: attempt.current.idFor({saleId, ...payment})});
     setCollected(true);
     }
     await onCollected();
    }
    onClose();
+   attempt.current.reset();
   } catch (err) { setError(err instanceof Error ? err.message : "No se pudo registrar el cobro."); }
   finally { setBusy(false); }
  }

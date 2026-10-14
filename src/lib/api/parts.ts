@@ -238,6 +238,7 @@ export async function quotePartSale(input: Omit<CreatePartSaleInput, "client_nam
 }
 
 export interface PartPaymentInput {
+  request_id?: string;
   payment_method: "usd" | "bs" | "mixed"; usd_base: string;
   paid_usd: string; paid_bs: string; usd_account_id: string | null;
   bs_account_id: string | null; payment_reference: string;

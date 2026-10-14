@@ -30,19 +30,21 @@ export default function LoginForm() {
     e.preventDefault();
     setError(null);
 
-    if (!email || !password) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password) {
       setError("Completa tu correo y contraseña.");
       return;
     }
 
-    if (!EMAIL_REGEX.test(email)) {
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
       setError("Ingresa un correo electrónico válido (ej: nombre@empresa.com).");
       return;
     }
 
     setLoading(true);
     try {
-      const user = await login(email, password);
+      const user = await login(normalizedEmail, password);
       router.push(LANDING_BY_SCOPE[user.scope]);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -89,9 +91,12 @@ export default function LoginForm() {
               id="email"
               type="email"
               autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value.toLowerCase())}
               placeholder="nombre@empresa.com"
               className="w-full rounded-xl border border-navy/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-blue focus:ring-2 focus:ring-blue/20"
             />

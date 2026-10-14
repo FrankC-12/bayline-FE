@@ -98,18 +98,15 @@ export default function ClientCard({ client, onClick }: ClientCardProps) {
                     e.stopPropagation();
                     setDetailVehicle(v);
                   }}
-                  title="Plan de mantenimiento y garantías"
+                  title="Ver ficha del vehículo"
+                  aria-label={`Ver ficha de ${v.brand} ${v.model}`}
                   className="ml-auto rounded-lg p-1 text-steel hover:bg-ash hover:text-blue"
                 >
                   <CalendarClock className="h-4 w-4" />
                 </button>
               </div>
               <MileageInfo vehicle={v} />
-              {v.maintenance_plan_brand && (
-                <p className="mt-0.5 text-xs text-steel">
-                  Plan: <span className="text-navy">{v.maintenance_plan_name}</span>
-                </p>
-              )}
+
             </div>
           ))
         )}
@@ -122,6 +119,7 @@ export default function ClientCard({ client, onClick }: ClientCardProps) {
             onClose={() => setDetailVehicle(null)}
             vehicle={detailVehicle}
             filialId={client.filial_id}
+            clientName={client.full_name}
           />
         </div>
       )}

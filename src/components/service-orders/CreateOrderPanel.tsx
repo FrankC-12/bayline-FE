@@ -28,6 +28,7 @@ interface CreateOrderPanelProps {
   // specific finished inspection, so it never accidentally links a
   // *different* unlinked inspection for the same vehicle.
   presetInspection?: Inspection | null;
+  presetVehicleId?: string | null;
   onSubmit: (
     vehicleId: string,
     orderTypeId: string,
@@ -40,7 +41,7 @@ export default function CreateOrderPanel({
   open,
   onClose,
   filialId,
-  presetInspection = null,
+  presetVehicleId = null, presetInspection = null,
   onSubmit,
 }: CreateOrderPanelProps) {
   const { clients } = useVehicleLookup(filialId);
@@ -53,7 +54,7 @@ export default function CreateOrderPanel({
   // "mpt"/"retrabajo" stay hidden here on purpose — mpt has no module/screen
   // behind it yet, and retrabajo is only ever set automatically when
   // converting a reclamo de garantía, never picked by hand.
-  const selectableOrderTypes = orderTypes.filter((t) => t.is_selectable && t.is_active);
+  const selectableOrderTypes = orderTypes.filter((t) => t.code === "regular" && t.is_active);
 
   const [search, setSearch] = useState("");
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
@@ -160,6 +161,14 @@ export default function CreateOrderPanel({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchedInspection?.id]);
+
+  useEffect(()=> {
+    if (!open || !presetVehicleId || presetInspection) return;
+    for (const client of clients) {
+      const vehicle=client.vehicles.find(item=>item.id===presetVehicleId);
+      if (vehicle) {setSelectedVehicleId(vehicle.id);setSearch(`${vehicle.brand} ${vehicle.model} · ${vehicle.plate || "Sin placa"}`);break;}
+    }
+  },[open,presetVehicleId,presetInspection,clients]);
 
   function selectVehicle(vehicleId: string, label: string) {
     setSelectedVehicleId(vehicleId);
@@ -287,20 +296,7 @@ export default function CreateOrderPanel({
             )}
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Tipo de orden</label>
-            <select
-              value={orderTypeId}
-              onChange={(e) => setOrderTypeId(e.target.value)}
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-            >
-              {selectableOrderTypes.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <p className="rounded-xl bg-blue-light/40 p-3 text-xs text-steel">Tipo de ODS: Regular. Los retrabajos, garantías de fábrica y campañas se generan desde su reclamo autorizado.</p>
 
           {requiredClaimType && (
             <div>

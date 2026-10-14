@@ -65,11 +65,13 @@ export const collectReceivable = (invoiceId: string, input: CollectInvoicePaymen
 export const closeServiceOrder = (
   id: string,
   nextMaintenanceDueAt?: string | null,
-  nextMaintenanceTemparioId?: string | null
+  nextMaintenanceTemparioId?: string | null,
+  exitMileage?: number | null
 ) =>
   apiFetch<ServiceOrder>(`${base(id)}/close`, {
     method: "POST",
     body: JSON.stringify({
+      exit_mileage: exitMileage ?? null,
       next_maintenance_due_at: nextMaintenanceDueAt ?? null,
       next_maintenance_tempario_id: nextMaintenanceTemparioId ?? null,
     }),

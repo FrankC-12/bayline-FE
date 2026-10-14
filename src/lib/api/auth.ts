@@ -15,7 +15,7 @@ export async function getSessionUser(): Promise<CurrentUser> {
 export async function login(input: { email: string; password: string }): Promise<CurrentUser> {
   await settleSessionRefresh();
   removeLegacyTokens();
-  await apiFetch("/auth/login", { method: "POST", body: JSON.stringify(input), auth: false });
+  await apiFetch("/auth/login", { method: "POST", body: JSON.stringify({ ...input, email: input.email.trim().toLowerCase() }), auth: false });
   return getSessionUser();
 }
 

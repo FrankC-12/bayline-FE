@@ -1,4 +1,5 @@
 "use client";
+import { deleteServiceOrderTransfer } from "@/lib/api/serviceOrders";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -16,7 +17,6 @@ import { useInspectionForOrder } from "@/hooks/useInspectionForOrder";
 import { useInspections } from "@/hooks/useInspections";
 import { useOrderSummary } from "@/hooks/useOrderSummary";
 import { useTemparios } from "@/hooks/useTemparios";
-import { useWarrantyPolicies } from "@/hooks/useWarrantyPolicies";
 import TasksCard from "./TaskCard";
 import TransfersCard from "./TransferCard";
 import CoverageBreakdownCard from "./CoverageBreakdownCard";
@@ -63,30 +63,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const { users } = useUserDirectory({ filialId });
   const { roles } = useRoleDirectory("filial");
   const { bays } = useBays(filialId);
-  const { policies: warrantyPolicies } = useWarrantyPolicies(filialId);
-  // Selectable if active, or already selected on this order — an order that
-  // picked a policy before it was deactivated must still show its name.
-  const selectableWarrantyPolicy = (p: (typeof warrantyPolicies)[number]) =>
-    p.status === "activa" || p.id === order?.labor_warranty_policy_id || p.id === order?.parts_warranty_policy_id;
-  const laborWarrantyOptions = warrantyPolicies.filter(
-    (p) => (p.applies_to === "mano_de_obra" || p.applies_to === "ambas") && selectableWarrantyPolicy(p)
-  );
-  const partsWarrantyOptions = warrantyPolicies.filter(
-    (p) => (p.applies_to === "repuestos" || p.applies_to === "ambas") && selectableWarrantyPolicy(p)
-  );
-  // "Pagador propuesto" for a new claim — prefers the parts policy (a claim
-  // is usually about a defective part), falling back to the labor policy.
-  // "la_casa" proposes no external claim_type; the form's own default
-  // ("comeback", the shop investigates first) stays as-is for that case.
-  const relevantWarrantyPolicy =
-    warrantyPolicies.find((p) => p.id === order?.parts_warranty_policy_id) ??
-    warrantyPolicies.find((p) => p.id === order?.labor_warranty_policy_id);
-  const suggestedClaimType: WarrantyClaimType | undefined =
-    relevantWarrantyPolicy?.covered_by === "fabrica_importador"
-      ? "fabrica"
-      : relevantWarrantyPolicy?.covered_by === "proveedor"
-        ? "repuesto_proveedor"
-        : undefined;
+  const suggestedClaimType: WarrantyClaimType | undefined = undefined;
   const { canEdit: canReopen } = useModuleAccess("administracion");
   const { inspection, link } = useInspectionForOrder(order?.id ?? null);
   const { inspections: unlinkedInspections } = useInspections(filialId, true);
@@ -110,6 +87,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const [billingOpen, setBillingOpen] = useState(false);
   const [claimModalOpen, setClaimModalOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [exitMileage, setExitMileage] = useState("");
   const [closePanelOpen, setClosePanelOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
@@ -210,7 +188,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     if (!order?.invoiced_at || order.status !== "completado") return;
     setSaving(true); setActionError(null);
     try {
-      await closeServiceOrder(orderId, nextMaintenanceDate || null, nextMaintenanceTempario?.id ?? null);
+      await closeServiceOrder(orderId, nextMaintenanceDate || null, nextMaintenanceTempario?.id ?? null, exitMileage ? Number(exitMileage) : null);
       await refreshOrder(); await refreshSummary();
       setClosePanelOpen(false);
       toast.success("Orden cerrada.");
@@ -291,26 +269,6 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     setSaving(true);
     try {
       await update(value === "" ? { clear_bay: true } : { bay_id: value });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function assignLaborWarrantyPolicy(value: string) {
-    if (readOnly) return;
-    setSaving(true);
-    try {
-      await update(value === "" ? { clear_labor_warranty_policy: true } : { labor_warranty_policy_id: value });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function assignPartsWarrantyPolicy(value: string) {
-    if (readOnly) return;
-    setSaving(true);
-    try {
-      await update(value === "" ? { clear_parts_warranty_policy: true } : { parts_warranty_policy_id: value });
     } finally {
       setSaving(false);
     }
@@ -456,6 +414,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
 
         {closePanelOpen && (
           <div className="mt-5 rounded-xl bg-ash p-4">
+            <label className="mb-4 block text-sm font-semibold text-navy">Kilometraje de salida<input type="number" min={order.intake_mileage ?? 0} value={exitMileage} onChange={event=>setExitMileage(event.target.value)} className="mt-2 w-full rounded-xl border border-navy/15 px-3 py-2" /></label>
             <label className="mb-1.5 block text-sm font-medium text-navy">
               Próxima visita sugerida (opcional)
             </label>
@@ -700,44 +659,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 rounded-2xl border border-navy/10 bg-white p-5 sm:grid-cols-2">
-        <div>
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">Garantía de mano de obra</p>
-          <select
-            disabled={readOnly || saving}
-            value={order.labor_warranty_policy_id ?? ""}
-            onChange={(e) => assignLaborWarrantyPolicy(e.target.value)}
-            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-          >
-            <option value="">Sin política seleccionada</option>
-            {laborWarrantyOptions.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">Garantía de repuestos</p>
-          <select
-            disabled={readOnly || saving}
-            value={order.parts_warranty_policy_id ?? ""}
-            onChange={(e) => assignPartsWarrantyPolicy(e.target.value)}
-            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-          >
-            <option value="">Sin política seleccionada</option>
-            {partsWarrantyOptions.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <p className="sm:col-span-2 -mt-2 text-xs text-steel">
-          Aplica a toda la ODS. Al facturar, la política elegida queda congelada para las unidades
-          de garantía de taller que se generen — editar la política después no la modifica.
-        </p>
-      </div>
+
 
       {readOnly && <p role="status" className="mt-6 rounded-xl bg-ash px-4 py-3 text-sm text-steel">
         Esta orden es de solo lectura.{(order.invoiced_at || order.status === "orden_cerrada") ? " El precio quedó congelado al facturar." : ""}
@@ -811,6 +733,12 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             onChangeQuantity={changeLineQuantity}
             onRemoveLine={removeLine}
             onMarkOrdered={markOrdered}
+            onDeleteTransfer={async (id) => {
+              await deleteServiceOrderTransfer(id);
+              await refreshSummary();
+              await refreshOrder();
+              window.dispatchEvent(new Event("bayline:workshop-updated"));
+            }}
           />
           {summary && <CoverageBreakdownCard summary={summary} filialId={filialId} readOnly={readOnly || saving} onChangeTaskPayer={changeTaskPayer} onChangeLinePayer={changeLinePayer} />}
           <div className="ml-auto w-full lg:max-w-lg">{summary && <PriceSummaryCard summary={summary} totalAmount={order.total_amount} onDiscountChange={changeDiscount} saving={saving} readOnly={readOnly} />}</div>

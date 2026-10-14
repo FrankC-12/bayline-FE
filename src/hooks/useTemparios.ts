@@ -11,14 +11,14 @@ import {
 import type { Tempario } from "@/types/tempario";
 import { useListLoader } from "./useListLoader";
 
-export function useTemparios(filialId: string | null, search?: string) {
+export function useTemparios(filialId: string | null, search?: string, includeInactive = false) {
   const {
     data: temparios,
     setData: setTemparios,
     loading,
     error,
     refresh,
-  } = useListLoader<Tempario>(() => (filialId ? listTemparios(filialId, search) : Promise.resolve([])), [filialId, search]);
+  } = useListLoader<Tempario>(() => (filialId ? listTemparios(filialId, search, includeInactive) : Promise.resolve([])), [filialId, search, includeInactive]);
 
   const addTempario = useCallback(
     async (input: CreateTemparioInput) => {

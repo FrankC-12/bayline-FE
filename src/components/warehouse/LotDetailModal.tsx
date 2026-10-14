@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { getLotDetail } from "@/lib/api/warehouse";
 import { formatCount, formatMoney } from "@/lib/format";
 import type { LotOutboundMovement, PartLotDetail } from "@/types/warehouse";
@@ -14,6 +15,7 @@ interface LotDetailModalProps {
 
 const SOURCE_LABELS: Record<string, string> = {
   venta_repuestos: "Venta de mostrador",
+  transferencia: "Transferencia",
   odt_taller: "Orden de Servicio (Taller)",
 };
 
@@ -24,6 +26,9 @@ function movementHref(m: LotOutboundMovement): string | null {
 }
 
 export default function LotDetailModal({ lotId, onClose }: LotDetailModalProps) {
+  const { access: purchasesAccess }=useModuleAccess("compras");
+  const { access: warehouseAccess }=useModuleAccess("almacen");
+  const purchaseBase=purchasesAccess ? "/dashboard/compras" : warehouseAccess ? "/dashboard/almacen/compras" : "/dashboard/administracion/finanzas/compras";
   const [detail, setDetail] = useState<PartLotDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +93,7 @@ export default function LotDetailModal({ lotId, onClose }: LotDetailModalProps) 
                   </p>
                 </div>
               </div>
+              {detail.origin && <section className="mt-5 rounded-xl bg-ash p-4"><h3 className="mb-2 font-mono text-xs uppercase text-blue">Origen</h3><p className="text-sm font-semibold">{detail.origin.description}</p>{detail.origin.purchase_request_id && <p className="mt-1 text-xs text-steel">{detail.origin.invoice_number ? `Factura ${detail.origin.invoice_number} · costo conciliado · ` : "Sin factura · "}<Link href={`${purchaseBase}/${detail.origin.purchase_request_id}`} className="text-blue underline">{detail.origin.purchase_code}</Link></p>}{detail.origin.origin_lot_id && <button type="button" onClick={()=> {setDetail(null);setLoading(true);getLotDetail(detail.origin!.origin_lot_id!).then(setDetail).catch(err=>setError(err instanceof Error ? err.message : "No se pudo cargar el lote de origen.")).finally(()=>setLoading(false));}} className="mt-2 text-xs text-blue underline">Ver lote de origen {detail.origin.origin_lot_code}</button>}</section>}
               {detail.location && (
                 <p className="mt-3 text-xs text-steel">
                   Ubicación: <span className="font-medium text-navy">{detail.location}</span>
@@ -118,6 +124,7 @@ export default function LotDetailModal({ lotId, onClose }: LotDetailModalProps) 
                             ) : (
                               <span className="font-mono">{m.reference_code}</span>
                             )}
+                            {m.destination_lot_id && <button type="button" onClick={()=> {setLoading(true);getLotDetail(m.destination_lot_id!).then(setDetail).catch(err=>setError(err instanceof Error ? err.message : "No se pudo cargar el lote de destino.")).finally(()=>setLoading(false));}} className="ml-2 text-blue underline">creó el lote {m.destination_lot_code}</button>}
                             {" · "}
                             {new Date(m.occurred_at).toLocaleDateString("es-VE")}
                           </p>
@@ -131,10 +138,7 @@ export default function LotDetailModal({ lotId, onClose }: LotDetailModalProps) 
                   })}
                 </div>
               )}
-              <p className="mt-3 text-[11px] text-steel">
-                No incluye transferencias entre almacenes — ese movimiento todavía no registra de qué
-                lote de origen sale.
-              </p>
+
             </>
           ) : null}
         </div>

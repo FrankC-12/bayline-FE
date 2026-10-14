@@ -24,6 +24,13 @@ export interface TemparioPart {
 }
 
 export interface Tempario {
+  legacy_warranty_label?: string | null;
+  warranty_mode: "standard" | "custom" | "none";
+  warranty_days: number | null;
+  warranty_km: number | null;
+  is_active: boolean;
+  updated_by_user_id: string | null;
+  updated_by_name?: string | null;
   labor_warranty_policy_id: string | null;
   parts_warranty_policy_id: string | null;
   id: string;
@@ -50,6 +57,8 @@ export interface Tempario {
 }
 
 export interface LaborSettings {
+  bcv_rate_mode: "automatic" | "manual";
+  field_changes: Record<string, { user_name?: string | null; changed_at: string }>;
   filial_id: string;
   hourly_rate: number;
   commission_percentage: number;

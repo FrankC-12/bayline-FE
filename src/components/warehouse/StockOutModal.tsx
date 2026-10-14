@@ -1,20 +1,20 @@
 "use client";
 
+import { createOperationAttempt } from "@/lib/operation-attempt";
+
 import { NumberInput } from "@/components/ui/NumberInput";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Loader2, Search } from "lucide-react";
 import { useParts } from "@/hooks/useParts";
+import { useListLoader } from "@/hooks/useListLoader";
+import { apiFetch } from "@/lib/api/client";
+import type { StockInReason } from "@/types/warehouse";
 import { createStockOut } from "@/lib/api/warehouse";
 import WarehousePicker from "./WarehousePicker";
 import type { Warehouse } from "@/types/warehouse";
 
-const REASONS: { value: string; label: string }[] = [
-  { value: "consumo_ods", label: "Consumo en ODS" },
-  { value: "ajuste_inventario", label: "Ajuste de inventario" },
-  { value: "devolucion_proveedor", label: "Devolución a proveedor" },
-  { value: "otro", label: "Otro" },
-];
+
 
 interface StockOutModalProps {
   open: boolean;
@@ -40,7 +40,8 @@ export default function StockOutModal({
   const [partId, setPartId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [warehouseId, setWarehouseId] = useState(defaultWarehouseId ?? warehouses[0]?.id ?? "");
-  const [reason, setReason] = useState(REASONS[0].value);
+  const { data: reasons } = useListLoader<StockInReason>(()=>apiFetch(`/stock-out-reasons?filial_id=${filialId}`),[filialId]);
+  const [reason, setReason] = useState("");
   const [reference, setReference] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,25 +56,31 @@ export default function StockOutModal({
 
   const canSubmit = Boolean(partId && Number(quantity) > 0 && warehouseId);
 
+  const attempt = useRef(createOperationAttempt());
+
   async function handleSubmit() {
     if (!canSubmit) return;
+    if (!reason) { setError("Selecciona el motivo de salida."); return; }
     setSubmitting(true);
     setError(null);
     try {
-      await createStockOut({
+      const operation = {
         filial_id: filialId,
         warehouse_id: warehouseId,
         part_id: partId,
         quantity: Number(quantity),
-        reason,
+        reason_id: reason || undefined,
+        reason: reasons.find(item=>item.id===reason)?.name === "Devolución a proveedor" ? "devolucion_proveedor" : "otro",
         reference: reference || null,
-      });
+      };
+      await createStockOut({...operation, request_id: attempt.current.idFor(operation)});
       setSearch("");
       setPartId("");
       setQuantity("");
       setReference("");
       onSaved();
       onClose();
+      attempt.current.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo registrar la salida.");
     } finally {
@@ -153,9 +160,10 @@ export default function StockOutModal({
               onChange={(e) => setReason(e.target.value)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
             >
-              {REASONS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
+              <option value="">Selecciona un motivo…</option>
+              {reasons.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
                 </option>
               ))}
             </select>

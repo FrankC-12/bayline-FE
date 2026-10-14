@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useServiceOrders } from "@/hooks/useServiceOrders";
-import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
-import { useUserDirectory } from "@/hooks/useUserDirectory";
+import { usePagedList } from "@/hooks/usePagedList";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import Pagination from "@/components/common/Pagination";
+import { listServiceOrderPage, type ServiceOrderPageItem } from "@/lib/api/serviceOrders";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 
@@ -27,38 +28,19 @@ export default function HistorialView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
-  const { orders, loading, error, refresh } = useServiceOrders(filialId, "history");
-  const { vehicleMap } = useVehicleLookup(filialId);
-  const { users } = useUserDirectory({ filialId });
-
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<FilterTab>("todos");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
-  const technicianName = (id: string | null) => users.find((u) => u.id === id)?.full_name ?? "—";
+  const settledSearch = useDebouncedValue(search.trim());
+  const scope = JSON.stringify([currentUser?.userId, filialId, settledSearch, tab, from, to]);
+  const list = usePagedList<ServiceOrderPageItem>((page, size) => filialId
+    ? listServiceOrderPage(filialId, page, size, {view: "history", search: settledSearch,
+      status: tab === "todos" ? undefined : tab, date_from: from, date_to: to})
+    : Promise.resolve({items: [], total: 0, page: 1, page_size: size, total_pages: 1}), scope, 15000);
+  const {items: filtered, loading, error, refresh} = list;
   const isFiltered = !!(search || tab !== "todos" || from || to);
-
-  const filtered = useMemo(() => {
-    return orders.filter((o) => {
-      if (tab !== "todos" && o.status !== tab) return false;
-
-      const created = new Date(o.created_at);
-      if (from && created < new Date(from)) return false;
-      if (to && created > new Date(`${to}T23:59:59`)) return false;
-
-      if (search) {
-        const term = search.toLowerCase();
-        const info = vehicleMap.get(o.vehicle_id);
-        const haystack = [o.code, info?.vehicle.plate, info?.client.full_name, technicianName(o.technician_user_id)]
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(term)) return false;
-      }
-
-      return true;
-    });
-  }, [orders, tab, from, to, search, vehicleMap, users]);
 
   return (
     <div>
@@ -68,6 +50,7 @@ export default function HistorialView() {
       <div className="relative mt-6">
         <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
         <input
+          maxLength={150}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por número de ODS, cliente, vehículo o técnico..."
@@ -145,7 +128,6 @@ export default function HistorialView() {
             </thead>
             <tbody className="divide-y divide-navy/5">
               {filtered.map((o) => {
-                const info = vehicleMap.get(o.vehicle_id);
                 return (
                   <tr
                     key={o.id}
@@ -156,16 +138,16 @@ export default function HistorialView() {
                       <span className="font-mono font-semibold text-blue">{o.code}</span>
                     </td>
                     <td className="px-6 py-4 text-steel">
-                      {new Date(o.created_at).toLocaleDateString("es-VE")}
+                      {new Date(o.created_at).toLocaleDateString("es-VE", {timeZone: "America/Caracas"})}
                     </td>
                     <td className="px-6 py-4">
                       <p className="font-medium text-navy">
-                        {info ? `${info.vehicle.brand} ${info.vehicle.model}` : "—"}
+                        {o.vehicle_label}
                       </p>
-                      <p className="font-mono text-xs text-steel">{info?.vehicle.plate}</p>
+                      <p className="font-mono text-xs text-steel">{o.vehicle_plate}</p>
                     </td>
-                    <td className="px-6 py-4 text-steel">{info?.client.full_name ?? "—"}</td>
-                    <td className="px-6 py-4 text-steel">{technicianName(o.technician_user_id)}</td>
+                    <td className="px-6 py-4 text-steel">{o.client_name}</td>
+                    <td className="px-6 py-4 text-steel">{o.technician_name ?? "—"}</td>
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${STATUS_STYLES[o.status]}`}
@@ -180,6 +162,7 @@ export default function HistorialView() {
           </table>
         )}
       </div>
+      {!loading && !error && <Pagination {...list} />}
     </div>
   );
 }

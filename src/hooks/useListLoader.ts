@@ -1,42 +1,73 @@
 "use client";
 
-import { useCallback, useEffect, useState, type DependencyList } from "react";
+import { useCallback, useEffect, useMemo, useState, type DependencyList, type Dispatch, type SetStateAction } from "react";
 import { useAutoRefresh } from "./useAutoRefresh";
 import { classifyListError, type ListErrorInfo } from "@/lib/api/listError";
 
-/** Shared "fetch a list" state machine — loading/data/error, with a retry
- * that's just the same load function again. Exists so every list hook in
- * the app gets the same guarantee for free: `loading` always eventually
- * becomes false (even when the fetch throws), and a failure is classified
- * (403/500/timeout) instead of left as an opaque thrown error.
- *
- * `fetcher` must not throw for the "nothing to fetch yet" case (e.g. no
- * filialId selected) — resolve with `[]` instead, the same way a real empty
- * result would. */
+type LoadScope = { active: boolean; revision: number; foreground: boolean };
+type ListState<T> = { scope: LoadScope; data: T[]; loading: boolean; error: ListErrorInfo | null };
+
+/** Partial refresh failures preserve data. Only the newest request for the
+ * current dependency scope can publish results; changing filial clears the
+ * previous scope immediately, and cleanup invalidates outstanding requests. */
 export function useListLoader<T>(fetcher: () => Promise<T[]>, deps: DependencyList, refreshIntervalMs = 0) {
-  const [data, setData] = useState<T[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<ListErrorInfo | null>(null);
+  // The caller defines which values identify the list, as with useCallback.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const scope = useMemo<LoadScope>(() => ({ active: true, revision: 0, foreground: false }), deps);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetchList = useCallback(fetcher, deps);
+  const [state, setState] = useState<ListState<T>>({ scope, data: [], loading: true, error: null });
 
   const load = useCallback(async (background = false) => {
-    if (!background) { setLoading(true); setError(null); }
-    try {
-      setData(await fetcher());
-      setError(null);
-    } catch (err) {
-      if (!background) setError(classifyListError(err));
-    } finally {
-      if (!background) setLoading(false);
+    if (!scope.active || (background && scope.foreground)) return;
+    const revision = ++scope.revision;
+    if (!background) {
+      scope.foreground = true;
+      setState((previous) => ({ scope, data: previous.scope === scope ? previous.data : [], loading: true, error: null }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+    try {
+      const data = await fetchList();
+      if (scope.active && scope.revision === revision) {
+        setState({ scope, data, loading: false, error: null });
+      }
+    } catch (err) {
+      if (scope.active && scope.revision === revision && !background) {
+        setState((previous) => ({ scope, data: previous.scope === scope ? previous.data : [], loading: false, error: classifyListError(err) }));
+      }
+    } finally {
+      if (scope.revision === revision) scope.foreground = false;
+    }
+  }, [scope, fetchList]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    scope.active = true;
+    void load();
+    return () => {
+      scope.active = false;
+      ++scope.revision;
+      scope.foreground = false;
+    };
+  }, [scope, load]);
 
+  const refresh = useCallback(() => load(), [load]);
   const refreshQuietly = useCallback(() => load(true), [load]);
   useAutoRefresh(refreshQuietly, refreshIntervalMs);
 
-  return { data, setData, loading, error, refresh: load };
+  const setData: Dispatch<SetStateAction<T[]>> = useCallback((update) => {
+    if (!scope.active) return;
+    setState((previous) => {
+      const data = previous.scope === scope ? previous.data : [];
+      return { scope, data: typeof update === "function" ? update(data) : update,
+        loading: previous.scope === scope ? previous.loading : true,
+        error: previous.scope === scope ? previous.error : null };
+    });
+  }, [scope]);
+
+  return {
+    data: state.scope === scope ? state.data : [],
+    setData,
+    loading: state.scope === scope ? state.loading : true,
+    error: state.scope === scope ? state.error : null,
+    refresh,
+  };
 }

@@ -27,6 +27,7 @@ export interface WorkshopWarranty {
 }
 
 export interface VehicleWarranty {
+  certificate_photo_url?: string | null;
   id: string;
   filial_id: string;
   vin: string;

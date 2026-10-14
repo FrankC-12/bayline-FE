@@ -1,114 +1,43 @@
 "use client";
-
 import { useState } from "react";
-import { Plus, Search } from "lucide-react";
+import Link from "next/link";
+import { Plus, Search, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useTemparios } from "@/hooks/useTemparios";
 import { useLaborSettings } from "@/hooks/useLaborSettings";
-import EmptyState from "@/components/common/EmptyState";
+import { duplicateTempario, setTemparioActive } from "@/lib/api/temparios";
+import { categoryLabel } from "@/lib/temparios-categories";
+import { formatMoney, formatCount } from "@/lib/format";
 import ErrorState from "@/components/common/ErrorState";
-import TemparioCard from "./TemparioCard";
 import CreateTemparioModal from "./CreateTemparioModal";
 import type { Tempario } from "@/types/tempario";
-
 export default function TemparioListView() {
-  const { currentUser } = useAuth();
-  const filialId = currentUser?.filialId ?? null;
-
-  const [search, setSearch] = useState("");
-  const { temparios, loading, error, addTempario, editTempario, refresh } = useTemparios(filialId, search || undefined);
-  // Editing these settings now lives in the standalone Ajustes module — kept
-  // here read-only, just to feed the live price preview below.
-  const { settings } = useLaborSettings(filialId);
-
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [editingTempario, setEditingTempario] = useState<Tempario | null>(null);
-
-  function openCreate() {
-    setEditingTempario(null);
-    setCreateModalOpen(true);
-  }
-
-  function openEdit(tempario: Tempario) {
-    setEditingTempario(tempario);
-    setCreateModalOpen(true);
-  }
-
-  async function handleSubmit(input: Parameters<typeof addTempario>[0]) {
-    if (editingTempario) {
-      const { category: _omitCategory, filial_id: _omitFilialId, ...rest } = input;
-      void _omitCategory;
-      void _omitFilialId;
-      await editTempario(editingTempario.id, rest);
-    } else {
-      await addTempario(input);
-    }
-  }
-
-  if (!filialId) return null;
-
-  return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-navy">Temparios</h1>
-          <p className="mt-1 text-sm text-steel">
-            Catálogo oficial de servicios · tiempos estándar, repuestos y precio calculado
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
-          >
-            <Plus className="h-4 w-4" />
-            Nuevo tempario
-          </button>
-        </div>
-      </div>
-
-      <div className="relative mb-4">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nombre o código (ej. MP-501, cambio de aceite)..."
-          className="w-full rounded-full border border-navy/15 bg-white py-3 pl-11 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-        />
-      </div>
-
-      <p className="mb-4 text-sm text-steel">
-        {temparios.length} servicios en el catálogo. Precio calculado con la tarifa de mano de obra actual.
-      </p>
-
-      {loading ? (
-        <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center text-sm text-steel">
-          Cargando temparios...
-        </div>
-      ) : error ? (
-        <ErrorState error={error} onRetry={refresh} />
-      ) : temparios.length === 0 ? (
-        <EmptyState
-          title={search ? `Sin resultados para "${search}"` : "No hay temparios todavía"}
-          description={search ? "Prueba con otro término de búsqueda." : "Crea el primer servicio del catálogo."}
-        />
-      ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {temparios.map((t) => (
-            <TemparioCard key={t.id} tempario={t} onClick={() => openEdit(t)} />
-          ))}
-        </div>
-      )}
-
-      <CreateTemparioModal
-        open={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        filialId={filialId}
-        hourlyRate={settings?.hourly_rate ?? 25}
-        ivaPercentage={settings?.iva_percentage ?? 16}
-        onSubmit={handleSubmit}
-        editingTempario={editingTempario}
-      />
-    </div>
-  );
+ const { currentUser }=useAuth();const filialId=currentUser?.filialId ?? null;
+ const { canEdit }=useModuleAccess("ajustes");
+ const [search,setSearch]=useState("");
+ const { temparios,loading,error,addTempario,editTempario,refresh }=useTemparios(filialId,search || undefined,true);
+ const { settings }=useLaborSettings(filialId);
+ const [detail,setDetail]=useState<Tempario | null>(null);
+ const [editing,setEditing]=useState<Tempario | null>(null);const [open,setOpen]=useState(false);
+ const [busy,setBusy]=useState(false);const [actionError,setActionError]=useState<string | null>(null);
+ function warranty(t: Tempario) { if(t.legacy_warranty_label && t.warranty_mode==="standard") return t.legacy_warranty_label; return t.warranty_mode==="none" ? "Sin garantía" : `${t.warranty_mode==="custom" ? "Personalizada" : "Estándar"} · ${t.warranty_days ?? settings?.workshop_warranty_days ?? 90} d / ${formatCount(t.warranty_km ?? settings?.workshop_warranty_km ?? 5000)} km`; }
+ async function action(kind: "duplicate" | "toggle") { if(!detail || busy) return;setBusy(true);setActionError(null);try { const result=kind==="duplicate" ? await duplicateTempario(detail.id) : await setTemparioActive(detail.id,!detail.is_active);setDetail(result);await refresh(); } catch(err) {setActionError(err instanceof Error ? err.message : "No se pudo actualizar el tempario.");} finally {setBusy(false);} }
+ if(!filialId) return null;
+ return <div>
+  <div className="mb-5 flex flex-wrap justify-between gap-4"><div><h2 className="font-display text-3xl font-bold text-navy">Temparios</h2><p className="mt-2 text-sm text-steel">Catálogo oficial de servicios · tiempos estándar, repuestos y precio calculado.</p></div>{canEdit && <button onClick={()=> {setEditing(null);setOpen(true);}} className="flex items-center gap-2 rounded-full bg-blue px-5 py-3 text-sm font-semibold text-white"><Plus className="h-4 w-4" />Nuevo tempario</button>}</div>
+  <div className="relative mb-4"><Search className="absolute left-4 top-3.5 h-4 w-4 text-steel" /><input value={search} onChange={event=>setSearch(event.target.value)} placeholder="Buscar por nombre o código…" className="w-full rounded-full border border-navy/15 bg-white py-3 pl-11 pr-4 text-sm" /></div>
+  <div className="mb-5 flex flex-wrap justify-between gap-2 text-sm text-steel"><p>{temparios.length} servicios · tarifa actual ${formatMoney(settings?.hourly_rate ?? 25)} / hora</p><Link href="/dashboard/ajustes/mano-de-obra" className="font-semibold text-blue">Cambiar tarifa →</Link></div>
+  {loading ? <p className="p-8 text-sm text-steel">Cargando temparios…</p> : error ? <ErrorState error={error} onRetry={refresh} /> : <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white"><table className="w-full text-left text-sm"><thead className="border-b border-navy/10 text-xs uppercase text-steel"><tr>{["Código","Servicio","Categoría","Garantía","Horas","Subtotal","Total c/ IVA"].map(label=><th key={label} className="p-4 font-mono font-medium">{label}</th>)}</tr></thead><tbody>{temparios.map(t=><tr key={t.id} className={`border-b border-navy/5 ${!t.is_active ? "opacity-60" : ""}`}><td className="p-4 font-mono text-blue">{t.code}</td><td className="p-4"><button onClick={()=> {setDetail(t);setActionError(null);}} className="text-left font-semibold text-navy underline">{t.name}</button>{!t.is_active && <span className="ml-2 text-xs text-steel">Inactivo</span>}</td><td className="p-4">{categoryLabel(t.category)}</td><td className="p-4 text-xs">{warranty(t)}</td><td className="p-4">{formatCount(t.estimated_hours)} h</td><td className="p-4">${formatMoney(t.total_price)}</td><td className="p-4 font-bold text-blue">${formatMoney(t.total_with_iva)}</td></tr>)}</tbody></table>{!temparios.length && <p className="p-8 text-center text-steel">No hay servicios para esta búsqueda.</p>}</div>}
+  {detail && <div className="fixed inset-0 z-40 flex justify-end bg-navy/30" onClick={()=> {if(!busy) setDetail(null);}}><section role="dialog" aria-modal="true" aria-labelledby="tempario-title" onClick={event=>event.stopPropagation()} className="flex h-full w-full max-w-2xl flex-col bg-white shadow-xl"><header className="flex items-start justify-between border-b border-navy/10 p-6"><div><p className="font-mono text-xs text-blue">{detail.code} · {categoryLabel(detail.category)} · {detail.is_active ? "Activo" : "Inactivo"}</p><h3 id="tempario-title" className="mt-3 font-display text-2xl font-bold">{detail.name}</h3></div><button aria-label="Cerrar detalle" onClick={()=>setDetail(null)} disabled={busy}><X className="h-5 w-5" /></button></header><div className="space-y-6 overflow-y-auto p-6">
+   <div className="grid grid-cols-3 gap-3">{[{label:"Horas",value:`${formatCount(detail.estimated_hours)} h`},{label:"Subtotal",value:`$${formatMoney(detail.total_price)}`},{label:"Total con IVA",value:`$${formatMoney(detail.total_with_iva)}`}].map(item=><div key={item.label} className="rounded-xl bg-ash p-3"><p className="text-xs text-steel">{item.label}</p><p className="mt-2 font-bold">{item.value}</p></div>)}</div>
+   <section><h4 className="mb-3 font-mono text-xs uppercase text-blue">Repuestos a utilizar</h4>{detail.parts.map(p=><div key={p.id} className="flex justify-between gap-3 border-b py-3 text-sm"><span>{p.name} · {p.quantity}x</span><span>${formatMoney(p.unit_cost)} · <b>${formatMoney(p.subtotal)}</b></span></div>)}{!detail.parts.length && <p className="text-sm text-steel">Este servicio no requiere repuestos.</p>}</section>
+   <section><h4 className="mb-3 font-mono text-xs uppercase text-blue">Garantía</h4><p className="rounded-xl border border-navy/10 p-4 text-sm font-semibold">{warranty(detail)}</p><p className="mt-2 text-xs text-steel">Cubre mano de obra y repuestos instalados. Vence lo que ocurra primero.</p></section>
+   <section><h4 className="mb-3 font-mono text-xs uppercase text-blue">Vehículos compatibles</h4><div className="flex flex-wrap gap-2">{detail.compatible_vehicles.map(v=><span key={`${v.brand}|${v.model}`} className="rounded-full bg-ash px-3 py-1 text-xs">{v.brand} {v.model}</span>)}</div><p className="mt-2 text-xs text-steel">Años: {detail.year_from ?? "todos"}{detail.year_to ? ` – ${detail.year_to}` : ""}</p></section>
+   <section><h4 className="mb-3 font-mono text-xs uppercase text-blue">Herramientas</h4><p className="text-sm">{detail.tools.join(" · ") || "No especificadas"}</p></section>
+   <section className="space-y-2 rounded-xl bg-blue-light/50 p-4 text-sm">{[{label:"Costo de repuestos",value:detail.parts_cost},{label:"Margen repuestos (30 %)",value:detail.parts_margin},{label:`Mano de obra (${detail.estimated_hours} h × $${settings?.hourly_rate ?? 25}/h)`,value:detail.labor_cost},{label:"Subtotal",value:detail.total_price},{label:`IVA (${detail.iva_percentage} %)`,value:detail.iva_amount},{label:"Total con IVA",value:detail.total_with_iva}].map(row=><div key={row.label} className="flex justify-between gap-3"><span>{row.label}</span><b>${formatMoney(row.value)}</b></div>)}</section>
+   <p className="text-xs text-steel">Comisión del técnico ({settings?.commission_percentage ?? 30} % de mano de obra): ${formatMoney(detail.labor_cost*(settings?.commission_percentage ?? 30)/100)}</p><p className="text-xs text-steel">Última edición: {detail.updated_by_name || "Usuario no registrado"} · {new Date(detail.updated_at).toLocaleString("es-VE")}</p>{actionError && <p role="alert" className="text-sm text-red-700">{actionError}</p>}
+  </div>{canEdit && <footer className="mt-auto flex flex-wrap justify-between gap-3 border-t border-navy/10 p-5"><button disabled={busy} onClick={()=>void action("toggle")} className="rounded-full border px-4 py-2 text-sm">{detail.is_active ? "Desactivar" : "Activar"}</button><div className="flex gap-2"><button disabled={busy} onClick={()=>void action("duplicate")} className="rounded-full border px-4 py-2 text-sm">Duplicar</button><button disabled={busy} onClick={()=> {setEditing(detail);setOpen(true);}} className="rounded-full bg-blue px-4 py-2 text-sm font-semibold text-white">Editar tempario</button></div></footer>}</section></div>}
+  <CreateTemparioModal open={open} onClose={()=>setOpen(false)} filialId={filialId} hourlyRate={settings?.hourly_rate ?? 25} ivaPercentage={settings?.iva_percentage ?? 16} editingTempario={editing} onSubmit={async input=> { if(editing) {const {category: omitted,filial_id: omittedFilial,...rest}=input;void omitted;void omittedFilial;const updated=await editTempario(editing.id,rest);if(detail?.id===editing.id) setDetail(updated);} else await addTempario(input);}} />
+ </div>;
 }

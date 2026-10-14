@@ -1,5 +1,6 @@
 "use client";
 
+import { clearClientDrafts, getDraftStorage, resumeClientDrafts } from "@/lib/client-draft";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { AUTH_SESSION_EXPIRED_EVENT, removeLegacyTokens } from "@/lib/api/client";
 import { getAccessMap, getSessionUser, login as loginRequest, logout as logoutRequest } from "@/lib/api/auth";
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         removeLegacyTokens();
         const user = await getSessionUser();
         if (!active) return;
+        resumeClientDrafts(getDraftStorage());
         setCurrentUser(user);
         if (user.scope === "filial") await loadAccessMap();
         else setAccessLoading(false);
@@ -60,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const handleSessionExpired = () => {
+      clearClientDrafts(getDraftStorage());
       setCurrentUser(null);
       setAccessMap({});
       setAccessLoading(false);
@@ -77,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(email: string, password: string): Promise<CurrentUser> {
     const user = await loginRequest({ email, password });
+    resumeClientDrafts(getDraftStorage());
     setCurrentUser(user);
     if (user.scope === "filial") await loadAccessMap();
     else setAccessLoading(false);
@@ -85,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function logout(): Promise<void> {
     await logoutRequest();
+    clearClientDrafts(getDraftStorage());
     setCurrentUser(null);
     setAccessMap({});
   }

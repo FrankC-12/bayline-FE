@@ -112,11 +112,12 @@ export async function createStockIn(
   filialId: string,
   warehouseId: string,
   reason: string,
-  lines: StockInLine[]
+  lines: StockInLine[],
+  requestId?: string
 ): Promise<PartLot[]> {
   return apiFetch<PartLot[]>("/almacen/stock-in", {
     method: "POST",
-    body: JSON.stringify({ filial_id: filialId, warehouse_id: warehouseId, reason, lines }),
+    body: JSON.stringify({ filial_id: filialId, warehouse_id: warehouseId, reason, lines, request_id: requestId }),
   });
 }
 
@@ -157,10 +158,12 @@ export async function bulkCreateLots(
 }
 
 export async function createStockOut(input: {
+  request_id?: string;
   filial_id: string;
   warehouse_id: string;
   part_id: string;
   quantity: number;
+  reason_id?: string;
   reason: string;
   reference?: string | null;
 }): Promise<void> {
@@ -233,4 +236,30 @@ export async function setWorkshopWarehouse(warehouseId: string): Promise<void> {
 export interface WorkshopBackorder { request_id: string; order_code: string; request_code: string; warehouse_name: string | null; part_id: string; part_code: string; part_name: string; quantity: number; notified_at: string | null }
 export async function listWorkshopBackorders(filialId: string): Promise<WorkshopBackorder[]> {
   return apiFetch(`/almacen/workshop-backorders?filial_id=${filialId}`);
+}
+
+export interface MovementPageItem extends StockMovement {
+  part_name: string;
+  part_code: string;
+  warehouse_name: string;
+  responsible_name: string | null;
+}
+export interface MovementPage {
+  items: MovementPageItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+export async function listMovementPage(filialId: string, filters: {
+  page: number; page_size: number; warehouse_id?: string;
+  movement_type?: string; search?: string; date_from?: string; date_to?: string;
+}): Promise<MovementPage> {
+  const query = new URLSearchParams({filial_id: filialId});
+  Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== "") query.set(key, String(value)); });
+  return apiFetch<MovementPage>(`/almacen/movements/page?${query.toString()}`);
+}
+
+export function deleteWarehouseTransfer(id: string): Promise<void> {
+  return apiFetch<void>(`/almacen/transfers/${id}`, { method: "DELETE" });
 }

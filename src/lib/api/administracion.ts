@@ -343,3 +343,10 @@ export async function getProfitability(
     `/finance/profitability?filial_id=${filialId}&date_from=${dateFrom}&date_to=${dateTo}`
   );
 }
+
+export interface ReceivePurchaseInput { request_id: string; warehouse_id: string; lines: { line_id: string; quantity: number; location: string | null }[] }
+export interface ReconcilePurchaseInput { invoice_number: string; invoice_control_number: string; invoice_date: string; credit_days: number; iva_percentage: number; lines: { line_id: string; unit_cost: number }[] }
+export interface PayPurchaseInput { request_id: string; account_id: string; currency: "usd" | "bs"; amount: number; exchange_rate?: number; entry_date: string; reference: string | null }
+export const receivePurchase = (id: string,input: ReceivePurchaseInput) => apiFetch<PurchaseRequest>(`/purchase-requests/${id}/receive`, { method: "POST", body: JSON.stringify(input) });
+export const reconcilePurchase = (id: string,input: ReconcilePurchaseInput) => apiFetch<PurchaseRequest>(`/purchase-requests/${id}/reconcile`, { method: "POST", body: JSON.stringify(input) });
+export const payPurchase = (id: string,input: PayPurchaseInput) => apiFetch<PurchaseRequest>(`/purchase-requests/${id}/payments`, { method: "POST", body: JSON.stringify(input) });

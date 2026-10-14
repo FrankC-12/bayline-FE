@@ -9,6 +9,9 @@ export interface TemparioPartInput {
 }
 
 export interface CreateTemparioInput {
+  warranty_mode?: "standard" | "custom" | "none";
+  warranty_days?: number | null;
+  warranty_km?: number | null;
   labor_warranty_policy_id?: string | null;
   parts_warranty_policy_id?: string | null;
   filial_id: string;
@@ -26,9 +29,10 @@ export interface CreateTemparioInput {
 
 export type UpdateTemparioInput = Partial<Omit<CreateTemparioInput, "filial_id" | "category">>;
 
-export async function listTemparios(filialId: string, search?: string): Promise<Tempario[]> {
+export async function listTemparios(filialId: string, search?: string, includeInactive = false): Promise<Tempario[]> {
   const query = new URLSearchParams({ filial_id: filialId });
   if (search) query.set("search", search);
+  if (includeInactive) query.set("include_inactive", "true");
   return apiFetch<Tempario[]>(`/temparios?${query.toString()}`);
 }
 
@@ -70,4 +74,16 @@ export async function updateLaborSettings(
     method: "PATCH",
     body: JSON.stringify(input),
   });
+}
+export function patchSettings(filialId: string, input: Partial<UpdateLaborSettingsInput>): Promise<LaborSettings> {
+ return apiFetch(`/settings?filial_id=${filialId}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+export function restoreBcv(filialId: string): Promise<LaborSettings> {
+ return apiFetch(`/settings/bcv/restore?filial_id=${filialId}`, { method: "POST" });
+}
+export function duplicateTempario(id: string): Promise<Tempario> {
+ return apiFetch(`/temparios/${id}/duplicate`, { method: "POST" });
+}
+export function setTemparioActive(id: string, is_active: boolean): Promise<Tempario> {
+ return apiFetch(`/temparios/${id}`, { method: "PATCH", body: JSON.stringify({ is_active }) });
 }

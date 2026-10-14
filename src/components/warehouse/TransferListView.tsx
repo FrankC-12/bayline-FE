@@ -11,6 +11,8 @@ import { usePartSaleRequests } from "@/hooks/usePartSaleRequests";
 import { setWorkshopWarehouse } from "@/lib/api/warehouse";
 import { formatElapsed } from "@/lib/time";
 import type { ServiceOrderPartRequest } from "@/types/warehouse";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { deleteWarehouseTransfer } from "@/lib/api/warehouse";
 import CreateTransferModal from "./CreateTransferModal";
 import ErrorState from "@/components/common/ErrorState";
 
@@ -39,6 +41,15 @@ export default function TransfersListView() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const [configuring, setConfiguring] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  async function removeTransfer() {
+    if (!deleteId || deleteBusy) return;
+    setDeleteBusy(true); setLocalError(null);
+    try { await deleteWarehouseTransfer(deleteId); setDeleteId(null); await refreshTransfers(); }
+    catch (err) { setLocalError(err instanceof Error ? err.message : "No se pudo eliminar la ODT."); }
+    finally { setDeleteBusy(false); }
+  }
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const timer=setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(timer); }, []);
   const scoped = useMemo(() => requests.filter((request) => !activeWarehouseId || request.warehouse_id === activeWarehouseId || (!request.warehouse_id && request.lines.some((line) => line.warehouses.some((item) => item.warehouse_id === activeWarehouseId)))), [requests, activeWarehouseId]);
@@ -63,6 +74,7 @@ export default function TransfersListView() {
     finally { setConfiguring(false); }
   }
   return <div>
+    <ConfirmDialog open={!!deleteId} title="Eliminar transferencia" description="Se eliminará el traslado sin mover stock. Esta acción no se puede deshacer." confirmLabel="Eliminar" confirming={deleteBusy} onConfirm={() => void removeTransfer()} onCancel={() => { if (!deleteBusy) setDeleteId(null); }} />
     <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div><h1 className="font-display text-3xl font-bold text-navy">Despachos — {activeWarehouse?.name ?? "Almacén"}</h1><p className="mt-2 text-sm text-steel">Solicitudes del taller (ODS) y traslados con origen o destino en este almacén</p>
         {activeWarehouse?.is_workshop_default ? <p className="mt-2 text-xs font-semibold text-blue">Atiende: Taller (ODS)</p> : canEdit && activeWarehouse && <button type="button" disabled={configuring} onClick={() => void configure()} className="mt-2 text-xs font-semibold text-blue underline">{configuring ? "Asignando…" : "Usar este almacén para solicitudes del taller"}</button>}
@@ -93,7 +105,7 @@ export default function TransfersListView() {
         {transfersError && <ErrorState error={transfersError} onRetry={refreshTransfers} />}
         {transfersLoading && <p className="p-8 text-sm text-steel">Cargando transferencias…</p>}
         {!transfersLoading && !transfersError && !scopedTransfers.length && <p className="p-10 text-center text-sm text-steel">No hay transferencias con origen o destino en este almacén.</p>}
-        {scopedTransfers.map((transfer) => <div key={transfer.id} className="flex flex-wrap items-center justify-between gap-4 border-t border-navy/10 p-5"><div><p className="font-mono font-bold text-navy">{transfer.code}</p><p className="mt-1 flex items-center gap-2 text-sm text-steel">{warehouseName(transfer.origin_warehouse_id)} <ArrowRight className="h-4 w-4" />{warehouseName(transfer.destination_warehouse_id)}</p>{transfer.note && <p className="mt-1 text-xs text-violet-800">{transfer.note}</p>}<p className="mt-1 text-xs text-steel">{transfer.lines.reduce((sum,line) => sum+line.quantity,0)} unidades · {transfer.status.replaceAll('_',' ')}</p></div><div className="flex gap-2">{canEdit && transfer.status==='pedido' && <button onClick={() => void changeTransfer(transfer.id,'en_proceso')} className="rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white">Iniciar traslado</button>}{canEdit && transfer.status==='en_proceso' && <button onClick={() => void changeTransfer(transfer.id,'completada')} className="rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white">Confirmar recepción</button>}{canEdit && ['pedido','en_proceso'].includes(transfer.status) && !transfer.note?.startsWith('Traslado automático') && <button onClick={() => void changeTransfer(transfer.id,'cancelada')} className="rounded-full border border-red-200 px-4 py-2 text-xs text-red-700">Cancelar</button>}</div></div>)}
+        {scopedTransfers.map((transfer) => <div key={transfer.id} className="flex flex-wrap items-center justify-between gap-4 border-t border-navy/10 p-5"><div><p className="font-mono font-bold text-navy">{transfer.code}</p><p className="mt-1 flex items-center gap-2 text-sm text-steel">{warehouseName(transfer.origin_warehouse_id)} <ArrowRight className="h-4 w-4" />{warehouseName(transfer.destination_warehouse_id)}</p>{transfer.note && <p className="mt-1 text-xs text-violet-800">{transfer.note}</p>}<p className="mt-1 text-xs text-steel">{transfer.lines.reduce((sum,line) => sum+line.quantity,0)} unidades · {transfer.status.replaceAll('_',' ')}</p></div><div className="flex gap-2">{canEdit && transfer.status !== 'completada' && !transfer.workshop_request_id && <button type="button" onClick={() => setDeleteId(transfer.id)} className="rounded-full border border-red-200 px-4 py-2 text-xs text-red-700">Eliminar</button>}{canEdit && transfer.status==='pedido' && <button onClick={() => void changeTransfer(transfer.id,'en_proceso')} className="rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white">Iniciar traslado</button>}{canEdit && transfer.status==='en_proceso' && <button onClick={() => void changeTransfer(transfer.id,'completada')} className="rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white">Confirmar recepción</button>}{canEdit && ['pedido','en_proceso'].includes(transfer.status) && !transfer.workshop_request_id && <button onClick={() => void changeTransfer(transfer.id,'cancelada')} className="rounded-full border border-red-200 px-4 py-2 text-xs text-red-700">Cancelar</button>}</div></div>)}
       </>}
       {tab==='mostrador' && <>{salesError && <ErrorState error={salesError} onRetry={refreshSales} />}{salesLoading && <p className="p-8 text-sm text-steel">Cargando solicitudes…</p>}{!salesLoading && !salesError && !salesHere.length && <p className="p-10 text-center text-sm text-steel">No hay solicitudes de mostrador.</p>}{salesHere.filter((sale) => `${sale.code} ${sale.client_name}`.toLowerCase().includes(term)).map((sale) => <Link key={sale.id} href={`/dashboard/repuestos/ventas/${sale.id}`} className="flex items-center justify-between border-t border-navy/10 p-5 text-sm"><div><p className="font-mono font-bold">{sale.code}</p><p className="mt-1 text-steel">{sale.client_name} · {sale.lines.map((line) => `${line.quantity}x ${line.part_name}`).join(', ')}</p></div><span>{sale.status.replaceAll('_',' ')}</span></Link>)}</>}
     </section>

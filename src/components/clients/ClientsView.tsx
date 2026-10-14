@@ -3,8 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useAuth } from "@/contexts/AuthContext";
-import { useClients } from "@/hooks/useClients";
+import { usePagedList } from "@/hooks/usePagedList";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import Pagination from "@/components/common/Pagination";
+import { listClientPage, createClient, updateClient } from "@/lib/api/clients";
 import type { Client } from "@/types/client";
 import type { CreateClientInput } from "@/lib/api/clients";
 import EmptyState from "@/components/common/EmptyState";
@@ -15,10 +19,14 @@ import ClientFormPanel from "./ClientFormPanel";
 
 export default function ClientsView() {
   const { currentUser } = useAuth();
+  const { canEdit } = useModuleAccess("clientes-vehiculos");
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
-  const { clients, loading, error, addClient, editClient, refresh } = useClients(filialId, search || undefined);
+  const settledSearch = useDebouncedValue(search.trim());
+  const list = usePagedList<Client>((page, size) => filialId ? listClientPage(filialId, page, size, settledSearch)
+    : Promise.resolve({items: [], total: 0, page: 1, page_size: size, total_pages: 1}), JSON.stringify([currentUser?.userId, filialId, settledSearch]));
+  const {items: clients, loading, error, refresh} = list;
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -37,10 +45,11 @@ export default function ClientsView() {
     if (editingClient) {
       const { filial_id: _omitFilialId, ...rest } = input;
       void _omitFilialId;
-      await editClient(editingClient.id, rest);
+      await updateClient(editingClient.id, rest);
     } else {
-      await addClient(input);
+      await createClient(input);
     }
+    await refresh();
   }
 
   if (!filialId) {
@@ -69,7 +78,7 @@ export default function ClientsView() {
       </div>
 
       <div className="mb-6">
-        <ClientsToolbar search={search} onSearchChange={setSearch} onCreateClick={openCreate} />
+        <ClientsToolbar canCreate={canEdit} search={search} onSearchChange={setSearch} onCreateClick={openCreate} />
       </div>
 
       {loading ? (
@@ -91,7 +100,10 @@ export default function ClientsView() {
         </div>
       )}
 
+      {!loading && !error && <Pagination {...list} />}
+
       <ClientFormPanel
+        readOnly={!canEdit}
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
         filialId={filialId}

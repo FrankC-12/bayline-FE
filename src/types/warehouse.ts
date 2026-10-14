@@ -30,6 +30,8 @@ export interface PartLot {
 export type LotOutboundMovementSource = "venta_repuestos" | "odt_taller";
 
 export interface LotOutboundMovement {
+  destination_lot_id?: string | null;
+  destination_lot_code?: string | null;
   id: string;
   source: LotOutboundMovementSource;
   quantity: number;
@@ -41,6 +43,7 @@ export interface LotOutboundMovement {
 }
 
 export interface PartLotDetail extends PartLot {
+  origin?: { type: string; description: string; purchase_request_id?: string; purchase_code?: string; invoice_number?: string | null; reconciled?: boolean; origin_lot_id?: string; origin_lot_code?: string; transfer_id?: string };
   part_code: string;
   part_name: string;
   warehouse_name: string;
@@ -130,6 +133,7 @@ export interface TransferLine {
 }
 
 export interface Transfer {
+  workshop_request_id?: string | null;
   id: string;
   code: string;
   origin_warehouse_id: string;

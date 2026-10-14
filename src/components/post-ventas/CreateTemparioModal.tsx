@@ -7,7 +7,6 @@ import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Plus, Search } from "lucide-react";
 import { CATEGORY_OPTIONS } from "@/lib/temparios-categories";
 import { DEFAULT_DISCOUNT, PARTS_MULTIPLIERS } from "@/lib/partsPricing";
-import { useWarrantyPolicies } from "@/hooks/useWarrantyPolicies";
 import { useParts } from "@/hooks/useParts";
 import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 import type { CreateTemparioInput } from "@/lib/api/temparios";
@@ -54,9 +53,10 @@ export default function CreateTemparioModal({
   const [selectedVehicles, setSelectedVehicles] = useState<Set<string>>(new Set());
   const [toolInput, setToolInput] = useState("");
   const [tools, setTools] = useState<string[]>([]);
-  const [laborWarranty, setLaborWarranty] = useState("");
-  const [partsWarranty, setPartsWarranty] = useState("");
-  const { policies, loading: warrantiesLoading, error: warrantiesError, refresh: refreshWarranties } = useWarrantyPolicies(open ? filialId : null);
+  const [warrantyTouched, setWarrantyTouched] = useState(false);
+  const [warrantyMode, setWarrantyMode] = useState<"standard" | "custom" | "none">("standard");
+  const [warrantyDays, setWarrantyDays] = useState("");
+  const [warrantyKm, setWarrantyKm] = useState("");
   const [requiresParts, setRequiresParts] = useState(true);
   const [parts, setParts] = useState<PartDraft[]>([emptyPart()]);
   const [submitting, setSubmitting] = useState(false);
@@ -80,8 +80,9 @@ export default function CreateTemparioModal({
       );
       setTools(editingTempario.tools);
       setRequiresParts(editingTempario.requires_parts);
-      setLaborWarranty(editingTempario.labor_warranty_policy_id ?? "");
-      setPartsWarranty(editingTempario.parts_warranty_policy_id ?? "");
+      setWarrantyMode(editingTempario.warranty_mode ?? "standard");
+      setWarrantyDays(String(editingTempario.warranty_days ?? ""));
+      setWarrantyKm(String(editingTempario.warranty_km ?? ""));
       setParts(
         editingTempario.parts.length
           ? editingTempario.parts.map((p) => ({
@@ -97,14 +98,15 @@ export default function CreateTemparioModal({
       setCategory("mantenimiento_preventivo");
       setSequenceNumber("");
       setEstimatedHours("1.0");
-      setYearFrom("2015");
-      setYearTo(String(new Date().getFullYear()));
+      setYearFrom("");
+      setYearTo("");
       setSelectedVehicles(new Set());
       setTools([]);
       setRequiresParts(true);
-      setLaborWarranty(""); setPartsWarranty("");
+      setWarrantyMode("standard"); setWarrantyDays(""); setWarrantyKm("");
       setParts([emptyPart()]);
     }
+    setWarrantyTouched(false);
     setError(null);
   }, [open, editingTempario]);
 
@@ -200,6 +202,8 @@ export default function CreateTemparioModal({
       setError("El nombre del servicio es obligatorio.");
       return;
     }
+    if (submitting) return;
+    if (warrantyMode === "custom" && !(Number(warrantyDays)>0 || Number(warrantyKm)>0)) { setError("Define días o kilómetros para la garantía personalizada."); return; }
     setSubmitting(true);
     setError(null);
     try {
@@ -219,8 +223,13 @@ export default function CreateTemparioModal({
         compatible_vehicles,
         tools,
         requires_parts: requiresParts,
-        labor_warranty_policy_id: laborWarranty || null,
-        parts_warranty_policy_id: partsWarranty || null,
+        ...(!editingTempario || warrantyTouched ? {
+        warranty_mode: warrantyMode,
+        warranty_days: warrantyMode === "custom" && warrantyDays ? Number(warrantyDays) : null,
+        warranty_km: warrantyMode === "custom" && warrantyKm ? Number(warrantyKm) : null,
+        labor_warranty_policy_id: null,
+        parts_warranty_policy_id: null,
+        } : {}),
         parts: validParts,
       });
       onClose();
@@ -236,10 +245,10 @@ export default function CreateTemparioModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div onClick={onClose} className="absolute inset-0 bg-navy/40" />
-      <div className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-labelledby="tempario-form-title" className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-navy/10 px-6 py-4">
           <div>
-            <h2 className="font-display text-xl font-bold text-navy">
+            <h2 id="tempario-form-title" className="font-display text-xl font-bold text-navy">
               {editingTempario ? "Editar Tempario" : "Nuevo Tempario"}
             </h2>
             <p className="text-xs text-steel">
@@ -251,8 +260,11 @@ export default function CreateTemparioModal({
           </button>
         </div>
 
+        <nav aria-label="Secciones del tempario" className="flex shrink-0 gap-2 overflow-x-auto border-b border-navy/10 px-6 py-3">
+          {[{id:"datos",label:"Datos"},{id:"compatibilidad",label:"Compatibilidad"},{id:"herramientas",label:"Herramientas"},{id:"repuestos",label:"Repuestos"},{id:"garantia",label:"Garantía"},{id:"precio",label:"Precio"}].map(item=><button key={item.id} type="button" onClick={()=>document.getElementById(`tempario-${item.id}`)?.scrollIntoView({behavior:"smooth",block:"start"})} className="whitespace-nowrap rounded-full bg-ash px-3 py-1.5 text-xs text-navy">{item.label}</button>)}
+        </nav>
         <div className="flex-1 space-y-6 overflow-y-auto p-6">
-          <div>
+          <div id="tempario-datos">
             <label className="mb-1.5 block text-sm font-medium text-navy">Nombre del servicio</label>
             <input
               value={name}
@@ -304,7 +316,7 @@ export default function CreateTemparioModal({
             />
           </div>
 
-          <div>
+          <div id="tempario-compatibilidad">
             <div className="mb-2 flex items-center justify-between">
               <p className="font-mono text-[11px] uppercase tracking-widest text-blue">
                 Vehículos compatibles
@@ -408,7 +420,7 @@ export default function CreateTemparioModal({
             </div>
           </div>
 
-          <div>
+          <div id="tempario-herramientas">
             <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-blue">
               Herramientas a utilizar
             </p>
@@ -450,7 +462,7 @@ export default function CreateTemparioModal({
             )}
           </div>
 
-          <div>
+          <div id="tempario-repuestos">
             <div className="mb-2 flex items-center justify-between">
               <p className="font-mono text-[11px] uppercase tracking-widest text-blue">
                 Repuestos a utilizar
@@ -466,13 +478,7 @@ export default function CreateTemparioModal({
               </label>
             </div>
 
-            <section className="space-y-3 rounded-2xl border border-navy/10 p-4">
-              <h3 className="font-semibold text-navy">Garantía del servicio</h3>
-              <p className="text-xs text-steel">Estas condiciones se guardan al agregar el tempario a una ODS. Sin selección, se usan las garantías de la orden o de la filial.</p>
-              {warrantiesError && <p role="alert" className="text-xs text-red-600">{warrantiesError.message}</p>}
-              {([{label: "Mano de obra", coverage: "mano_de_obra", value: laborWarranty, setter: setLaborWarranty}, {label: "Repuestos", coverage: "repuestos", value: partsWarranty, setter: setPartsWarranty}] as const).map((field) => <label key={field.coverage} className="block text-sm text-navy">{field.label}<select disabled={warrantiesLoading} value={field.value} onChange={(event) => field.setter(event.target.value)} className="mt-1 w-full rounded-xl border border-navy/15 bg-white px-3 py-2.5"><option value="">Usar garantía de la orden / filial</option>{policies.filter((p) => p.id === field.value || (p.status === "activa" && (p.applies_to === field.coverage || p.applies_to === "ambas"))).map((p) => <option key={p.id} value={p.id}>{p.name} · {p.no_expiration ? "Sin vencimiento" : [p.duration_days != null ? `${p.duration_days} días` : "", p.duration_km != null ? `${p.duration_km} km` : ""].filter(Boolean).join(" / ")}{p.status === "inactiva" ? " (inactiva)" : ""}</option>)}</select></label>)}
-              <div className="flex gap-4 text-xs"><a href="/dashboard/post-ventas/politicas-garantia/nueva" target="_blank" rel="noopener noreferrer" className="font-semibold text-blue">Crear garantía</a><button type="button" onClick={() => void refreshWarranties()} disabled={warrantiesLoading} className="font-semibold text-blue">Actualizar garantías</button></div>
-            </section>
+
 
             {requiresParts && (
               <div className="space-y-2 rounded-xl border border-navy/10 p-3">
@@ -570,7 +576,14 @@ export default function CreateTemparioModal({
             )}
           </div>
 
-          <div className="rounded-xl border border-blue/20 bg-blue-light/40 p-4">
+            <fieldset id="tempario-garantia" className="space-y-3 rounded-xl border border-navy/10 p-4">
+              <legend className="font-mono text-xs uppercase tracking-widest text-blue">Garantía</legend>
+              {editingTempario?.legacy_warranty_label && !warrantyTouched && <p className="rounded-xl bg-ash p-3 text-xs text-steel">Garantía actual: {editingTempario.legacy_warranty_label}. Se conservará hasta que elijas una nueva modalidad.</p>}
+              {([{ mode: "standard", label: "Estándar del taller", help: "Se ajusta en Ajustes › Garantías" },{ mode: "custom", label: "Personalizada", help: "Días y kilómetros propios para este servicio" },{ mode: "none", label: "Sin garantía", help: "Para diagnósticos, lavados y otros servicios sin cobertura" }] as const).map(option => <label key={option.mode} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 ${warrantyMode===option.mode ? "border-blue bg-blue-light/30" : "border-navy/15"}`}><input type="radio" name="warranty" checked={warrantyMode===option.mode && (!editingTempario?.legacy_warranty_label || warrantyTouched)} onChange={()=> {setWarrantyMode(option.mode);setWarrantyTouched(true);}} /><span className="text-sm font-semibold">{option.label}<span className="mt-1 block text-xs font-normal text-steel">{option.help}</span></span></label>)}
+              {warrantyMode === "custom" && <div className="grid grid-cols-2 gap-3"><label className="text-sm">Días<NumberInput min={0} value={warrantyDays} onValueChange={value=> {setWarrantyDays(value);setWarrantyTouched(true);}} className="mt-1 w-full rounded-lg border px-3 py-2" /></label><label className="text-sm">Kilómetros<NumberInput min={0} value={warrantyKm} onValueChange={value=> {setWarrantyKm(value);setWarrantyTouched(true);}} className="mt-1 w-full rounded-lg border px-3 py-2" /></label></div>}
+              <p className="text-xs text-steel">Cubre mano de obra y repuestos instalados; vence lo que ocurra primero. Las órdenes cerradas conservan su garantía.</p>
+            </fieldset>
+          <div id="tempario-precio" className="rounded-xl border border-blue/20 bg-blue-light/40 p-4">
             <p className="mb-3 font-display font-bold text-navy">Precio calculado</p>
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between text-steel">
@@ -607,7 +620,7 @@ export default function CreateTemparioModal({
 
         <div className="flex items-center justify-between border-t border-navy/10 px-6 py-4">
           <span className="font-mono text-xs text-steel">
-            {currentPrefix}-{sequenceNumber || "···"}
+            {currentPrefix}-{sequenceNumber || "···"} · ${formatMoney(totalWithIva,2)}
           </span>
           <div className="flex gap-3">
             <button

@@ -19,6 +19,7 @@ export interface VehicleInput {
 }
 
 export interface CreateClientInput {
+  expected_updated_at?: string;
   filial_id: string;
   full_name: string;
   client_type: string;
@@ -74,4 +75,9 @@ export async function assignVehicleMaintenancePlan(
 
 export async function getVehicleMileageHistory(vehicleId: string): Promise<VehicleMileageHistoryEntry[]> {
   return apiFetch<VehicleMileageHistoryEntry[]>(`/clients/vehicles/${vehicleId}/mileage-history`);
+}
+export async function listClientPage(filialId: string, page: number, pageSize: number, search: string) {
+  const query = new URLSearchParams({filial_id: filialId, page: String(page), page_size: String(pageSize)});
+  if (search) query.set("search", search);
+  return apiFetch<import("@/types/pagination").Page<Client>>(`/clients/page?${query}`);
 }
