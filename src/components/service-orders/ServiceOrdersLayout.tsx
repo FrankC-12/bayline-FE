@@ -21,8 +21,8 @@ function ServiceOrdersLayoutContent({ children }: { children: React.ReactNode })
   const pendingCount = upsells.filter((u) => u.status === "pendiente").length;
 
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 gap-8 overflow-hidden px-6">
-      <aside className="w-64 shrink-0 overflow-y-auto overscroll-contain py-12">
+    <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-4 overflow-y-auto px-4 lg:flex-row lg:gap-8 lg:overflow-hidden lg:px-6">
+      <aside className="min-w-0 shrink-0 pt-6 lg:w-60 lg:overflow-y-auto lg:overscroll-contain lg:py-12">
         <Link href="/dashboard" className="mb-4 flex items-center gap-1.5 text-sm font-medium text-steel hover:text-navy">
           <ChevronLeft className="h-4 w-4" />
           Volver al Dashboard
@@ -30,7 +30,7 @@ function ServiceOrdersLayoutContent({ children }: { children: React.ReactNode })
         <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">
           Asesor de Servicios
         </p>
-        <nav className="space-y-1">
+        <nav aria-label="Navegación de servicios" className="flex gap-2 overflow-x-auto pb-2 lg:block lg:space-y-1 lg:pb-0">
           {NAV_ITEMS.map((item) => {
             const isOrderDetail = pathname.startsWith("/dashboard/servicios/") &&
               !NAV_ITEMS.some((navItem) => navItem.href !== "/dashboard/servicios" &&
@@ -44,8 +44,8 @@ function ServiceOrdersLayoutContent({ children }: { children: React.ReactNode })
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition ${
-                  item.indent ? "ml-6" : ""
+                className={`flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition ${
+                  item.indent ? "lg:ml-6" : ""
                 } ${active ? "bg-blue-light text-blue" : "text-steel hover:bg-ash hover:text-navy"}`}
               >
                 {Icon && <Icon className="h-4 w-4" />}
@@ -61,7 +61,7 @@ function ServiceOrdersLayoutContent({ children }: { children: React.ReactNode })
         </nav>
       </aside>
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain py-12 pr-2" role="region" aria-label="Contenido de servicios" tabIndex={0}>{children}</div>
+      <div className="min-w-0 shrink-0 pb-8 pt-2 lg:min-h-0 lg:flex-1 lg:shrink lg:overflow-y-auto lg:overscroll-contain lg:py-12 lg:pr-2" role="region" aria-label="Contenido de servicios" tabIndex={0}>{children}</div>
     </div>
   );
 }

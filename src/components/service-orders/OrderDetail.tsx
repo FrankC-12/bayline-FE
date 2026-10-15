@@ -284,6 +284,13 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         Volver a Órdenes de Servicio
       </button>
 
+      <section aria-label="Seguimiento de la orden" className="mb-6 rounded-2xl border border-blue/15 bg-gradient-to-br from-blue-light/70 to-white p-5 sm:p-6">
+        <p className="text-xs font-semibold uppercase tracking-widest text-blue">Siguiente paso</p>
+        <p className="mt-2 font-display text-lg font-bold text-navy">{order.status === "cancelado" ? "Orden cancelada" : order.status === "orden_cerrada" ? "Servicio cerrado" : order.status === "completado" ? order.invoiced_at ? "Revisar el cobro y completar el cierre" : "Revisar el resumen y facturar" : !order.technician_user_id ? "Asignar un técnico responsable" : "Completar las tareas y los despachos pendientes"}</p>
+        <p className="mt-1 text-sm text-steel">{order.status === "cancelado" || order.status === "orden_cerrada" ? "Puedes consultar el registro y los documentos de esta orden." : order.status === "completado" ? "La factura, el cobro y el cierre se revisan por separado para conservar sus validaciones." : "El estado del trabajo se actualiza según las tareas y los despachos registrados."}</p>
+        <nav aria-label="Ir a una sección de la orden" className="mt-4 flex flex-wrap gap-2">{[{id:"ods-trabajo",label:"Tareas"},{id:"ods-repuestos",label:"Repuestos y ODT"},{id:"ods-resumen",label:"Resumen y coberturas"}].map(item=><a key={item.id} href={`#${item.id}`} className="rounded-full border border-navy/15 bg-white px-3 py-2 text-xs font-semibold text-navy hover:border-blue">{item.label}</a>)}</nav>
+      </section>
+
       <PendingUpsellsBlock
         vehicleId={order.vehicle_id}
         orderId={orderId}
@@ -291,7 +298,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         onApplied={() => { void refreshOrder(); void refreshSummary(); }}
       />
 
-      <div className="rounded-2xl border border-navy/10 bg-white p-6">
+      <div className="rounded-2xl border border-navy/10 bg-white p-5 shadow-sm sm:p-7">
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-mono text-lg font-bold text-blue">{order.code}</span>
           <span
@@ -324,9 +331,9 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         <h1 className="mt-3 font-display text-2xl font-bold text-navy">
           {info ? `${info.vehicle.brand} ${info.vehicle.model} ${info.vehicle.year ?? ""}` : "Vehículo"}
         </h1>
-        <p className="text-sm text-steel">
-          {info?.vehicle.plate ?? "Sin placa"} · {info?.client.full_name} · Técnico: {users.find((u) => u.id === order.technician_user_id)?.full_name ?? "Sin asignar"}
-        </p>
+        <dl className="mt-5 grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[{label:"Placa",value:info?.vehicle.plate ?? "Sin placa"},{label:"Cliente",value:info?.client.full_name ?? "—"},{label:"Técnico responsable",value:users.find(u=>u.id===order.technician_user_id)?.full_name ?? "Sin asignar"},{label:"Entrega prometida",value:order.promised_at ? new Date(order.promised_at).toLocaleString("es-VE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "Sin fecha"}].map(item=><div key={item.label} className="min-w-0"><dt className="text-[10px] font-semibold uppercase tracking-wide text-steel">{item.label}</dt><dd className="mt-1.5 break-words text-sm font-semibold text-navy">{item.value}</dd></div>)}
+        </dl>
 
         {inspection && <p className="mt-4 inline-flex rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800">✓ Inspección preliminar vinculada</p>}
 
@@ -709,7 +716,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
       )}
 
       {filialId && (
-        <div className="mt-6">
+        <div id="ods-trabajo" className="mt-6 scroll-mt-6">
           <TasksCard
             readOnly={readOnly || saving}
             filialId={filialId}
@@ -724,7 +731,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
       )}
 
       {filialId && (
-        <div className="mt-6 space-y-6">
+        <div id="ods-repuestos" className="mt-6 space-y-6 scroll-mt-6">
           <TransfersCard
             readOnly={readOnly || saving}
             filialId={filialId}
@@ -740,7 +747,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
               window.dispatchEvent(new Event("bayline:workshop-updated"));
             }}
           />
-          {summary && <CoverageBreakdownCard summary={summary} filialId={filialId} readOnly={readOnly || saving} onChangeTaskPayer={changeTaskPayer} onChangeLinePayer={changeLinePayer} />}
+          {summary && <div id="ods-resumen" className="scroll-mt-6"><CoverageBreakdownCard summary={summary} filialId={filialId} readOnly={readOnly || saving} onChangeTaskPayer={changeTaskPayer} onChangeLinePayer={changeLinePayer} /></div>}
           <div className="ml-auto w-full lg:max-w-lg">{summary && <PriceSummaryCard summary={summary} totalAmount={order.total_amount} onDiscountChange={changeDiscount} saving={saving} readOnly={readOnly} />}</div>
         </div>
       )}

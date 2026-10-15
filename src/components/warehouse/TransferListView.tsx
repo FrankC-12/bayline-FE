@@ -9,7 +9,7 @@ import { useTransfers } from "@/hooks/useTransfers";
 import { useServiceOrderPartRequests } from "@/hooks/useServiceOrderPartRequests";
 import { usePartSaleRequests } from "@/hooks/usePartSaleRequests";
 import { setWorkshopWarehouse } from "@/lib/api/warehouse";
-import { formatElapsed } from "@/lib/time";
+import { formatDuration, formatElapsed } from "@/lib/time";
 import type { ServiceOrderPartRequest } from "@/types/warehouse";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { deleteWarehouseTransfer } from "@/lib/api/warehouse";
@@ -21,7 +21,7 @@ type Stage = typeof STAGES[number];
 const LABELS: Record<Stage, string> = { pendiente: "Pendientes", en_progreso: "En progreso", por_retirar: "Por retirar", completado: "Completados" };
 const BADGES: Record<Stage, string> = { pendiente: "bg-ash text-steel", en_progreso: "bg-blue-light text-blue", por_retirar: "bg-amber-100 text-amber-800", completado: "bg-emerald-100 text-emerald-700" };
 const hours = (start: string | null | undefined, end: number) => start ? Math.max(0, end-new Date(start).getTime())/3600000 : 0;
-const duration = (value: number) => `${Math.floor(value)}h ${Math.round((value%1)*60)}m`;
+const duration = (value: number) => formatDuration(value * 3600);
 function clock(request: ServiceOrderPartRequest) {
   if (request.stage === "por_retirar") return { label: "POR RETIRAR", start: request.completed_at, end: request.picked_up_at };
   if (request.stage === "en_progreso") return { label: "PREPARANDO", start: request.preparation_started_at, end: request.completed_at };

@@ -15,14 +15,15 @@ export function serviceOrderStoppedAt(order: {
 }
 
 export function formatDuration(totalSeconds: number): string {
-  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
-  const hours = Math.floor(safeSeconds / 3600);
+  const safeSeconds = Number.isFinite(totalSeconds) ? Math.max(0, Math.floor(totalSeconds)) : 0;
+  const days = Math.floor(safeSeconds / 86400);
+  const hours = Math.floor((safeSeconds % 86400) / 3600);
   const minutes = Math.floor((safeSeconds % 3600) / 60);
   const seconds = safeSeconds % 60;
+  const hh = hours.toString().padStart(2, "0");
   const mm = minutes.toString().padStart(2, "0");
   const ss = seconds.toString().padStart(2, "0");
-  if (hours === 0) return `${mm}:${ss}`;
-  return `${hours}:${mm}:${ss}`;
+  return `${days}d ${hh}h ${mm}m ${ss}s`;
 }
 
 export function formatElapsed(fromIso: string, toIso?: string | null): string {
