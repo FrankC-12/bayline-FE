@@ -10,7 +10,6 @@ import { useParts } from "@/hooks/useParts";
 import { useToast } from "@/contexts/ToastContext";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import RequestPartsModal from "./RequestPartsModal";
-import { confirmWorkshopPickup } from "@/lib/api/serviceOrders";
 import type { ServiceOrderTransfer, ServiceOrderPayer, TransferLine } from "@/types/serviceOrder";
 import type { Part } from "@/types/parts";
 
@@ -77,6 +76,7 @@ function TransferLineRow({
       <td className="py-1.5 text-navy">
         {canEdit ? (
           <NumberInput
+            aria-label={`Cantidad de ${part?.name ?? "repuesto"}`}
             min={1}
             value={quantity}
             disabled={busy}
@@ -133,7 +133,6 @@ export default function TransfersCard({
   const [adding, setAdding] = useState(false);
   const [confirmingTransferId, setConfirmingTransferId] = useState<string | null>(null);
   const [dispatching, setDispatching] = useState(false);
-  const [pickupBusy, setPickupBusy] = useState<string | null>(null);
   const toast = useToast();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -186,17 +185,15 @@ export default function TransfersCard({
   const pendingCount = transfers.filter((t) => t.status === "pendiente").length;
 
   return (
-    <div className="rounded-2xl border border-navy/10 bg-white p-6">
+    <div className="rounded-2xl border border-navy/10 bg-white p-4">
       <ConfirmDialog open={!!deletingId} title="Eliminar ODT" description="Se eliminarán sus repuestos, reservas y traslados pendientes. Los traslados ya recibidos se conservarán en el historial. Esta acción no se puede deshacer." confirmLabel="Eliminar ODT" confirming={deleteBusy} onConfirm={() => void removeTransfer()} onCancel={() => { if (!deleteBusy) setDeletingId(null); }} />
-      <h3 className="mb-1 font-display text-lg font-bold text-navy">Órdenes de Transferencia</h3>
-      <p className="mb-4 text-sm text-steel">
-        Repuestos pedidos al almacén para esta orden. El stock se reserva al enviar y se descuenta cuando Almacén completa el despacho.
-      </p>
-
+      <h3 className="mb-1 font-display text-sm font-bold text-navy">Repuestos</h3>
+      <p className="mb-3 text-[11px] text-steel">{transfers.length} {transfers.length === 1 ? "orden de transferencia" : "órdenes de transferencia"}</p>
       <div className="mb-5 flex items-end gap-2">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
           <input
+            aria-label="Buscar repuesto"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             disabled={adding || readOnly}
@@ -226,6 +223,7 @@ export default function TransfersCard({
           )}
         </div>
         <NumberInput
+          aria-label="Cantidad de repuestos"
           disabled={readOnly || adding}
           min="1"
           value={quantity}
@@ -244,22 +242,22 @@ export default function TransfersCard({
           {transfers.map((transfer) => {
             const canEditLines = !readOnly && transfer.status === "pendiente";
             return (
-              <div key={transfer.id} className="rounded-xl border border-navy/10 p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+              <div key={transfer.id} className="rounded-xl border border-navy/10 p-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Package className="h-4 w-4 text-blue" />
                     <span className="font-mono text-sm font-semibold text-navy">{transfer.code}</span>
-                    {canDelete && !readOnly && transfer.status === "pendiente" && !transfer.stock_deducted && <button type="button" onClick={() => setDeletingId(transfer.id)} className="rounded-lg px-2 py-1 text-xs text-red-700">Eliminar ODT</button>}
+                    {canDelete && !readOnly && transfer.status === "pendiente" && !transfer.stock_deducted && <details className="relative"><summary aria-label={`Más acciones de ${transfer.code}`} className="cursor-pointer list-none rounded-full border border-navy/15 px-2 py-0.5 text-steel">•••</summary><button type="button" onClick={() => setDeletingId(transfer.id)} className="absolute right-0 z-10 mt-1 whitespace-nowrap rounded-lg border border-navy/10 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">Eliminar ODT</button></details>}
                     <span
                       className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest ${
                         transfer.status === "completado"
-                          ? "bg-blue-light text-blue"
+                          ? "bg-emerald-100 text-emerald-700"
                           : transfer.status === "pedido"
-                            ? "bg-emerald-100 text-emerald-700"
+                            ? "bg-blue-light text-blue"
                             : "bg-amber-100 text-amber-700"
                       }`}
                     >
-                      {transfer.status === "completado" ? (transfer.picked_up_at ? "Retirado" : "Por retirar") : transfer.status === "pedido" ? "Pedido" : "Pendiente"}
+                      {transfer.status === "completado" ? (transfer.picked_up_at ? "Recibida" : "Por retirar") : transfer.status === "pedido" ? "Pedido" : "Pendiente"}
                     </span>
                   </div>
                   {transfer.status === "pendiente" && transfer.lines.length > 0 && (
@@ -280,16 +278,16 @@ export default function TransfersCard({
                   </p>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[520px] text-left text-sm">
+                    <table className="w-full min-w-[360px] text-left text-xs">
                       <thead>
                         <tr className="text-steel">
                           <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">Repuesto</th>
                           <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">Cant.</th>
                           <th className="pb-1.5 text-right font-mono text-[10px] uppercase tracking-widest">
-                            PVP
+                            Precio u.
                           </th>
                           <th className="pb-1.5 text-right font-mono text-[10px] uppercase tracking-widest">
-                            Subtotal
+                            Total
                           </th>
                           {canEditLines && <th className="pb-1.5" />}
                         </tr>
@@ -308,18 +306,6 @@ export default function TransfersCard({
                       </tbody>
                     </table>
                   </div>
-                )}
-                {transfer.status === "completado" && !transfer.picked_up_at && !readOnly && (
-                  <label className="mt-3 inline-flex cursor-pointer items-center rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white">
-                    {pickupBusy === transfer.id ? "Confirmando retiro…" : "Confirmar retiro con foto"}
-                    <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={!!pickupBusy} onChange={async (event) => {
-                      const photo = event.target.files?.[0]; if (!photo) return;
-                      setPickupBusy(transfer.id);
-                      try { await confirmWorkshopPickup(transfer.id, photo); toast.success("Retiro confirmado con foto."); window.dispatchEvent(new Event("bayline:workshop-updated")); }
-                      catch (error) { toast.error(error instanceof Error ? error.message : "No se pudo confirmar el retiro."); }
-                      finally { setPickupBusy(null); event.target.value = ""; }
-                    }} />
-                  </label>
                 )}
                 <div className="mt-2 flex justify-end text-sm font-semibold text-navy">
                   Subtotal: {transfer.subtotal == null ? "—" : `$${formatMoney(transfer.subtotal, 2)}`}

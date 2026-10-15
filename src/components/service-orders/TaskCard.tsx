@@ -2,8 +2,8 @@
 
 import { formatCount } from "@/lib/format";
 import { formatDuration, taskTimerElapsedSeconds } from "@/lib/time";
-import { useEffect, useState } from "react";
-import { Pause, Play, Search, Trash2 } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Search, Trash2 } from "lucide-react";
 import { useTemparios } from "@/hooks/useTemparios";
 import type { ServiceOrderTask, ServiceOrderPayer, TaskStatus } from "@/types/serviceOrder";
 
@@ -21,71 +21,24 @@ const STATUS_STYLES: Record<TaskStatus, string> = {
   completada: "bg-emerald-50 text-emerald-600",
   cancelada: "bg-slate-100 text-slate-500",
 };
-const STATUS_OPTIONS = Object.keys(STATUS_LABELS) as TaskStatus[];
+
 
 interface TasksCardProps {
   filialId: string;
   readOnly?: boolean;
   tasks: ServiceOrderTask[];
   onAdd: (temparioId: string, payer: ServiceOrderPayer) => Promise<void>;
-  onToggleStatus: (taskId: string, status: TaskStatus) => Promise<void>;
   onRemove: (taskId: string) => Promise<void>;
-  onStartTimer: (taskId: string) => Promise<void>;
-  onPauseTimer: (taskId: string) => Promise<void>;
+  children?: ReactNode;
 }
 
-function TaskTimerCell({
-  task,
-  disabled,
-  onStart,
-  onPause,
-}: {
-  task: ServiceOrderTask;
-  disabled: boolean;
-  onStart: (taskId: string) => Promise<void>;
-  onPause: (taskId: string) => Promise<void>;
-}) {
-  const running = task.timer_started_at !== null;
-  const [busy, setBusy] = useState(false);
-  // Forces a re-render every second while running so the live clock ticks —
-  // the actual elapsed value is always recomputed from timer_started_at,
-  // never held in state, so it stays correct across pauses/resumes.
-  const [, setTick] = useState(0);
-
-  useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [running]);
-
-  async function toggle() {
-    setBusy(true);
-    try {
-      await (running ? onPause(task.id) : onStart(task.id));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className={`font-mono text-xs ${running ? "font-semibold text-blue" : "text-steel"}`}>
-        {formatDuration(taskTimerElapsedSeconds(task))}
-      </span>
-      <button
-        type="button"
-        disabled={disabled || busy}
-        onClick={toggle}
-        aria-label={running ? `Pausar cronómetro de ${task.name_snapshot}` : `Iniciar cronómetro de ${task.name_snapshot}`}
-        className={`rounded-lg p-1.5 disabled:opacity-50 ${running ? "text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:bg-emerald-50"}`}
-      >
-        {running ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-      </button>
-    </div>
-  );
+function TaskTimerCell({task}:{task:ServiceOrderTask}) {
+ const [,setTick]=useState(0);
+ useEffect(()=> {if(!task.timer_started_at) return;const timer=setInterval(()=>setTick(t=>t+1),1000);return()=>clearInterval(timer);},[task.timer_started_at]);
+ return <span className="font-mono text-[11px] text-steel">{formatDuration(taskTimerElapsedSeconds(task))}</span>;
 }
 
-export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRemove, onStartTimer, onPauseTimer, readOnly = false }: TasksCardProps) {
+export default function TasksCard({ filialId, tasks, onAdd, onRemove, children, readOnly = false }: TasksCardProps) {
   const [search, setSearch] = useState("");
   const { temparios } = useTemparios(filialId, search || undefined);
   const [adding, setAdding] = useState(false);
@@ -104,11 +57,11 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRe
   }
 
   return (
-    <div className="rounded-2xl border border-navy/10 bg-white p-6">
-      <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-      <h3 className="mb-1 font-display text-lg font-bold text-navy">Tareas a realizar</h3>
+    <div className="rounded-2xl border border-navy/10 bg-white p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <h3 className="font-display text-sm font-bold text-navy">Tareas</h3><span className="text-[11px] text-steel">{tasks.filter(t=>t.status === "completada").length} de {tasks.length} completadas</span>
 
-      <div className="w-full md:max-w-md">
+      <div className="w-full">
         <div className="flex-1">
           <label htmlFor="ods-task-search" className="sr-only">Buscar tarea</label>
           <div className="relative">
@@ -152,56 +105,9 @@ export default function TasksCard({ filialId, tasks, onAdd, onToggleStatus, onRe
           Todavía no hay tareas agregadas a esta orden.
         </p>
       ) : (
-        <div className="overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm">
-          <thead className="border-b border-navy/10">
-            <tr>
-              <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Tarea (tempario)</th>
-              <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Código</th>
-              <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Horas</th>
-              <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Cronómetro</th>
-              <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Estado</th>
-              <th className="py-2" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-navy/5">
-            {tasks.map((task) => (
-              <tr key={task.id}>
-                <td className="py-2.5 font-medium text-navy">{task.name_snapshot}</td>
-                <td className="py-2.5 font-mono text-blue">{task.code_snapshot}</td>
-                <td className="py-2.5 text-navy">{formatCount(task.hours_snapshot)} h</td>
-                <td className="py-2.5">
-                  <TaskTimerCell task={task} disabled={readOnly} onStart={onStartTimer} onPause={onPauseTimer} />
-                </td>
-                <td className="py-2.5">
-                  <select
-                    value={task.status}
-                    disabled={readOnly || adding}
-                    onChange={(e) => onToggleStatus(task.id, e.target.value as TaskStatus)}
-                    className={`w-full rounded-lg border-none px-3 py-2 text-xs font-semibold uppercase outline-none disabled:opacity-60 ${STATUS_STYLES[task.status]}`}
-                  >
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {STATUS_LABELS[s]}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="py-2.5 text-right">
-                  <button
-                    type="button"
-                    disabled={readOnly || adding}
-                    onClick={() => onRemove(task.id)}
-                    aria-label="Quitar tarea"
-                    className="rounded-lg p-1.5 text-steel hover:bg-red-50 hover:text-red-500"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table></div>
+        <ul className="divide-y divide-navy/10">{tasks.map(task=><li key={task.id} className="py-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-navy">{task.name_snapshot}</p><p className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-steel"><span className="font-mono text-blue">{task.code_snapshot}</span><span>{formatCount(task.hours_snapshot)} h</span><TaskTimerCell task={task}/></p></div><div className="flex items-center gap-2"><span className={`rounded-lg px-2 py-1 text-[10px] font-semibold ${STATUS_STYLES[task.status]}`}>{STATUS_LABELS[task.status]}</span>{!readOnly && task.status === "pendiente" && <button type="button" disabled={adding} onClick={()=>void onRemove(task.id)} aria-label={`Quitar tarea ${task.name_snapshot}`} className="rounded-lg p-1 text-steel hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5"/></button>}</div></div></li>)}</ul>
       )}
+      {children}
     </div>
   );
 }

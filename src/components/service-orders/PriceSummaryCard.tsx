@@ -4,7 +4,7 @@ import { formatMoney , formatCount} from "@/lib/format";
 import { useState } from "react";
 import type { OrderSummary } from "@/types/serviceOrder";
 
-import { DISCOUNT_OPTIONS, type DiscountLabel } from "@/lib/partsPricing";
+import { DISCOUNT_OPTIONS, PARTS_MULTIPLIERS, type DiscountLabel } from "@/lib/partsPricing";
 
 interface PriceSummaryCardProps {
   summary: OrderSummary;
@@ -27,48 +27,24 @@ export default function PriceSummaryCard({ summary, totalAmount, onDiscountChang
     }
   }
 
+  const parts=summary.parts_subtotal;
+  const multiplier=PARTS_MULTIPLIERS[summary.discount_label];
+  const discount=parts != null && multiplier ? Math.max(0,parts / multiplier * 1.3 - parts) : null;
+  const subtotal=parts != null && summary.labor_subtotal != null ? parts+summary.labor_subtotal : null;
+  const amount=(value:number|null)=>value == null ? "—" : `$${formatMoney(value,2)}`;
   return (
-    <div className="rounded-2xl border border-navy/10 bg-white p-6">
-      <h3 className="mb-4 font-display text-lg font-bold text-navy">Resumen de precio</h3>
-
-      <div className="mb-4">
-        <label className="mb-1.5 block text-xs font-medium text-steel">Descuento en repuestos</label>
-        <select
-          value={summary.discount_label}
-          onChange={(e) => void changeDiscount(e.target.value as DiscountLabel)}
-          disabled={saving || readOnly}
-          className="w-full rounded-xl border border-navy/15 bg-white px-4 py-2 text-sm outline-none focus:border-blue"
-        >
-          {DISCOUNT_OPTIONS.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-      </div>
-
+    <section aria-label="Total del cliente" className="rounded-2xl border border-navy/10 bg-white p-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="font-display text-sm font-bold text-navy">Total del cliente</h3><label className="flex flex-wrap items-center gap-2 text-xs text-steel">Precio de repuestos<select aria-label="Precio de repuestos" value={summary.discount_label} onChange={e=>void changeDiscount(e.target.value as DiscountLabel)} disabled={saving || readOnly} className="max-w-full rounded-lg border border-navy/15 bg-white px-2 py-1.5 text-xs text-navy">{DISCOUNT_OPTIONS.map(o=><option key={o} value={o}>{o}</option>)}</select></label></div>
       {error && <p role="alert" className="mb-3 text-sm text-red-600">{error}</p>}
-      <div className="space-y-4 text-sm">
-        <div className="flex justify-between text-steel">
-          <span>Repuestos (ODT)</span>
-          <span>{summary.parts_subtotal == null ? "—" : `$${formatMoney(summary.parts_subtotal, 2)}`}</span>
-        </div>
-        <div className="flex justify-between text-steel">
-          <span>Mano de obra (Tareas)</span>
-          <span>{summary.labor_subtotal == null ? "—" : `$${formatMoney(summary.labor_subtotal, 2)}`}</span>
-        </div>
-        <div className="flex justify-between border-b border-navy/10 pb-1.5 text-steel">
-          <span>IVA {summary.iva_percentage == null ? "" : `(${formatCount(summary.iva_percentage)}%)`}</span>
-          <span>{summary.iva_amount == null ? "—" : `$${formatMoney(summary.iva_amount, 2)}`}</span>
-        </div>
-        {summary.igtf_amount > 0 && <div className="flex justify-between text-steel"><span>IGTF ({formatCount(summary.igtf_percentage)}%)</span><span>${formatMoney(summary.igtf_amount, 2)}</span></div>}
-      </div>
-
-      <div className="mt-5 flex items-center justify-between border-t border-navy/10 pt-5">
-        <span className="font-display font-bold text-navy">Total a pagar</span>
-        <span className="font-display text-2xl font-bold text-blue">${formatMoney(summary.total, 2)}</span>
-      </div>
-
+      <dl className="grid grid-cols-2 overflow-hidden rounded-xl border border-navy/5 sm:grid-cols-3 xl:grid-cols-6">{[
+        {label:"Repuestos",value:amount(parts != null && discount != null ? parts+discount : parts)},
+        {label:"Descuento",value:amount(discount)},
+        {label:"Mano de obra",value:amount(summary.labor_subtotal)},
+        {label:"Subtotal",value:amount(subtotal)},
+        {label:`IVA ${summary.iva_percentage == null ? "" : formatCount(summary.iva_percentage)+" %"}`,value:amount(summary.iva_amount)},
+        {label:"A pagar",value:amount(summary.total)},
+      ].map((item,index)=><div key={item.label} className={`min-w-0 p-3 ${index === 5 ? "bg-blue-light/70" : "border-r border-navy/5"}`}><dt className="font-mono text-[9px] uppercase tracking-wider text-steel">{item.label}</dt><dd className={`mt-1 break-words font-display font-bold ${index === 5 ? "text-lg text-blue" : "text-sm text-navy"}`}>{item.value}</dd></div>)}</dl>
+      {summary.igtf_amount > 0 && <p className="mt-3 text-xs text-steel">Incluye IGTF ({formatCount(summary.igtf_percentage)}%): ${formatMoney(summary.igtf_amount,2)}</p>}
       {summary.non_client_subtotal > 0 && (
         <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
           Cubierto por garantía/plan/proveedor (no se cobra al cliente): $
@@ -84,6 +60,6 @@ export default function PriceSummaryCard({ summary, totalAmount, onDiscountChang
           Facturado por <span className="font-semibold text-navy">${formatMoney(totalAmount, 2)}</span>.
         </p>
       )}
-    </div>
+    </section>
   );
 }

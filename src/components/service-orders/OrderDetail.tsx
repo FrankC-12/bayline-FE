@@ -20,12 +20,17 @@ import { useTemparios } from "@/hooks/useTemparios";
 import OrderDatesEditor from "./OrderDatesEditor";
 import TasksCard from "./TaskCard";
 import TransfersCard from "./TransferCard";
-import CoverageBreakdownCard from "./CoverageBreakdownCard";
+import InspectionReadout from "./InspectionReadout";
+import OrderStages from "./OrderStages";
+import { useDetailedInspection } from "@/hooks/useDetailedInspection";
+import { useUpsellsContext } from "@/contexts/UpsellsContext";
+import OrderFindings from "./OrderFindings";
 import PriceSummaryCard from "./PriceSummaryCard";
 import BillingModal from "./BillingModal";
 import PendingUpsellsBlock from "./PendingUpsellsBlock";
 import WarrantyClaimModal from "./WarrantyClaimModal";
 import VehicleDamageMap from "@/components/inspections/VehicleDamageMap";
+import { useOrderPaymentStatus } from "@/hooks/useOrderPaymentStatus";
 import { closeServiceOrder } from "@/lib/api/serviceOrderBilling";
 import { CALENDAR_TIME_ZONE } from "@/lib/calendar";
 import { formatElapsed, serviceOrderStoppedAt } from "@/lib/time";
@@ -35,7 +40,7 @@ import type { WarrantyClaimType } from "@/types/warrantyClaim";
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Pendiente",
-  en_progreso: "En progreso",
+  en_progreso: "En trabajo",
   completado: "Completado",
   orden_cerrada: "Orden cerrada",
   cancelado: "Cancelado",
@@ -67,19 +72,17 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const { bays } = useBays(filialId);
   const suggestedClaimType: WarrantyClaimType | undefined = undefined;
   const { canEdit: canReopen } = useModuleAccess("administracion");
+  const detailed = useDetailedInspection(orderId);
+  const payment = useOrderPaymentStatus(orderId,filialId,!!order?.invoiced_at);
+  const { upsells } = useUpsellsContext();
   const { inspection, link } = useInspectionForOrder(order?.id ?? null);
   const { inspections: unlinkedInspections } = useInspections(filialId, true);
   const {
     summary,
     refresh: refreshSummary,
     addTask,
-    toggleTaskStatus,
-    changeTaskPayer,
     removeTask,
-    startTaskTimer,
-    pauseTaskTimer,
     addTransferLine,
-    changeLinePayer,
     changeLineQuantity,
     removeLine,
     markOrdered,
@@ -141,6 +144,9 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   }
 
   const info = vehicleMap.get(order.vehicle_id);
+  const orderPayer: import("@/types/serviceOrder").ServiceOrderPayer = ["retrabajo","comeback"].includes(order.order_type.code)
+    ? summary?.tasks.find(t=>t.payer!=="cliente")?.payer ?? "garantia_taller"
+    : ["garantia_fabrica","campana"].includes(order.order_type.code) ? "garantia_fabrica" : "cliente";
   const readOnly = !!order.invoiced_at || order.status === "orden_cerrada" || order.status === "cancelado";
 
   // El estado pendiente/en progreso/completado se calcula solo según las
@@ -177,7 +183,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     setAddingPlanTask(true);
     setActionError(null);
     try {
-      await addTask(pendingPlanTemparioId);
+      await addTask(pendingPlanTemparioId,orderPayer);
       await refreshOrder();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "No se pudo cargar la tarea del plan.");
@@ -259,8 +265,11 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   async function assignTechnician(value: string) {
     if (readOnly) return;
     setSaving(true);
+    setActionError(null);
     try {
       await update(value === "" ? { clear_technician: true } : { technician_user_id: value });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "No se pudo actualizar técnico.");
     } finally {
       setSaving(false);
     }
@@ -269,8 +278,11 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   async function assignBay(value: string) {
     if (readOnly) return;
     setSaving(true);
+    setActionError(null);
     try {
       await update(value === "" ? { clear_bay: true } : { bay_id: value });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "No se pudo actualizar bahía.");
     } finally {
       setSaving(false);
     }
@@ -286,22 +298,8 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         Volver a Órdenes de Servicio
       </button>
 
-      <section aria-label="Seguimiento de la orden" className="mb-6 rounded-2xl border border-blue/15 bg-gradient-to-br from-blue-light/70 to-white p-5 sm:p-6">
-        <p className="text-xs font-semibold uppercase tracking-widest text-blue">Siguiente paso</p>
-        <p className="mt-2 font-display text-lg font-bold text-navy">{order.status === "cancelado" ? "Orden cancelada" : order.status === "orden_cerrada" ? "Servicio cerrado" : order.status === "completado" ? order.invoiced_at ? "Revisar el cobro y completar el cierre" : "Revisar el resumen y facturar" : !order.technician_user_id ? "Asignar un técnico responsable" : "Completar las tareas y los despachos pendientes"}</p>
-        <p className="mt-1 text-sm text-steel">{order.status === "cancelado" || order.status === "orden_cerrada" ? "Puedes consultar el registro y los documentos de esta orden." : order.status === "completado" ? "La factura, el cobro y el cierre se revisan por separado para conservar sus validaciones." : "El estado del trabajo se actualiza según las tareas y los despachos registrados."}</p>
-        <nav aria-label="Ir a una sección de la orden" className="mt-4 flex flex-wrap gap-2">{[{id:"ods-trabajo",label:"Tareas"},{id:"ods-repuestos",label:"Repuestos y ODT"},{id:"ods-resumen",label:"Resumen y coberturas"}].map(item=><a key={item.id} href={`#${item.id}`} className="rounded-full border border-navy/15 bg-white px-3 py-2 text-xs font-semibold text-navy hover:border-blue">{item.label}</a>)}</nav>
-      </section>
-
-      <PendingUpsellsBlock
-        vehicleId={order.vehicle_id}
-        orderId={orderId}
-        readOnly={readOnly}
-        onApplied={() => { void refreshOrder(); void refreshSummary(); }}
-      />
-
-      <div className="rounded-2xl border border-navy/10 bg-white p-5 shadow-sm sm:p-7">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="relative rounded-2xl border border-navy/10 bg-white p-5">
+        <div className="flex flex-wrap items-center gap-2 pr-8">
           <span className="font-mono text-lg font-bold text-blue">{order.code}</span>
           <span
             className={`rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${STATUS_STYLES[order.status]}`}
@@ -309,7 +307,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             {STATUS_LABELS[order.status]}
           </span>
           <span className="rounded-full bg-ash px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-steel">
-            {order.order_type.name}
+            {order.order_type.name} · {orderPayer === "cliente" ? "Cliente" : orderPayer === "garantia_taller" ? "Taller" : orderPayer === "garantia_fabrica" ? "Marca" : orderPayer === "proveedor" ? "Proveedor" : "Plan"}
           </span>
           {order.completed_with_pending_items && (
             <span
@@ -333,14 +331,47 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         <h1 className="mt-3 font-display text-2xl font-bold text-navy">
           {info ? `${info.vehicle.brand} ${info.vehicle.model} ${info.vehicle.year ?? ""}` : "Vehículo"}
         </h1>
-        <dl className="mt-5 grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[{label:"Placa",value:info?.vehicle.plate ?? "Sin placa"},{label:"Cliente",value:info?.client.full_name ?? "—"},{label:"Técnico responsable",value:users.find(u=>u.id===order.technician_user_id)?.full_name ?? "Sin asignar"},{label:"Entrega prometida",value:order.promised_at ? new Date(order.promised_at).toLocaleString("es-VE",{timeZone: CALENDAR_TIME_ZONE,day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "Sin fecha"}].map(item=><div key={item.label} className="min-w-0"><dt className="text-[10px] font-semibold uppercase tracking-wide text-steel">{item.label}</dt><dd className="mt-1.5 break-words text-sm font-semibold text-navy">{item.value}</dd></div>)}
-        </dl>
-
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-3 text-xs text-steel">
+          <span className="rounded-lg border border-navy/10 px-2 py-1 font-mono text-navy">{info?.vehicle.plate || "Sin placa"}</span><span>{info?.client.full_name ?? "—"}</span>
+          <label className="flex items-center gap-2 sm:ml-auto">Técnico<select aria-label="Técnico asignado" disabled={readOnly || saving} value={order.technician_user_id ?? ""} onChange={e=>void assignTechnician(e.target.value)} className="max-w-[180px] rounded-lg border border-navy/15 bg-white px-2 py-1 text-xs text-navy"><option value="">Sin asignar</option>{technicians.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></label>
+          <label className="flex items-center gap-2">Bahía<select aria-label="Bahía a utilizar" disabled={readOnly || saving} value={order.bay_id ?? ""} onChange={e=>void assignBay(e.target.value)} className="max-w-[140px] rounded-lg border border-navy/15 bg-white px-2 py-1 text-xs text-navy"><option value="">Sin asignar</option>{bays.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+        </div>
+        <OrderStages cancelled={order.status === "cancelado"} complete={[
+          !!inspection,
+          !!summary?.tasks.length,
+          !!inspection && !!summary && summary.transfers.every(t=>!!t.picked_up_at),
+          detailed.inspection?.status === "completada",
+          !!summary?.tasks.length && summary.tasks.every(t=>t.status === "completada" || t.status === "cancelada"),
+          !!order.invoiced_at && payment.settled,
+          order.status === "orden_cerrada",
+        ]}/>
+        <details className="mt-4 text-xs text-steel"><summary className="cursor-pointer font-semibold">Datos de recepción y agenda</summary><dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[
+          {label:"Kilometraje de ingreso",value:order.intake_mileage != null ? `${order.intake_mileage.toLocaleString("es-VE")} km` : "Sin registrar"},
+          {label:"Asesor responsable",value:users.find(u=>u.id===order.advisor_user_id)?.full_name ?? "—"},
+          {label:"Inicio de visita",value:order.scheduled_at ? new Date(order.scheduled_at).toLocaleString("es-VE",{timeZone:CALENDAR_TIME_ZONE}) : "Sin fecha"},
+          {label:"Entrega prometida",value:order.promised_at ? new Date(order.promised_at).toLocaleString("es-VE",{timeZone:CALENDAR_TIME_ZONE}) : "Sin fecha"},
+          {label:"Creación",value:new Date(order.created_at).toLocaleString("es-VE",{timeZone:CALENDAR_TIME_ZONE})},
+          {label:"Motivo del cliente",value:order.customer_reason || "Sin registrar"},
+        ].map(item=><div key={item.label}><dt>{item.label}</dt><dd className="mt-1 font-semibold text-navy">{item.value}</dd></div>)}</dl>
         <OrderDatesEditor key={`${order.id}-${order.updated_at}`} order={order} disabled={readOnly || saving} onSave={update} />
 
-        {inspection && <p className="mt-4 inline-flex rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800">✓ Inspección preliminar vinculada</p>}
-
+        </details>
+        {(order.status === "completado" || order.status === "orden_cerrada") && <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+          {order.status === "completado" && <>
+            <button onClick={() => setBillingOpen(true)} disabled={saving}
+              className="rounded-full bg-blue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">
+              {order.invoiced_at ? "Ver factura y cobro" : "Facturar"}
+            </button>
+            <button onClick={() => setClosePanelOpen(true)} disabled={saving || !order.invoiced_at || closePanelOpen}
+              title={!order.invoiced_at ? "Primero debes facturar y registrar el cobro" : undefined}
+              className="rounded-full bg-navy px-5 py-2 text-sm font-semibold text-white disabled:opacity-40">
+              Registrar entrega
+            </button>
+          </>}
+          {order.status === "orden_cerrada" && order.invoiced_at && <button onClick={() => setBillingOpen(true)}
+            className="rounded-full border border-blue px-5 py-2 text-sm font-semibold text-blue">Ver factura y cobro</button>}
+        </div>}
+        <details className="group absolute right-4 top-4 z-10"><summary aria-label="Más acciones de la orden" className="ml-auto w-fit cursor-pointer list-none rounded-full border border-navy/15 px-3 py-1 text-sm text-steel">•••</summary><div className="absolute right-0 mt-2 w-72 rounded-xl border border-navy/10 bg-white p-3 shadow-lg">
         {(canForceComplete || order.status === "completado" || !!order.invoiced_at || !!actionError) && <div className="mt-5 flex flex-wrap gap-3 border-t border-navy/10 pt-5">
           {canForceComplete && (
             <button
@@ -352,24 +383,10 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
               Forzar completado
             </button>
           )}
-          {order.status === "completado" && <>
-            <button onClick={() => setBillingOpen(true)} disabled={saving}
-              className="rounded-full bg-blue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">
-              {order.invoiced_at ? "Ver factura y cobro" : "Facturar"}
-            </button>
-            <button onClick={() => setClosePanelOpen(true)} disabled={saving || !order.invoiced_at || closePanelOpen}
-              title={!order.invoiced_at ? "Primero debes facturar y registrar el cobro" : undefined}
-              className="rounded-full bg-navy px-5 py-2 text-sm font-semibold text-white disabled:opacity-40">
-              Cerrar orden
-            </button>
-          </>}
-          {order.status === "orden_cerrada" && order.invoiced_at && <button onClick={() => setBillingOpen(true)}
-            className="rounded-full border border-blue px-5 py-2 text-sm font-semibold text-blue">Ver factura y cobro</button>}
           {order.invoiced_at && <button onClick={() => setClaimModalOpen(true)}
             className="rounded-full border border-navy/15 px-5 py-2 text-sm font-semibold text-navy transition hover:border-blue hover:text-blue">
             Reclamos de garantía
           </button>}
-          {actionError && <p role="alert" className="w-full text-sm text-red-600">{actionError}</p>}
         </div>}
 
         {(order.status === "pendiente" || order.status === "en_progreso") && (
@@ -423,6 +440,8 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           </div>
         )}
 
+        </div></details>
+        {actionError && <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
         {closePanelOpen && (
           <div className="mt-5 rounded-xl bg-ash p-4">
             <label className="mb-4 block text-sm font-semibold text-navy">Kilometraje de salida<input type="number" min={order.intake_mileage ?? 0} value={exitMileage} onChange={event=>setExitMileage(event.target.value)} className="mt-2 w-full rounded-xl border border-navy/15 px-3 py-2" /></label>
@@ -512,74 +531,20 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         )}
       </div>
 
-      <div className="mt-6 rounded-2xl border border-navy/10 bg-white p-5 shadow-sm sm:p-6">
-        <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">Datos de recepción</p>
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          <div>
-            <p className="text-xs text-steel">Kilometraje de ingreso</p>
-            <p className="mt-0.5 text-sm font-semibold text-navy">
-              {order.intake_mileage != null ? `${order.intake_mileage.toLocaleString("es-VE")} km` : "—"}
-            </p>
-            {order.intake_mileage == null && !readOnly && (
-              <p className="mt-0.5 text-[11px] text-steel">Se registra al vincular la inspección preliminar.</p>
-            )}
-          </div>
-          <div>
-            <p className="text-xs text-steel">Asesor responsable</p>
-            <p className="mt-0.5 text-sm font-semibold text-navy">
-              {users.find((u) => u.id === order.advisor_user_id)?.full_name ?? "—"}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-steel">Inicio de visita</p>
-            <p className="mt-0.5 text-sm font-semibold text-navy">
-              {order.scheduled_at
-                ? new Date(order.scheduled_at).toLocaleString("es-VE", { timeZone: CALENDAR_TIME_ZONE,
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : "—"}
-            </p>
-          </div>
-          <div className="sm:col-span-1">
-            <p className="text-xs text-steel">Motivo del cliente</p>
-            <p className="mt-0.5 text-sm font-semibold text-navy">{order.customer_reason ?? "—"}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-6 rounded-2xl border border-navy/10 bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-2"><h2 className="font-display text-lg font-bold text-navy">Responsables y ubicación</h2><p className="text-xs text-steel">Creada {new Date(order.created_at).toLocaleString("es-VE", {timeZone: CALENDAR_TIME_ZONE, dateStyle:"medium",timeStyle:"short"})}</p></div>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <label className="block text-xs font-semibold text-steel">Técnico asignado
-            <select disabled={readOnly || saving} value={order.technician_user_id ?? ""} onChange={e=>assignTechnician(e.target.value)} className="mt-2 w-full rounded-xl border border-navy/15 bg-slate-50 px-4 py-3 text-sm font-normal text-navy outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"><option value="">Sin asignar</option>{technicians.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select>
-          </label>
-          <label className="block text-xs font-semibold text-steel">Bahía a utilizar
-            <select disabled={readOnly || saving} value={order.bay_id ?? ""} onChange={e=>assignBay(e.target.value)} className="mt-2 w-full rounded-xl border border-navy/15 bg-slate-50 px-4 py-3 text-sm font-normal text-navy outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"><option value="">Sin asignar</option>{bays.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select>
-          </label>
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border border-navy/10 bg-white p-5">
           <div className="mb-2 flex items-center justify-between">
-            <p className="font-display text-sm font-bold text-navy">Inspección Preliminar</p>
+            <p className="font-display text-sm font-bold text-navy">Inspección preliminar</p>
             {inspection && (
               <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest text-emerald-700">
-                Vinculada
+                Lista
               </span>
             )}
           </div>
 
           {inspection ? (
             <>
-            <p className="text-sm text-steel">
-              {inspection.notes || "Sin notas."}
-              {inspection.mileage ? ` ${inspection.mileage.toLocaleString("es-VE")} km.` : ""}
-            </p>
+            <dl className="mt-3 space-y-2 text-xs"><div className="flex justify-between gap-3"><dt className="shrink-0 text-steel">Motivo del cliente</dt><dd className="text-right font-semibold text-navy">{order.customer_reason || inspection.notes || "Sin registrar"}</dd></div><div className="flex justify-between"><dt className="text-steel">Daños</dt><dd className="font-semibold text-navy">{inspection.damages.length} registrados</dd></div></dl>
             {inspection.damages.length > 0 && (
               <button
                 onClick={() => setDamageMapOpen(true)}
@@ -617,8 +582,8 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           )}
         </div>
         <div className="rounded-2xl border border-navy/10 bg-white p-5">
-          <p className="font-display text-sm font-bold text-navy">Inspección Minuciosa</p>
-          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">El técnico aún no ha realizado la inspección minuciosa.</p>
+          <div className="flex items-center justify-between gap-2"><h2 className="font-display text-sm font-bold text-navy">Inspección minuciosa</h2><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${detailed.inspection?.status === "completada" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-steel"}`}>{detailed.loading ? "Cargando…" : detailed.inspection?.status === "completada" ? "Lista" : detailed.inspection ? "En proceso" : "Pendiente"}</span></div>
+          {detailed.error ? <p role="alert" className="mt-3 text-xs text-red-700">{detailed.error}<button onClick={()=>void detailed.refresh()} className="ml-2 font-semibold underline">Reintentar</button></p> : <><dl className="mt-3 space-y-2 text-xs"><div className="flex justify-between gap-3"><dt className="text-steel">Técnico</dt><dd className="font-semibold text-navy">{users.find(u=>u.id===(detailed.inspection?.completed_by_user_id ?? order.technician_user_id))?.full_name ?? "Sin asignar"}</dd></div><div className="flex justify-between"><dt className="text-steel">Hallazgos</dt><dd className="font-semibold text-navy">{upsells.filter(u=>u.service_order_id===orderId).length}</dd></div></dl>{detailed.inspection ? <details className="mt-3 text-xs text-steel"><summary className="cursor-pointer font-semibold text-blue">Ver revisión · {detailed.inspection.completed_steps}/{detailed.inspection.total_steps}</summary><InspectionReadout inspection={detailed.inspection}/></details> : <p className="mt-3 text-xs text-steel">El técnico registra la revisión desde la app.</p>}</>}
         </div>
       </div>
 
@@ -671,28 +636,35 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         </div>
       )}
 
+      <div className="mt-4 grid items-start gap-4 xl:grid-cols-2">
       {filialId && (
-        <div id="ods-trabajo" className="mt-6 scroll-mt-6">
+        <div id="ods-trabajo" className="min-w-0 scroll-mt-6 space-y-3">
           <TasksCard
             readOnly={readOnly || saving}
             filialId={filialId}
             tasks={summary?.tasks ?? []}
-            onAdd={async (...args) => { await addTask(...args); await refreshOrder(); }}
-            onToggleStatus={async (...args) => { await toggleTaskStatus(...args); await refreshOrder(); }}
+            onAdd={async (id) => { await addTask(id,orderPayer); await refreshOrder(); }}
             onRemove={async (...args) => { await removeTask(...args); await refreshOrder(); }}
-            onStartTimer={startTaskTimer}
-            onPauseTimer={pauseTaskTimer}
-          />
+          >
+            <OrderFindings orderId={orderId} readOnly={readOnly || saving} onApplied={async()=>{await refreshOrder();await refreshSummary();}}/>
+      <PendingUpsellsBlock
+        vehicleId={order.vehicle_id}
+        orderId={orderId}
+        readOnly={readOnly}
+        onApplied={() => { void refreshOrder(); void refreshSummary(); }}
+      />
+
+          </TasksCard>
         </div>
       )}
 
       {filialId && (
-        <div id="ods-repuestos" className="mt-6 space-y-6 scroll-mt-6">
+        <div id="ods-repuestos" className="min-w-0 space-y-4 scroll-mt-6">
           <TransfersCard
             readOnly={readOnly || saving}
             filialId={filialId}
             transfers={summary?.transfers ?? []}
-            onAddLine={addTransferLine}
+            onAddLine={(id,quantity)=>addTransferLine(id,quantity,orderPayer)}
             onChangeQuantity={changeLineQuantity}
             onRemoveLine={removeLine}
             onMarkOrdered={markOrdered}
@@ -703,12 +675,12 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
               window.dispatchEvent(new Event("bayline:workshop-updated"));
             }}
           />
-          {summary && <div id="ods-resumen" className="scroll-mt-6"><CoverageBreakdownCard summary={summary} filialId={filialId} readOnly={readOnly || saving} onChangeTaskPayer={changeTaskPayer} onChangeLinePayer={changeLinePayer} /></div>}
-          <div className="ml-auto w-full lg:max-w-lg">{summary && <PriceSummaryCard summary={summary} totalAmount={order.total_amount} onDiscountChange={changeDiscount} saving={saving} readOnly={readOnly} />}</div>
         </div>
       )}
+      </div>
+      <div id="ods-resumen" className="mt-4 scroll-mt-6">{summary && <PriceSummaryCard summary={summary} totalAmount={order.total_amount} onDiscountChange={changeDiscount} saving={saving} readOnly={readOnly}/>}</div>
       {billingOpen && <BillingModal orderId={orderId} orderCode={order.code} invoiced={!!order.invoiced_at}
-        onClose={() => setBillingOpen(false)} onInvoiced={async () => { await refreshOrder(); await refreshSummary(); toast.success("Orden facturada."); }} />}
+        onClose={() => setBillingOpen(false)} onInvoiced={async () => { await refreshOrder(); await refreshSummary(); await payment.refresh(); toast.success("Orden facturada."); }} />}
       {claimModalOpen && filialId && (
         <WarrantyClaimModal
           filialId={filialId}

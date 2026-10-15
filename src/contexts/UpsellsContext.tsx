@@ -13,7 +13,7 @@ interface UpsellsContextValue {
   error: ListErrorInfo | null;
   addUpsell: (orderId: string, input: CreateUpsellInput, photos?: File[]) => Promise<Upsell>;
   decide: (upsellId: string, input: DecideUpsellInput) => Promise<Upsell>;
-  refresh: () => void;
+  refresh: () => Promise<void>;
 }
 
 const UpsellsContext = createContext<UpsellsContextValue | undefined>(undefined);
