@@ -1,12 +1,15 @@
 "use client";
 
+import Modal from "@/components/common/Modal";
+
 import { useEffect, useMemo, useState } from "react";
-import { X, Loader2, Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useInspections } from "@/hooks/useInspections";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { useRoleDirectory } from "@/hooks/useRoleDirectory";
 import { useServiceOrderTypes } from "@/hooks/useServiceOrderTypes";
+import { calendarTimestamp } from "@/lib/calendar";
 import HourSelect from "@/components/common/HourSelect";
 import { listWarrantyClaims } from "@/lib/api/warrantyClaims";
 import type { Inspection } from "@/types/inspection";
@@ -15,7 +18,8 @@ import type { WarrantyClaim } from "@/types/warrantyClaim";
 export interface CreateOrderExtra {
   customer_reason: string;
   advisor_user_id: string;
-  promised_at: string;
+  promised_at?: string | null;
+  scheduled_at: string;
   warranty_claim_id?: string | null;
 }
 
@@ -61,6 +65,8 @@ export default function CreateOrderPanel({
   const [orderTypeId, setOrderTypeId] = useState("");
   const [customerReason, setCustomerReason] = useState("");
   const [advisorUserId, setAdvisorUserId] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [deliveryTime, setDeliveryTime] = useState("");
   const [promisedDate, setPromisedDate] = useState("");
   const [promisedTime, setPromisedTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -199,6 +205,7 @@ export default function CreateOrderPanel({
       setError("Selecciona la fecha de inicio de la ODS.");
       return;
     }
+    if (!!deliveryDate !== !!deliveryTime) { setError("Selecciona fecha y hora de entrega prometida, o deja ambos vacíos."); return; }
     if (requiredClaimType && !warrantyClaimId) {
       setError("Selecciona el reclamo asociado a esta orden.");
       return;
@@ -212,7 +219,8 @@ export default function CreateOrderPanel({
         {
           customer_reason: customerReason.trim(),
           advisor_user_id: advisorUserId,
-          promised_at: new Date(`${promisedDate}T${promisedTime}`).toISOString(),
+          scheduled_at: calendarTimestamp(promisedDate, promisedTime),
+          promised_at: deliveryDate && deliveryTime ? calendarTimestamp(deliveryDate, deliveryTime) : null,
           warranty_claim_id: requiredClaimType ? warrantyClaimId : null,
         },
         matchedInspection.id
@@ -223,6 +231,7 @@ export default function CreateOrderPanel({
       setAdvisorUserId("");
       setPromisedDate("");
       setPromisedTime("");
+      setDeliveryDate(""); setDeliveryTime("");
       setOrderTypeId("");
       setWarrantyClaimId("");
       onClose();
@@ -234,31 +243,28 @@ export default function CreateOrderPanel({
   }
 
   return (
-    <div
-      className={`fixed inset-0 z-50 transition ${open ? "pointer-events-auto" : "pointer-events-none"}`}
-      aria-hidden={!open}
-    >
-      <div
-        onClick={onClose}
-        className={`absolute inset-0 bg-navy/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
-      />
-      <aside
-        className={`absolute inset-y-0 right-0 flex w-full max-w-lg flex-col overflow-y-auto bg-white shadow-2xl transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="flex items-center justify-between border-b border-navy/10 px-8 py-5">
-          <h2 className="font-display text-xl font-bold text-navy">Nueva ODS</h2>
-          <button
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy"
+    <Modal open={open} onClose={onClose} title="Nueva ODS" size="lg" closeDisabled={submitting} footer={<><button
+            type="button"
+            onClick={onClose} disabled={submitting}
+            className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
           >
-            <X className="h-5 w-5" />
+            Cancelar
           </button>
-        </div>
-
-        <div className="flex-1 space-y-5 p-8">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={
+              !selectedVehicleId ||
+              !matchedInspection ||
+              (!!requiredClaimType && !warrantyClaimId) ||
+              submitting
+            }
+            className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Crear ODS
+          </button></>}>
+      <div className="space-y-5 p-5 sm:p-7">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Cliente / vehículo</label>
             {presetInspection ? (
@@ -368,6 +374,7 @@ export default function CreateOrderPanel({
             </div>
           </div>
 
+          <div className="rounded-xl bg-slate-50 p-4"><p className="mb-2 text-sm font-semibold text-navy">Entrega prometida (opcional)</p><p className="mb-3 text-xs text-steel">Registra solo la fecha y hora acordadas con el cliente. Es distinta del inicio de la visita.</p><div className="grid grid-cols-2 gap-2"><input aria-label="Fecha de entrega prometida" type="date" value={deliveryDate} onChange={e=>setDeliveryDate(e.target.value)} className="min-w-0 rounded-xl border border-navy/15 px-3 py-2 text-sm"/><HourSelect value={deliveryTime} onChange={setDeliveryTime}/></div></div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Asesor responsable</label>
             <select
@@ -408,30 +415,7 @@ export default function CreateOrderPanel({
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-navy/10 p-6">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={
-              !selectedVehicleId ||
-              !matchedInspection ||
-              (!!requiredClaimType && !warrantyClaimId) ||
-              submitting
-            }
-            className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Crear ODS
-          </button>
-        </div>
-      </aside>
-    </div>
+
+    </Modal>
   );
 }

@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { X, Loader2, Eye, EyeOff } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import Modal from "@/components/common/Modal";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import type { Role } from "@/types/role";
 import type { AppUser } from "@/types/user";
 import type { CreateUserInput } from "@/lib/api/user";
@@ -26,6 +28,10 @@ export default function CreateUserPanel({
   onSubmit,
   editingUser,
 }: CreateUserPanelProps) {
+  const formId=useId();
+  const baseline=useRef("");
+  const submitLock=useRef(false);
+  const [confirmClose,setConfirmClose]=useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,7 +44,14 @@ export default function CreateUserPanel({
   const selectedRole = roles.find((r) => r.id === roleId);
   const defaultMap = useMemo(() => buildPermissionMap(selectedRole), [selectedRole]);
 
+  const serialized=JSON.stringify({fullName,email,password,roleId,permissionMap});
+  function requestClose(){if(submitting) return;if(serialized!==baseline.current){setConfirmClose(true);return;}onClose();}
+
   useEffect(() => {
+    if(!open) return;
+    setConfirmClose(false);setShowPassword(false);
+    const initialRole=roles.find(role=>role.id===editingUser?.role_id) ?? (!editingUser ? roles[0] : undefined);
+    baseline.current=JSON.stringify({fullName:editingUser?.full_name ?? "",email:editingUser?.email ?? "",password:"",roleId:editingUser?.role_id ?? roles[0]?.id ?? "",permissionMap:buildPermissionMap(initialRole,editingUser?.permission_overrides)});
     if (editingUser) {
       const role = roles.find((r) => r.id === editingUser.role_id);
       setFullName(editingUser.full_name);
@@ -69,7 +82,8 @@ export default function CreateUserPanel({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!fullName || !email || !roleId) return;
+    if (submitLock.current || !fullName.trim() || !email || !roleId) return;
+    submitLock.current=true;
     setSubmitting(true);
     setError(null);
     try {
@@ -86,43 +100,20 @@ export default function CreateUserPanel({
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo guardar el usuario.");
     } finally {
+      submitLock.current=false;
       setSubmitting(false);
     }
   }
 
-  return (
-    <div
-      className={`fixed inset-0 z-50 transition ${open ? "pointer-events-auto" : "pointer-events-none"}`}
-      aria-hidden={!open}
-    >
-      <div
-        onClick={onClose}
-        className={`absolute inset-0 bg-navy/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
-      />
-
-      <aside
-        className={`absolute inset-y-0 right-0 flex w-full max-w-3xl flex-col overflow-y-auto bg-white shadow-2xl transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="flex items-center justify-between border-b border-navy/10 px-8 py-5">
-          <h2 className="font-display text-xl font-bold text-navy">
-            {editingUser ? "Editar usuario" : "Nuevo usuario"}
-          </h2>
-          <button
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex-1 space-y-8 p-8">
+  return (<>
+      <Modal open={open} onClose={requestClose} title={editingUser ? "Editar usuario" : "Nuevo usuario"} description="Datos de la cuenta, rol y permisos por módulo." closeDisabled={submitting} interactionPaused={confirmClose} footer={<><button type="button" disabled={submitting} onClick={requestClose} className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy">Cancelar</button><button type="submit" form={formId} disabled={submitting} className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{submitting && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin"/>}{editingUser ? "Guardar cambios" : "Crear usuario"}</button></>}>
+        <form id={formId} onSubmit={handleSubmit} className="space-y-6 p-5 sm:p-7">
+          <fieldset disabled={submitting} className="space-y-6">
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Nombre completo</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy" htmlFor={`${formId}-name`}>Nombre completo</label>
               <input
+                id={`${formId}-name`}
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
@@ -132,10 +123,12 @@ export default function CreateUserPanel({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Correo electrónico</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy" htmlFor={`${formId}-email`}>Correo electrónico</label>
               <input
                 required
                 type="email"
+                id={`${formId}-email`}
+                readOnly={!!editingUser}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nombre@empresa.com"
@@ -144,8 +137,9 @@ export default function CreateUserPanel({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Rol</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy" htmlFor={`${formId}-role`}>Rol</label>
               <select
+                id={`${formId}-role`}
                 required
                 value={roleId}
                 onChange={(e) => handleRoleChange(e.target.value)}
@@ -167,9 +161,10 @@ export default function CreateUserPanel({
 
             {!editingUser && (
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-navy">Contraseña</label>
+                <label className="mb-1.5 block text-sm font-medium text-navy" htmlFor={`${formId}-password`}>Contraseña</label>
                 <div className="relative">
                   <input
+                    id={`${formId}-password`}
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -221,25 +216,11 @@ export default function CreateUserPanel({
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
-          <div className="flex justify-end gap-3 border-t border-navy/10 pt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-70"
-            >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {editingUser ? "Guardar cambios" : "Crear usuario"}
-            </button>
-          </div>
+
+          </fieldset>
         </form>
-      </aside>
-    </div>
+      </Modal>
+      <ConfirmDialog open={confirmClose} title="Cambios sin guardar" description="Los cambios de este usuario todavía no se han guardado. ¿Deseas descartarlos?" confirmLabel="Descartar cambios" cancelLabel="Seguir editando" onCancel={()=>setConfirmClose(false)} onConfirm={()=>{setConfirmClose(false);onClose();}}/>
+    </>
   );
 }

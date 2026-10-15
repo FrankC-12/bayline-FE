@@ -15,6 +15,7 @@ import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 import ClientsToolbar from "./ClientToolbar";
 import ClientCard from "./ClientCard";
+import ClientDetailModal from "./ClientDetailModal";
 import ClientFormPanel from "./ClientFormPanel";
 
 export default function ClientsView() {
@@ -28,6 +29,7 @@ export default function ClientsView() {
     : Promise.resolve({items: [], total: 0, page: 1, page_size: size, total_pages: 1}), JSON.stringify([currentUser?.userId, filialId, settledSearch]));
   const {items: clients, loading, error, refresh} = list;
 
+  const [detailClient,setDetailClient]=useState<Client | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
@@ -71,15 +73,17 @@ export default function ClientsView() {
       </Link>
 
       <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold text-navy">Clientes</h1>
+        <h1 className="font-display text-3xl font-bold text-navy">Clientes y vehículos</h1>
         <p className="mt-1 text-sm text-steel">
-          Base de datos compartida de clientes y vehículos de tu filial.
+          Abre la información del cliente con un clic. Consulta sus datos y vehículos, o elige Editar dentro del modal.
         </p>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 rounded-2xl border border-navy/10 bg-white p-4 shadow-sm">
         <ClientsToolbar canCreate={canEdit} search={search} onSearchChange={setSearch} onCreateClick={openCreate} />
       </div>
+
+      <p role="status" className="mb-4 text-sm text-steel">{loading ? "Buscando clientes…" : `Clientes encontrados: ${list.total} · Vehículos en esta página: ${clients.reduce((count,client)=>count+client.vehicles.length,0)}`}</p>
 
       {loading ? (
         <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center text-sm text-steel">
@@ -95,12 +99,14 @@ export default function ClientsView() {
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {clients.map((c) => (
-            <ClientCard key={c.id} client={c} onClick={() => openEdit(c)} />
+            <ClientCard key={c.id} client={c} canEdit={canEdit} onClick={() => setDetailClient(c)} />
           ))}
         </div>
       )}
 
       {!loading && !error && <Pagination {...list} />}
+
+      {detailClient && <ClientDetailModal client={detailClient} canEdit={canEdit} onClose={()=>setDetailClient(null)} onEdit={()=>{const client=detailClient;setDetailClient(null);openEdit(client);}}/>}
 
       <ClientFormPanel
         readOnly={!canEdit}

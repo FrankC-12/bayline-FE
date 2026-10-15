@@ -13,8 +13,17 @@ import { useUserDirectory } from "@/hooks/useUserDirectory";
 import { useRoleDirectory } from "@/hooks/useRoleDirectory";
 import { capitalizeFirst } from "@/lib/format";
 import ErrorState from "@/components/common/ErrorState";
+import type { ServiceOrderStatus } from "@/types/serviceOrder";
 import ConfigureBaysModal from "./ConfigureBaysModal";
 import ScheduleOrderModal from "./ScheduledOrderModal";
+
+const CALENDAR_STATUS: Record<ServiceOrderStatus, {label: string; style: string}> = {
+  pendiente: {label: "Pendiente", style: "border-amber-200 bg-amber-50 text-amber-800"},
+  en_progreso: {label: "En progreso", style: "border-blue/20 bg-blue-light text-blue"},
+  completado: {label: "Completada", style: "border-emerald-200 bg-emerald-50 text-emerald-800"},
+  cancelado: {label: "Cancelada", style: "border-red-200 bg-red-50 text-red-700"},
+  orden_cerrada: {label: "Cerrada", style: "border-slate-200 bg-slate-100 text-slate-600"},
+};
 
 export default function CalendarView() {
   const router = useRouter();
@@ -195,6 +204,7 @@ export default function CalendarView() {
         Arrastra una cita a otra hora o bahía para reagendarla. Haz clic en un espacio libre para agendar una nueva.
       </p>
 
+      <div aria-label="Estados de las citas" className="mb-5 flex flex-wrap gap-2">{Object.entries(CALENDAR_STATUS).map(([status, item])=><span key={status} className={`rounded-full border px-3 py-1 text-xs font-semibold ${item.style}`}>{item.label} · {orders.filter(order=>order.status===status).length}</span>)}</div>
       {moveError && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{moveError}</p>}
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
         <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
@@ -254,10 +264,11 @@ export default function CalendarView() {
                                   onDragStart={(e) => handleDragStart(e, o.id)}
                                   onDragEnd={() => { draggingRef.current = false; setHoveredCell(null); }}
                                   onClick={() => handleCardClick(o.id)}
-                                  className={`mb-1 cursor-grab rounded-lg bg-blue-light px-2 py-1.5 text-xs text-blue transition last:mb-0 hover:bg-blue hover:text-white active:cursor-grabbing ${
+                                  className={`mb-1 rounded-lg border px-2 py-2 text-xs transition last:mb-0 hover:shadow-sm ${CALENDAR_STATUS[o.status].style} ${!o.invoiced_at && !["orden_cerrada", "cancelado"].includes(o.status) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${
                                     movingId === o.id ? "opacity-50" : ""
                                   }`}
                                 >
+                                  <p className="mb-1 text-[10px] font-bold uppercase tracking-wide">{CALENDAR_STATUS[o.status].label}</p>
                                   <p className="font-semibold">{o.code} · {o.scheduled_at && new Date(o.scheduled_at).toLocaleTimeString("es-VE", { timeZone: CALENDAR_TIME_ZONE, hour: "2-digit", minute: "2-digit" })}</p>
                                   <p>{info?.vehicle.plate ?? "Sin placa"}</p>
                                   <p className="opacity-80">{info?.client.full_name}</p>
@@ -295,9 +306,10 @@ export default function CalendarView() {
                       <Link
                         key={o.id}
                         href={`/dashboard/servicios/${o.id}`}
-                        className="block rounded-xl border border-navy/10 px-3 py-2 text-sm transition hover:bg-ash"
+                        className={`block rounded-xl border px-3 py-2 text-sm transition hover:shadow-sm ${CALENDAR_STATUS[o.status].style}`}
                       >
-                        <p className="font-mono text-xs text-blue">
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wide">{CALENDAR_STATUS[o.status].label}</p>
+                        <p className="font-mono text-xs">
                           {o.scheduled_at &&
                             new Date(o.scheduled_at).toLocaleTimeString("es-VE", {
                               timeZone: CALENDAR_TIME_ZONE,

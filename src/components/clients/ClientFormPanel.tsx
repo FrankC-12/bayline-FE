@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import Modal from "@/components/common/Modal";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { ApiError } from "@/lib/api/client";
 import { getDraftStorage, draftKey, initialClientDraft, readClientDraft, writeClientDraft, type ClientDraft, type SavedClientDraft } from "@/lib/client-draft";
-import { X, Loader2, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { formatThousands, formatVenezuelanPhone, stripThousands } from "@/lib/format";
 import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 import type { Client } from "@/types/client";
@@ -43,6 +44,7 @@ export default function ClientFormPanel({
   editingClient,
   readOnly = false,
 }: ClientFormPanelProps) {
+  const formId = useId();
   const [fullName, setFullName] = useState("");
   const [clientType, setClientType] = useState<"particular" | "empresa">("particular");
   const [documentType, setDocumentType] = useState<"V" | "J" | "E" | "G">("V");
@@ -279,37 +281,9 @@ export default function ClientFormPanel({
   }
 
   return (
-    <div
-      className={`fixed inset-0 z-50 transition ${open ? "pointer-events-auto" : "pointer-events-none"}`}
-      aria-hidden={!open}
-    >
-      <div
-        onClick={requestClose}
-        className={`absolute inset-0 bg-navy/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
-      />
-
-      <aside
-        className={`absolute inset-y-0 right-0 flex w-full max-w-4xl flex-col overflow-y-auto bg-white shadow-2xl transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="flex items-center justify-between border-b border-navy/10 px-8 py-5">
-          <div>
-            <h2 className="font-display text-xl font-bold text-navy">
-              {editingClient ? (readOnly ? "Detalle del cliente" : "Editar cliente") : "Nuevo cliente"}
-            </h2>
-            <p className="text-xs text-steel">Los campos marcados con * son obligatorios</p>
-          </div>
-          <button
-            onClick={requestClose}
-            aria-label="Cerrar"
-            className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <form ref={formRef} noValidate onSubmit={handleSubmit} onChangeCapture={() => setFieldErrors({})} className="flex-1 space-y-8 p-8">
+    <>
+      <Modal open={open} onClose={requestClose} title={editingClient ? (readOnly ? "Información del cliente" : "Editar cliente") : "Nuevo cliente"} description={readOnly ? "Datos del cliente y vehículos registrados." : "Los campos marcados con * son obligatorios."} closeDisabled={submitting} interactionPaused={confirmClose} footer={<><button type="button" onClick={requestClose} disabled={submitting} className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy">{readOnly ? "Cerrar" : "Cancelar"}</button>{!readOnly && <button type="submit" form={formId} disabled={submitting || !!availableDraft} className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{submitting && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin"/>}Guardar</button>}</>}>
+        <form id={formId} ref={formRef} noValidate onSubmit={handleSubmit} onChangeCapture={() => setFieldErrors({})} className="space-y-6 p-5 sm:p-7">
           {!readOnly && availableDraft && <div className="rounded-xl bg-blue-light p-4 text-sm">
             <p>Hay un borrador guardado en esta pestaña.{availableDraft.baseVersion !== (editingClient?.updated_at ?? null) ? " El cliente cambió desde ese borrador; no se permitirá sobrescribir una versión más reciente." : ""}</p>
             <div className="mt-2 flex gap-3"><button type="button" onClick={() => {applyDraft(availableDraft.data); setBaseVersion(availableDraft.baseVersion); setAvailableDraft(null);}} className="font-semibold text-blue">Recuperar</button>
@@ -516,27 +490,11 @@ export default function ClientFormPanel({
           )}
 
           </fieldset>
-          <div className="flex justify-end gap-3 border-t border-navy/10 pt-6">
-            <button
-              type="button"
-              onClick={requestClose}
-              className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
-            >
-              Cancelar
-            </button>
-            {!readOnly && <button
-              type="submit"
-              disabled={submitting}
-              className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-70"
-            >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Guardar
-            </button>}
-          </div>
+
         </form>
-      </aside>
+      </Modal>
       <ConfirmDialog open={confirmClose} title="Cambios sin guardar" description={storageFailed ? "No se pudo conservar el borrador. Si cierras, puedes perder los cambios." : "Los cambios aún no están en el servidor. Puedes cerrar y conservar el borrador en esta pestaña."}
         confirmLabel={storageFailed ? "Cerrar sin conservar" : "Cerrar y conservar borrador"} cancelLabel="Seguir editando" onConfirm={closeWithDraft} onCancel={() => {pendingNavigation.current = null; setConfirmClose(false);}} />
-    </div>
+    </>
   );
 }

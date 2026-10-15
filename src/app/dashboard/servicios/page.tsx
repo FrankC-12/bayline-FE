@@ -6,7 +6,7 @@ import OrdersBoard from "@/components/service-orders/OrdersBoard";
 export default function ServiceOrdersPage() {
   return (
     <RequireScope scope="filial">
-      <div className="flex h-dvh flex-col overflow-hidden bg-ash [&>header]:shrink-0">
+      <div className="flex min-h-dvh flex-col bg-ash [&>header]:shrink-0">
         <DashboardHeader />
         <ServiceOrdersLayout>
           <OrdersBoard />

@@ -1,7 +1,9 @@
 "use client";
 
+import Modal from "@/components/common/Modal";
+
 import { useMemo, useState } from "react";
-import { X, Loader2, Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { formatThousands, stripThousands } from "@/lib/format";
 import { uploadDamagePhoto, uploadInspectionPhotos, type CreateInspectionInput } from "@/lib/api/inspections";
@@ -108,31 +110,23 @@ export default function CreateInspectionPanel({
   }
 
   return (
-    <div
-      className={`fixed inset-0 z-50 transition ${open ? "pointer-events-auto" : "pointer-events-none"}`}
-      aria-hidden={!open}
-    >
-      <div
-        onClick={onClose}
-        className={`absolute inset-0 bg-navy/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
-      />
-      <aside
-        className={`absolute inset-y-0 right-0 flex w-full max-w-lg flex-col overflow-y-auto bg-white shadow-2xl transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="flex items-center justify-between border-b border-navy/10 px-8 py-5">
-          <h2 className="font-display text-xl font-bold text-navy">Nueva Inspección</h2>
-          <button
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy"
+    <Modal open={open} onClose={onClose} title="Nueva Inspección" size="lg" closeDisabled={submitting} footer={<><button
+            type="button"
+            onClick={onClose} disabled={submitting}
+            className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
           >
-            <X className="h-5 w-5" />
+            Cancelar
           </button>
-        </div>
-
-        <div className="flex-1 space-y-5 p-8">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!selectedVehicleId || submitting}
+            className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Crear inspección
+          </button></>}>
+      <div className="space-y-5 p-5 sm:p-7">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Vehículo</label>
             <div className="relative">
@@ -231,25 +225,7 @@ export default function CreateInspectionPanel({
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-navy/10 p-6">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!selectedVehicleId || submitting}
-            className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Crear inspección
-          </button>
-        </div>
-      </aside>
-    </div>
+
+    </Modal>
   );
 }

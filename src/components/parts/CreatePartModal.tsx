@@ -1,9 +1,11 @@
 "use client";
 
+import Modal from "@/components/common/Modal";
+
 import { NumberInput } from "@/components/ui/NumberInput";
 
-import { useEffect, useMemo, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { useEffect, useMemo, useState, useId } from "react";
+import { Loader2 } from "lucide-react";
 import { usePartCategories } from "@/hooks/usePartCategories";
 import { useVehicleCatalog } from "@/hooks/useVehicleCatalog";
 import type { CreatePartInput, UpdatePartInput } from "@/lib/api/parts";
@@ -71,6 +73,7 @@ export default function CreatePartModal({
   onToggleActive,
   onSaved,
 }: CreatePartModalProps) {
+  const formId=useId();
   const { categories } = usePartCategories(filialId);
   const { brands } = useVehicleCatalog(filialId);
   const [editingIsActive, setEditingIsActive] = useState(true);
@@ -170,26 +173,15 @@ export default function CreatePartModal({
   }
 
   return (
-    <div
-      className={`fixed inset-0 z-50 transition ${open ? "pointer-events-auto" : "pointer-events-none"}`}
-      aria-hidden={!open}
-    >
-      <div
-        onClick={onClose}
-        className={`absolute inset-0 bg-navy/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
-      />
-      <aside
-        className={`absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-white shadow-2xl transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
-      >
-        <div className="flex items-center justify-between border-b border-navy/10 px-8 py-5">
-          <h2 className="font-display text-xl font-bold text-navy">
-            {editingPart ? "Editar repuesto" : "Nuevo repuesto"}
-          </h2>
-          <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="flex-1 space-y-5 overflow-y-auto p-8">
+    <Modal open={open} onClose={onClose} title={editingPart ? "Editar repuesto" : "Nuevo repuesto"} size="lg" closeDisabled={submitting} footer={<><button type="button" onClick={onClose} disabled={submitting} className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy">Cancelar</button><button
+            type="submit" form={formId}
+            disabled={submitting}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-60"
+          >
+            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {editingPart ? "Guardar cambios" : "Crear repuesto"}
+          </button></>}>
+      <form id={formId} onSubmit={handleSubmit} className="space-y-5 p-5 sm:p-7">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Código interno</label>
             <input
@@ -370,16 +362,8 @@ export default function CreatePartModal({
             entrada más reciente) y no se editan en el catálogo.
           </p>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-60"
-          >
-            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            {editingPart ? "Guardar cambios" : "Crear repuesto"}
-          </button>
+
         </form>
-      </aside>
-    </div>
+    </Modal>
   );
 }

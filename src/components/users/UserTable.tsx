@@ -13,6 +13,7 @@ interface UserTableProps {
   onRetry?: () => void;
   canManage: boolean;
   currentUserId?: string | null;
+  onView: (user: AppUser) => void;
   onEdit: (user: AppUser) => void;
   onToggleStatus: (user: AppUser) => void;
 }
@@ -26,7 +27,7 @@ function getInitials(name: string) {
     .join("");
 }
 
-export default function UserTable({ users, roles, loading, error, onRetry, canManage, currentUserId, onEdit, onToggleStatus }: UserTableProps) {
+export default function UserTable({ users, roles, loading, error, onRetry, canManage, currentUserId, onView, onEdit, onToggleStatus }: UserTableProps) {
   const roleName = (roleId: string) => roles.find((r) => r.id === roleId)?.name ?? "—";
 
   if (loading) {
@@ -51,7 +52,7 @@ export default function UserTable({ users, roles, loading, error, onRetry, canMa
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
       <table className="w-full text-left text-sm">
         <thead className="border-b border-navy/10 bg-ash">
           <tr>
@@ -76,7 +77,7 @@ export default function UserTable({ users, roles, loading, error, onRetry, canMa
                     {getInitials(u.full_name)}
                   </span>
                   <div>
-                    <p className="font-medium text-navy">{u.full_name}</p>
+                    <button type="button" onClick={()=>onView(u)} aria-label={`Ver información de ${u.full_name}`} className="text-left font-semibold text-navy hover:text-blue focus-visible:outline-2 focus-visible:outline-blue">{u.full_name}</button>
                     <p className="text-xs text-steel">{u.email}</p>
                   </div>
                 </div>

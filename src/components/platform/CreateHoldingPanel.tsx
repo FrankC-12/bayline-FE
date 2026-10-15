@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, Loader2 } from "lucide-react";
+import Modal from "@/components/common/Modal";
+
+import { useEffect, useState, useId } from "react";
+import { Loader2 } from "lucide-react";
 import { slugify } from "@/lib/slug";
 import type { Holding } from "@/types/holding";
 import type { CreateHoldingInput } from "@/lib/api/holding";
@@ -19,6 +21,7 @@ export default function CreateHoldingPanel({
   onSubmit,
   editingHolding,
 }: CreateHoldingPanelProps) {
+  const formId=useId();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
@@ -61,33 +64,22 @@ export default function CreateHoldingPanel({
   }
 
   return (
-    <div
-      className={`fixed inset-0 z-50 transition ${open ? "pointer-events-auto" : "pointer-events-none"}`}
-      aria-hidden={!open}
-    >
-      <div
-        onClick={onClose}
-        className={`absolute inset-0 bg-navy/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
-      />
-      <aside
-        className={`absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="flex items-center justify-between border-b border-navy/10 px-8 py-5">
-          <h2 className="font-display text-xl font-bold text-navy">
-            {editingHolding ? "Editar holding" : "Nuevo holding"}
-          </h2>
-          <button
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex-1 space-y-5 p-8">
+    <Modal open={open} onClose={onClose} title={editingHolding ? "Editar holding" : "Nuevo holding"} size="md" closeDisabled={submitting} footer={<><button
+              type="button"
+              onClick={onClose} disabled={submitting}
+              className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit" form={formId}
+              disabled={submitting}
+              className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-70"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {editingHolding ? "Guardar cambios" : "Crear holding"}
+            </button></>}>
+      <form id={formId} onSubmit={handleSubmit} className="space-y-5 p-5 sm:p-7">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Nombre</label>
             <input
@@ -117,25 +109,8 @@ export default function CreateHoldingPanel({
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
-          <div className="flex justify-end gap-3 border-t border-navy/10 pt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-70"
-            >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {editingHolding ? "Guardar cambios" : "Crear holding"}
-            </button>
-          </div>
+
         </form>
-      </aside>
-    </div>
+    </Modal>
   );
 }

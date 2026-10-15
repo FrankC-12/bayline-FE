@@ -249,7 +249,7 @@ export default function TransfersCard({
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-blue" />
                     <span className="font-mono text-sm font-semibold text-navy">{transfer.code}</span>
-                    {canDelete && !readOnly && transfer.status !== "completado" && !transfer.stock_deducted && <button type="button" onClick={() => setDeletingId(transfer.id)} className="rounded-lg px-2 py-1 text-xs text-red-700">Eliminar ODT</button>}
+                    {canDelete && !readOnly && transfer.status === "pendiente" && !transfer.stock_deducted && <button type="button" onClick={() => setDeletingId(transfer.id)} className="rounded-lg px-2 py-1 text-xs text-red-700">Eliminar ODT</button>}
                     <span
                       className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest ${
                         transfer.status === "completado"

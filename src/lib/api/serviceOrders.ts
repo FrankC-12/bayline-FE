@@ -21,7 +21,7 @@ export interface CreateServiceOrderInput {
   inspection_id?: string;
   customer_reason: string;
   advisor_user_id: string;
-  promised_at: string;
+  promised_at?: string | null;
   notes?: string | null;
   scheduled_at?: string | null;
   technician_user_id?: string | null;
@@ -35,6 +35,8 @@ export interface UpdateServiceOrderInput {
   advisor_user_id?: string | null;
   bay_id?: string | null;
   scheduled_at?: string | null;
+  promised_at?: string | null;
+  clear_promised_at?: boolean;
   notes?: string | null;
   clear_technician?: boolean;
   clear_advisor?: boolean;

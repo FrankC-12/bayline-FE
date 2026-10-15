@@ -151,8 +151,8 @@ export default function ScheduleOrderModal({
       setError("Selecciona el asesor responsable.");
       return;
     }
-    if (!promisedDate || !promisedTime) {
-      setError("Selecciona la fecha de inicio de la ODS.");
+    if (!!promisedDate !== !!promisedTime) {
+      setError("Selecciona fecha y hora de entrega prometida, o deja ambos vacíos.");
       return;
     }
     if (requiredClaimType && !warrantyClaimId) {
@@ -173,7 +173,7 @@ export default function ScheduleOrderModal({
         notes: notes || null,
         customer_reason: customerReason.trim(),
         advisor_user_id: advisorId,
-        promised_at: calendarTimestamp(promisedDate, promisedTime),
+        promised_at: promisedDate && promisedTime ? calendarTimestamp(promisedDate, promisedTime) : null,
       });
       setSearch("");
       setSelectedVehicleId(null);
@@ -356,7 +356,7 @@ export default function ScheduleOrderModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Fecha de inicio de ODS</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">Entrega prometida (opcional)</label>
             <div className="grid grid-cols-2 gap-3">
               <input
                 type="date"

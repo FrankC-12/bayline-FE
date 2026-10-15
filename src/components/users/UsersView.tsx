@@ -10,6 +10,8 @@ import type { AppUser, UserStatus } from "@/types/user";
 import type { CreateUserInput } from "@/lib/api/user";
 import UsersToolbar from "./UsersToolbar";
 import UserTable from "./UserTable";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import UserDetailModal from "./UserDetailModal";
 import CreateUserPanel from "./CreateUserPanel";
 
 export default function UsersView() {
@@ -23,6 +25,10 @@ export default function UsersView() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("todos");
   const [statusFilter, setStatusFilter] = useState<UserStatus | "todos">("todos");
+  const [statusTarget,setStatusTarget]=useState<AppUser | null>(null);
+  const [statusBusy,setStatusBusy]=useState(false);
+  const [statusError,setStatusError]=useState<string | null>(null);
+  const [detailUser,setDetailUser]=useState<AppUser | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
 
@@ -47,13 +53,16 @@ export default function UsersView() {
     setPanelOpen(true);
   }
 
-  async function handleToggleStatus(user: AppUser) {
-    if (user.status === "inactivo") {
-      await editUser(user.id, { status: "activo" });
-      return;
-    }
-    if (!confirm(`¿Inactivar a ${user.full_name}? No podrá iniciar sesión hasta que se reactive.`)) return;
-    await editUser(user.id, { status: "inactivo" });
+  function handleToggleStatus(user:AppUser) {
+    if(!canManage || user.id===currentUser?.userId) return;
+    setStatusError(null);setStatusTarget(user);
+  }
+  async function confirmStatusChange() {
+    if(!statusTarget || statusBusy || !canManage) return;
+    setStatusBusy(true);setStatusError(null);
+    try {await editUser(statusTarget.id,{status:statusTarget.status === "inactivo" ? "activo" : "inactivo"});setStatusTarget(null);}
+    catch(error){setStatusError(error instanceof Error ? error.message : "No se pudo cambiar el estado.");}
+    finally{setStatusBusy(false);}
   }
 
   async function handleSubmit(input: CreateUserInput) {
@@ -117,9 +126,14 @@ export default function UsersView() {
         onRetry={refresh}
         canManage={canManage}
         currentUserId={currentUser?.userId}
+        onView={setDetailUser}
         onEdit={openEdit}
         onToggleStatus={handleToggleStatus}
       />
+
+      <ConfirmDialog open={!!statusTarget} title={statusTarget?.status === "inactivo" ? "Reactivar usuario" : "Inactivar usuario"} description={statusError ?? (statusTarget?.status === "inactivo" ? `¿Deseas reactivar a ${statusTarget.full_name}?` : `¿Deseas inactivar a ${statusTarget?.full_name}? No podrá iniciar sesión hasta que se reactive.`)} confirmLabel={statusTarget?.status === "inactivo" ? "Reactivar" : "Inactivar"} confirming={statusBusy} onCancel={()=>{if(!statusBusy) setStatusTarget(null);}} onConfirm={()=>void confirmStatusChange()}/>
+
+      {detailUser && <UserDetailModal user={detailUser} roles={roles} canManage={canManage} onClose={()=>setDetailUser(null)} onEdit={()=>{const user=detailUser;setDetailUser(null);openEdit(user);}}/>}
 
       {canManage && (
         <CreateUserPanel

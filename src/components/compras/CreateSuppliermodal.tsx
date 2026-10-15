@@ -1,7 +1,9 @@
 "use client";
 
+import Modal from "@/components/common/Modal";
+
 import { useState } from "react";
-import { X, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { CreateSupplierInput } from "@/lib/api/administracion";
 import { formatVenezuelanPhone } from "@/lib/format";
 
@@ -84,17 +86,21 @@ export default function CreateSupplierModal({ open, onClose, filialId, onSubmit 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div onClick={onClose} className="absolute inset-0 bg-navy/40" />
-      <aside className="relative flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-navy/10 px-8 py-5">
-          <h2 className="font-display text-xl font-bold text-navy">Crear Nuevo Proveedor</h2>
-          <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy">
-            <X className="h-5 w-5" />
+    <Modal open={open} onClose={onClose} title="Crear Nuevo Proveedor" size="lg" closeDisabled={submitting} footer={<><button
+            onClick={onClose} disabled={submitting}
+            className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
+          >
+            Cancelar
           </button>
-        </div>
-
-        <div className="flex-1 space-y-5 p-8">
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit || submitting}
+            className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Crear Proveedor
+          </button></>}>
+      <div className="space-y-5 p-5 sm:p-7">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Razón social</label>
             <input
@@ -201,23 +207,7 @@ export default function CreateSupplierModal({ open, onClose, filialId, onSubmit 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-navy/10 p-6">
-          <button
-            onClick={onClose}
-            className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit || submitting}
-            className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Crear Proveedor
-          </button>
-        </div>
-      </aside>
-    </div>
+
+    </Modal>
   );
 }

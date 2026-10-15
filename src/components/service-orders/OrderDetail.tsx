@@ -17,6 +17,7 @@ import { useInspectionForOrder } from "@/hooks/useInspectionForOrder";
 import { useInspections } from "@/hooks/useInspections";
 import { useOrderSummary } from "@/hooks/useOrderSummary";
 import { useTemparios } from "@/hooks/useTemparios";
+import OrderDatesEditor from "./OrderDatesEditor";
 import TasksCard from "./TaskCard";
 import TransfersCard from "./TransferCard";
 import CoverageBreakdownCard from "./CoverageBreakdownCard";
@@ -26,6 +27,7 @@ import PendingUpsellsBlock from "./PendingUpsellsBlock";
 import WarrantyClaimModal from "./WarrantyClaimModal";
 import VehicleDamageMap from "@/components/inspections/VehicleDamageMap";
 import { closeServiceOrder } from "@/lib/api/serviceOrderBilling";
+import { CALENDAR_TIME_ZONE } from "@/lib/calendar";
 import { formatElapsed, serviceOrderStoppedAt } from "@/lib/time";
 import LiveDot from "@/components/common/LiveDot";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
@@ -332,12 +334,14 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           {info ? `${info.vehicle.brand} ${info.vehicle.model} ${info.vehicle.year ?? ""}` : "Vehículo"}
         </h1>
         <dl className="mt-5 grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[{label:"Placa",value:info?.vehicle.plate ?? "Sin placa"},{label:"Cliente",value:info?.client.full_name ?? "—"},{label:"Técnico responsable",value:users.find(u=>u.id===order.technician_user_id)?.full_name ?? "Sin asignar"},{label:"Entrega prometida",value:order.promised_at ? new Date(order.promised_at).toLocaleString("es-VE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "Sin fecha"}].map(item=><div key={item.label} className="min-w-0"><dt className="text-[10px] font-semibold uppercase tracking-wide text-steel">{item.label}</dt><dd className="mt-1.5 break-words text-sm font-semibold text-navy">{item.value}</dd></div>)}
+          {[{label:"Placa",value:info?.vehicle.plate ?? "Sin placa"},{label:"Cliente",value:info?.client.full_name ?? "—"},{label:"Técnico responsable",value:users.find(u=>u.id===order.technician_user_id)?.full_name ?? "Sin asignar"},{label:"Entrega prometida",value:order.promised_at ? new Date(order.promised_at).toLocaleString("es-VE",{timeZone: CALENDAR_TIME_ZONE,day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "Sin fecha"}].map(item=><div key={item.label} className="min-w-0"><dt className="text-[10px] font-semibold uppercase tracking-wide text-steel">{item.label}</dt><dd className="mt-1.5 break-words text-sm font-semibold text-navy">{item.value}</dd></div>)}
         </dl>
+
+        <OrderDatesEditor key={`${order.id}-${order.updated_at}`} order={order} disabled={readOnly || saving} onSave={update} />
 
         {inspection && <p className="mt-4 inline-flex rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800">✓ Inspección preliminar vinculada</p>}
 
-        <div className="mt-5 flex flex-wrap gap-3 border-t border-navy/10 pt-5">
+        {(canForceComplete || order.status === "completado" || !!order.invoiced_at || !!actionError) && <div className="mt-5 flex flex-wrap gap-3 border-t border-navy/10 pt-5">
           {canForceComplete && (
             <button
               onClick={() => setForceCompleteDialogOpen(true)}
@@ -366,14 +370,14 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             Reclamos de garantía
           </button>}
           {actionError && <p role="alert" className="w-full text-sm text-red-600">{actionError}</p>}
-        </div>
+        </div>}
 
         {(order.status === "pendiente" || order.status === "en_progreso") && (
-          <div className="mt-3 flex justify-end border-t border-red-100 pt-3">
+          <div className="mt-3 flex justify-end pt-1">
             <button
               onClick={() => setCancelDialogOpen(true)}
               disabled={saving || readOnly}
-              className="rounded-full border border-red-200 px-5 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+              className="rounded-full px-3 py-2 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
             >
               Cancelar orden
             </button>
@@ -508,9 +512,9 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         )}
       </div>
 
-      <div className="mt-6 rounded-2xl border border-navy/10 bg-white p-6">
+      <div className="mt-6 rounded-2xl border border-navy/10 bg-white p-5 shadow-sm sm:p-6">
         <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">Datos de recepción</p>
-        <div className="grid gap-4 sm:grid-cols-4">
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           <div>
             <p className="text-xs text-steel">Kilometraje de ingreso</p>
             <p className="mt-0.5 text-sm font-semibold text-navy">
@@ -527,10 +531,10 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
             </p>
           </div>
           <div>
-            <p className="text-xs text-steel">Fecha de inicio de ODS</p>
+            <p className="text-xs text-steel">Inicio de visita</p>
             <p className="mt-0.5 text-sm font-semibold text-navy">
-              {order.promised_at
-                ? new Date(order.promised_at).toLocaleString("es-VE", {
+              {order.scheduled_at
+                ? new Date(order.scheduled_at).toLocaleString("es-VE", { timeZone: CALENDAR_TIME_ZONE,
                     day: "2-digit",
                     month: "2-digit",
                     year: "numeric",
@@ -547,63 +551,15 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-5 md:grid-cols-3">
-        <div className="rounded-2xl border border-navy/10 bg-white p-5">
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">Creación</p>
-          <p className="font-semibold text-navy">{new Date(order.created_at).toLocaleString("es-VE", { dateStyle: "long", timeStyle: "short" })}</p>
-          <span className="mt-4 inline-flex items-center gap-2 rounded-xl border border-navy/10 bg-ash px-3 py-2 font-mono font-semibold text-blue"><Clock className="h-4 w-4" />{elapsed}</span>
-        </div>
-        <div className="rounded-2xl border border-navy/10 bg-white p-5">
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">
-            Técnico asignado
-          </p>
-          <select
-            disabled={readOnly || saving}
-            value={order.technician_user_id ?? ""}
-            onChange={(e) => assignTechnician(e.target.value)}
-            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-          >
-            <option value="">Sin asignar</option>
-            {technicians.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.full_name}
-              </option>
-            ))}
-          </select>
-
-          <p className="mb-3 mt-5 font-mono text-[11px] uppercase tracking-widest text-steel">
-            Bahía a utilizar
-          </p>
-          <select
-            disabled={readOnly || saving}
-            value={order.bay_id ?? ""}
-            onChange={(e) => assignBay(e.target.value)}
-            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-          >
-            <option value="">Sin asignar</option>
-            {bays.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="rounded-2xl border border-navy/10 bg-white p-5">
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">
-            Vehículo asignado
-          </p>
-          {info ? (
-            <div>
-              <p className="font-display font-bold text-navy">
-                {info.vehicle.brand} {info.vehicle.model}
-              </p>
-              <p className="font-mono text-sm text-blue">{info.vehicle.plate}</p>
-              <p className="mt-1 text-sm text-steel">{info.client.full_name}</p>
-            </div>
-          ) : (
-            <p className="text-sm text-steel">Vehículo no encontrado</p>
-          )}
+      <div className="mt-6 rounded-2xl border border-navy/10 bg-white p-5 shadow-sm sm:p-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2"><h2 className="font-display text-lg font-bold text-navy">Responsables y ubicación</h2><p className="text-xs text-steel">Creada {new Date(order.created_at).toLocaleString("es-VE", {timeZone: CALENDAR_TIME_ZONE, dateStyle:"medium",timeStyle:"short"})}</p></div>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <label className="block text-xs font-semibold text-steel">Técnico asignado
+            <select disabled={readOnly || saving} value={order.technician_user_id ?? ""} onChange={e=>assignTechnician(e.target.value)} className="mt-2 w-full rounded-xl border border-navy/15 bg-slate-50 px-4 py-3 text-sm font-normal text-navy outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"><option value="">Sin asignar</option>{technicians.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select>
+          </label>
+          <label className="block text-xs font-semibold text-steel">Bahía a utilizar
+            <select disabled={readOnly || saving} value={order.bay_id ?? ""} onChange={e=>assignBay(e.target.value)} className="mt-2 w-full rounded-xl border border-navy/15 bg-slate-50 px-4 py-3 text-sm font-normal text-navy outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"><option value="">Sin asignar</option>{bays.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select>
+          </label>
         </div>
       </div>
 
