@@ -1,5 +1,8 @@
 "use client";
 
+import PartImagePicker from "./PartImagePicker";
+import { uploadPartImage, removePartImage } from "@/lib/api/parts";
+import { useToast } from "@/contexts/ToastContext";
 import Modal from "@/components/common/Modal";
 
 import { NumberInput } from "@/components/ui/NumberInput";
@@ -74,6 +77,9 @@ export default function CreatePartModal({
   onSaved,
 }: CreatePartModalProps) {
   const formId=useId();
+  const toast=useToast();
+  const [imageFile,setImageFile]=useState<File|null>(null);
+  const [imageRemoved,setImageRemoved]=useState(false);
   const { categories } = usePartCategories(filialId);
   const { brands } = useVehicleCatalog(filialId);
   const [editingIsActive, setEditingIsActive] = useState(true);
@@ -88,6 +94,7 @@ export default function CreatePartModal({
 
   useEffect(() => {
     if (!open) return;
+    setImageFile(null);setImageRemoved(false);
     if (editingPart) {
       setEditingIsActive(editingPart.is_active);
       setForm({
@@ -163,6 +170,12 @@ export default function CreatePartModal({
         };
         saved = await onCreate(payload);
       }
+      try {
+        if(imageFile) saved=await uploadPartImage(saved.id,imageFile);
+        else if(imageRemoved && editingPart?.image_url) saved=await removePartImage(saved.id);
+      } catch(error) {
+        toast.error(`El repuesto se guardó, pero no se pudo actualizar su imagen. Puedes reintentar desde el detalle. ${error instanceof Error ? error.message : ""}`);
+      }
       onSaved?.(saved);
       onClose();
     } catch (err) {
@@ -182,6 +195,7 @@ export default function CreatePartModal({
             {editingPart ? "Guardar cambios" : "Crear repuesto"}
           </button></>}>
       <form id={formId} onSubmit={handleSubmit} className="space-y-5 p-5 sm:p-7">
+          <PartImagePicker imageUrl={imageRemoved ? null : editingPart?.image_url} file={imageFile} name={form.name || "repuesto"} disabled={submitting} onChange={file=>{setImageFile(file);setImageRemoved(!file);}}/>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Código interno</label>
             <input

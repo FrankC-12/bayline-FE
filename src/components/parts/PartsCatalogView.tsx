@@ -72,7 +72,7 @@ export default function PartsCatalogView() {
             Datos maestros; el stock y el precio se calculan desde los almacenes
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setBulkOpen(true)}
             className="inline-flex items-center gap-2 rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
@@ -222,6 +222,7 @@ export default function PartsCatalogView() {
           onCreate={addPart}
           onUpdate={editPart}
           onToggleActive={toggleActive}
+          onSaved={()=>void refresh()}
         />
       )}
 
@@ -230,6 +231,7 @@ export default function PartsCatalogView() {
         part={viewingPart}
         onClose={() => setViewOpen(false)}
         onEdit={openEditPanel}
+        onUpdated={part=>{setViewingPart(part);void refresh();}}
       />
 
       <BulkImportPartsModal open={bulkOpen} onClose={() => setBulkOpen(false)} onImport={bulkAddParts} />

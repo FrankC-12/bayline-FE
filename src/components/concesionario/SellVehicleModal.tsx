@@ -3,9 +3,9 @@
 import { NumberInput } from "@/components/ui/NumberInput";
 
 import { useEffect, useState } from "react";
-import { X, Loader2, Search, Landmark, AlertTriangle } from "lucide-react";
+import { X, Loader2, Search, AlertTriangle } from "lucide-react";
 import { useClients } from "@/hooks/useClients";
-import { useUserDirectory } from "@/hooks/useUserDirectory";
+import { useVehicleSalesAdvisors } from "@/hooks/useVehicleSalesAdvisors";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useToast } from "@/contexts/ToastContext";
 import ClientFormPanel from "@/components/clients/ClientFormPanel";
@@ -37,7 +37,7 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [createClientOpen, setCreateClientOpen] = useState(false);
   const { clients, addClient } = useClients(filialId, clientSearch || undefined);
-  const { users } = useUserDirectory({ filialId });
+  const { users,loading:advisorsLoading,error:advisorsError,refresh:refreshAdvisors } = useVehicleSalesAdvisors(filialId);
   const { canEdit: canAuthorizeBelowCost } = useModuleAccess("administracion");
 
   const [advisorId, setAdvisorId] = useState("");
@@ -107,6 +107,7 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
         return;
       }
     }
+    if(advisorId && !users.some(user=>user.id===advisorId)){setError("Selecciona un asesor de venta de vehículos activo de esta filial.");return;}
     setSubmitting(true);
     setError(null);
     try {
@@ -168,7 +169,7 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
                 </div>
                 <button
                   type="button"
-                  disabled={vehicle.status === "reservado"}
+                  disabled={submitting || advisorsLoading || !!advisorsError || vehicle.status === "reservado"}
                   onClick={() => setSelectedClient(null)}
                   className="text-xs font-semibold text-blue hover:text-navy"
                 >
@@ -223,10 +224,11 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Asesor</label>
+            <label htmlFor="vehicle-sale-advisor" className="mb-1.5 block text-sm font-medium text-navy">Asesor de venta de vehículos</label>
             <select
+              id="vehicle-sale-advisor"
               value={advisorId}
-              disabled={vehicle.status === "reservado"}
+              disabled={submitting || advisorsLoading || !!advisorsError || vehicle.status === "reservado"}
               onChange={(e) => setAdvisorId(e.target.value)}
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
             >
@@ -237,6 +239,7 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
                 </option>
               ))}
             </select>
+            {advisorsError ? <p role="alert" className="mt-2 text-xs text-red-700">No se pudieron cargar los asesores. <button type="button" onClick={()=>void refreshAdvisors()} className="underline">Reintentar</button></p> : <p className="mt-1 text-[11px] text-steel">{advisorsLoading ? "Cargando asesores…" : users.length ? "Solo asesores activos de venta de vehículos de esta filial." : "No hay asesores de venta de vehículos activos en esta filial."}</p>}
           </div>
 
           <div>
@@ -348,18 +351,11 @@ export default function SellVehicleModal({ open, onClose, filialId, vehicle, onC
                   <p className="text-sm text-steel">Precio financiado</p>
                   <p className="font-display text-lg font-bold text-navy">{symbol} {formatMoney(vehicle.price_financed)}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => toast.info("Próximamente: esto se conectará con el proveedor de financiamiento por webhook.")}
-                  className="flex items-center gap-1.5 rounded-full border border-navy/15 px-4 py-2 text-xs font-semibold text-navy transition hover:border-blue hover:text-blue"
-                >
-                  <Landmark className="h-3.5 w-3.5" />
-                  Conectar con financiamiento
-                </button>
+
               </div>
               <p className="mt-2 text-xs text-steel">
                 El proveedor actual es <span className="font-medium text-navy">{vehicle.financing_provider ?? "sin asignar"}</span>.
-                Las condiciones del crédito se gestionan directamente con el financista.
+                Al confirmar la venta podrás consultar su contrato, cuotas y pagos reportados en Concesionario → Financiamientos. La conexión externa se configura por separado.
               </p>
             </div>
           )}

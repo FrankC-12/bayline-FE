@@ -1,7 +1,7 @@
 "use client";
 import { deleteServiceOrderTransfer } from "@/lib/api/serviceOrders";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ChevronLeft, Clock, X } from "lucide-react";
@@ -16,7 +16,6 @@ import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useInspectionForOrder } from "@/hooks/useInspectionForOrder";
 import { useInspections } from "@/hooks/useInspections";
 import { useOrderSummary } from "@/hooks/useOrderSummary";
-import { useTemparios } from "@/hooks/useTemparios";
 import OrderDatesEditor from "./OrderDatesEditor";
 import TasksCard from "./TaskCard";
 import TransfersCard from "./TransferCard";
@@ -92,15 +91,10 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const [billingOpen, setBillingOpen] = useState(false);
   const [claimModalOpen, setClaimModalOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [exitMileage, setExitMileage] = useState("");
-  const [closePanelOpen, setClosePanelOpen] = useState(false);
+  const closing = useRef(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [forceCompleteDialogOpen, setForceCompleteDialogOpen] = useState(false);
-  const [nextMaintenanceDate, setNextMaintenanceDate] = useState("");
-  const [temparioSearch, setTemparioSearch] = useState("");
-  const [nextMaintenanceTempario, setNextMaintenanceTempario] = useState<{ id: string; code: string; name: string } | null>(null);
-  const { temparios: temparioResults } = useTemparios(filialId, temparioSearch || undefined);
   const [addingPlanTask, setAddingPlanTask] = useState(false);
   const stoppedAt = order ? serviceOrderStoppedAt(order) : null;
   const [elapsed, setElapsed] = useState(() => (order ? formatElapsed(order.created_at, stoppedAt) : ""));
@@ -193,16 +187,16 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   }
 
   async function finishOrder() {
-    if (!order?.invoiced_at || order.status !== "completado") return;
+    if (!order?.invoiced_at || order.status !== "completado" || closing.current) return;
+    closing.current = true;
     setSaving(true); setActionError(null);
     try {
-      await closeServiceOrder(orderId, nextMaintenanceDate || null, nextMaintenanceTempario?.id ?? null, exitMileage ? Number(exitMileage) : null);
+      await closeServiceOrder(orderId);
       await refreshOrder(); await refreshSummary();
-      setClosePanelOpen(false);
-      toast.success("Orden cerrada.");
+      toast.success("Entrega registrada. Orden cerrada.");
     }
     catch (err) { setActionError(err instanceof Error ? err.message : "No se pudo cerrar la orden."); }
-    finally { setSaving(false); }
+    finally { closing.current = false; setSaving(false); }
   }
 
   async function forceComplete() {
@@ -349,7 +343,6 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           {label:"Kilometraje de ingreso",value:order.intake_mileage != null ? `${order.intake_mileage.toLocaleString("es-VE")} km` : "Sin registrar"},
           {label:"Asesor responsable",value:users.find(u=>u.id===order.advisor_user_id)?.full_name ?? "—"},
           {label:"Inicio de visita",value:order.scheduled_at ? new Date(order.scheduled_at).toLocaleString("es-VE",{timeZone:CALENDAR_TIME_ZONE}) : "Sin fecha"},
-          {label:"Entrega prometida",value:order.promised_at ? new Date(order.promised_at).toLocaleString("es-VE",{timeZone:CALENDAR_TIME_ZONE}) : "Sin fecha"},
           {label:"Creación",value:new Date(order.created_at).toLocaleString("es-VE",{timeZone:CALENDAR_TIME_ZONE})},
           {label:"Motivo del cliente",value:order.customer_reason || "Sin registrar"},
         ].map(item=><div key={item.label}><dt>{item.label}</dt><dd className="mt-1 font-semibold text-navy">{item.value}</dd></div>)}</dl>
@@ -362,7 +355,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
               className="rounded-full bg-blue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">
               {order.invoiced_at ? "Ver factura y cobro" : "Facturar"}
             </button>
-            <button onClick={() => setClosePanelOpen(true)} disabled={saving || !order.invoiced_at || closePanelOpen}
+            <button onClick={() => void finishOrder()} disabled={saving || !order.invoiced_at}
               title={!order.invoiced_at ? "Primero debes facturar y registrar el cobro" : undefined}
               className="rounded-full bg-navy px-5 py-2 text-sm font-semibold text-white disabled:opacity-40">
               Registrar entrega
@@ -442,93 +435,6 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
 
         </div></details>
         {actionError && <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
-        {closePanelOpen && (
-          <div className="mt-5 rounded-xl bg-ash p-4">
-            <label className="mb-4 block text-sm font-semibold text-navy">Kilometraje de salida<input type="number" min={order.intake_mileage ?? 0} value={exitMileage} onChange={event=>setExitMileage(event.target.value)} className="mt-2 w-full rounded-xl border border-navy/15 px-3 py-2" /></label>
-            <label className="mb-1.5 block text-sm font-medium text-navy">
-              Próxima visita sugerida (opcional)
-            </label>
-            <p className="mb-2 text-xs text-steel">
-              Si el vehículo aplica, alimenta el listado de mantenimiento por vencer en Torre de
-              Control.
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                type="date"
-                value={nextMaintenanceDate}
-                onChange={(e) => setNextMaintenanceDate(e.target.value)}
-                className="rounded-xl border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue"
-              />
-            </div>
-
-            <label className="mb-1.5 mt-4 block text-sm font-medium text-navy">
-              Tarea del plan pendiente (opcional)
-            </label>
-            {nextMaintenanceTempario ? (
-              <div className="flex items-center gap-2 rounded-xl border border-navy/15 bg-white px-3 py-2 text-sm">
-                <span className="font-mono text-blue">{nextMaintenanceTempario.code}</span>
-                <span className="text-navy">{nextMaintenanceTempario.name}</span>
-                <button
-                  onClick={() => setNextMaintenanceTempario(null)}
-                  className="ml-auto text-xs font-medium text-steel hover:text-navy"
-                >
-                  Quitar
-                </button>
-              </div>
-            ) : (
-              <div className="relative">
-                <input
-                  value={temparioSearch}
-                  onChange={(e) => setTemparioSearch(e.target.value)}
-                  placeholder="Buscar tarea del catálogo — código o nombre..."
-                  className="w-full rounded-xl border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue"
-                />
-                {temparioSearch && temparioResults.length > 0 && (
-                  <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">
-                    {temparioResults.slice(0, 6).map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => {
-                          setNextMaintenanceTempario({ id: t.id, code: t.code, name: t.name });
-                          setTemparioSearch("");
-                        }}
-                        className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-ash"
-                      >
-                        <span>
-                          <span className="font-mono text-blue">{t.code}</span>{" "}
-                          <span className="text-navy">{t.name}</span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button
-                onClick={finishOrder}
-                disabled={saving}
-                className="rounded-full bg-navy px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                Confirmar cierre
-              </button>
-              <button
-                onClick={() => {
-                  setClosePanelOpen(false);
-                  setNextMaintenanceDate("");
-                  setNextMaintenanceTempario(null);
-                  setTemparioSearch("");
-                }}
-                disabled={saving}
-                className="text-sm font-medium text-steel hover:text-navy"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">

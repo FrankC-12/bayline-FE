@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import Link from "next/link";
+import SalesInsights from "./SalesInsights";
+import { partSalesInsights,vehicleSalesInsights } from "@/lib/salesInsights";
+import { calendarDate } from "@/lib/calendar";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
+import { Search, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePartSales } from "@/hooks/usePartSales";
 import { useVehicleSales } from "@/hooks/useVehicleSales";
@@ -16,6 +21,8 @@ export default function VentasView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
+  const {canEdit:canSellParts}=useModuleAccess("repuestos");
+  const {canEdit:canSellVehicles}=useModuleAccess("concesionario");
   const [tab, setTab] = useState<"repuestos" | "vehiculos">("repuestos");
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -42,7 +49,7 @@ export default function VentasView() {
   const isFiltered = !!(search || dateFrom || dateTo);
 
   function inRange(isoDate: string) {
-    const d = isoDate.slice(0, 10);
+    const d = calendarDate(isoDate);
     if (dateFrom && d < dateFrom) return false;
     if (dateTo && d > dateTo) return false;
     return true;
@@ -76,20 +83,20 @@ export default function VentasView() {
   }, [vehicleSales, search, dateFrom, dateTo, vehicles]);
 
   return (
-    <div>
-      <h1 className="font-display text-3xl font-bold text-navy">Ventas</h1>
-      <p className="mt-1 text-sm text-steel">Reporte consolidado de todas las ventas del negocio</p>
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="font-display text-3xl font-bold text-navy">Ventas</h1>
+      <p className="mt-1 text-sm text-steel">Conoce qué se vende más y quiénes vuelven a comprar.</p></div>{(tab === "repuestos" ? canSellParts : canSellVehicles) && <Link href={tab === "repuestos" ? "/dashboard/repuestos/ventas/nueva" : "/dashboard/concesionario/ventas"} className="inline-flex items-center gap-2 rounded-xl bg-blue px-4 py-2.5 text-sm font-semibold text-white"><Plus aria-hidden="true" className="h-4 w-4"/>{tab === "repuestos" ? "Nueva venta" : "Ver ventas de vehículos"}</Link>}</div>
 
-      <div className="mt-6 mb-4 flex w-fit rounded-full border border-navy/15 p-1">
+      <div className="mt-6 mb-4 flex max-w-full w-fit rounded-full border border-navy/15 p-1">
         <button
           onClick={() => setTab("repuestos")}
-          className={`rounded-full px-5 py-2 text-sm font-medium transition ${tab === "repuestos" ? "bg-navy text-white" : "text-steel"}`}
+          className={`rounded-full px-3 py-2 text-xs sm:px-5 sm:text-sm font-medium transition ${tab === "repuestos" ? "bg-navy text-white" : "text-steel"}`}
         >
           Ventas de Repuestos
         </button>
         <button
           onClick={() => setTab("vehiculos")}
-          className={`rounded-full px-5 py-2 text-sm font-medium transition ${tab === "vehiculos" ? "bg-navy text-white" : "text-steel"}`}
+          className={`rounded-full px-3 py-2 text-xs sm:px-5 sm:text-sm font-medium transition ${tab === "vehiculos" ? "bg-navy text-white" : "text-steel"}`}
         >
           Ventas de Vehículos
         </button>
@@ -99,6 +106,7 @@ export default function VentasView() {
         <div className="relative flex-1 min-w-[240px]">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
           <input
+            aria-label="Buscar ventas"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={tab === "repuestos" ? "Buscar por repuesto o cliente..." : "Buscar por vehículo o cliente..."}
@@ -109,6 +117,7 @@ export default function VentasView() {
           <span className="text-sm font-medium text-navy">Desde</span>
           <input
             type="date"
+            aria-label="Ventas desde"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
             className="rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-blue"
@@ -118,6 +127,7 @@ export default function VentasView() {
           <span className="text-sm font-medium text-navy">Hasta</span>
           <input
             type="date"
+            aria-label="Ventas hasta"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
             className="rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-blue"
@@ -125,6 +135,8 @@ export default function VentasView() {
         </div>
       </div>
 
+      {isFiltered && <button type="button" onClick={()=>{setSearch("");setDateFrom("");setDateTo("");}} className="mb-4 text-xs font-semibold text-blue">Limpiar filtros</button>}
+      {dateFrom && dateTo && dateFrom>dateTo ? <p role="alert" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">La fecha Desde debe ser anterior o igual a Hasta.</p> : !(tab === "repuestos" ? loadingPartSales || partSalesError : loadingVehicleSales || vehicleSalesError) && <SalesInsights mode={tab} data={tab === "repuestos" ? partSalesInsights(filteredPartSales,parts) : vehicleSalesInsights(filteredVehicleSales,vehicles)} onSearch={setSearch}/>}
       {tab === "repuestos" ? (
         <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
           {loadingPartSales ? (
@@ -145,7 +157,7 @@ export default function VentasView() {
                   <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Repuesto(s)</th>
                   <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Monto</th>
                   <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Estado de pago</th>
-                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Factura</th>
+                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Detalle</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy/5">
@@ -165,11 +177,7 @@ export default function VentasView() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        {paid ? (
-                          <span className="font-semibold text-blue">PDF →</span>
-                        ) : (
-                          <span className="text-steel">—</span>
-                        )}
+                        <Link href={`/dashboard/repuestos/ventas/${s.id}`} className="whitespace-nowrap font-semibold text-blue hover:underline">Ver venta →</Link>
                       </td>
                     </tr>
                   );
@@ -198,7 +206,7 @@ export default function VentasView() {
                   <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Vehículo</th>
                   <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Asesor</th>
                   <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Precio final</th>
-                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Factura</th>
+                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Detalle</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy/5">
@@ -210,7 +218,7 @@ export default function VentasView() {
                     <td className="px-6 py-4 text-steel">{advisorName(s.advisor_user_id)}</td>
                     <td className="px-6 py-4 font-display font-bold text-navy">${formatMoney(s.final_price)}</td>
                     <td className="px-6 py-4">
-                      <span className="font-semibold text-blue">PDF →</span>
+                      <Link href="/dashboard/concesionario/ventas" className="whitespace-nowrap font-semibold text-blue hover:underline">Ver ventas →</Link>
                     </td>
                   </tr>
                 ))}
@@ -220,9 +228,6 @@ export default function VentasView() {
         </div>
       )}
 
-      <p className="mt-4 rounded-xl bg-ash px-4 py-3 text-xs text-steel">
-        La generación real de factura en PDF todavía no está conectada — el enlace es solo visual por ahora.
-      </p>
     </div>
   );
 }

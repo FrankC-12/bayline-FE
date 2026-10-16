@@ -65,8 +65,6 @@ export default function CreateOrderPanel({
   const [orderTypeId, setOrderTypeId] = useState("");
   const [customerReason, setCustomerReason] = useState("");
   const [advisorUserId, setAdvisorUserId] = useState("");
-  const [deliveryDate, setDeliveryDate] = useState("");
-  const [deliveryTime, setDeliveryTime] = useState("");
   const [promisedDate, setPromisedDate] = useState("");
   const [promisedTime, setPromisedTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -205,7 +203,6 @@ export default function CreateOrderPanel({
       setError("Selecciona la fecha de inicio de la ODS.");
       return;
     }
-    if (!!deliveryDate !== !!deliveryTime) { setError("Selecciona fecha y hora de entrega prometida, o deja ambos vacíos."); return; }
     if (requiredClaimType && !warrantyClaimId) {
       setError("Selecciona el reclamo asociado a esta orden.");
       return;
@@ -220,7 +217,7 @@ export default function CreateOrderPanel({
           customer_reason: customerReason.trim(),
           advisor_user_id: advisorUserId,
           scheduled_at: calendarTimestamp(promisedDate, promisedTime),
-          promised_at: deliveryDate && deliveryTime ? calendarTimestamp(deliveryDate, deliveryTime) : null,
+          promised_at: null,
           warranty_claim_id: requiredClaimType ? warrantyClaimId : null,
         },
         matchedInspection.id
@@ -231,7 +228,6 @@ export default function CreateOrderPanel({
       setAdvisorUserId("");
       setPromisedDate("");
       setPromisedTime("");
-      setDeliveryDate(""); setDeliveryTime("");
       setOrderTypeId("");
       setWarrantyClaimId("");
       onClose();
@@ -374,7 +370,6 @@ export default function CreateOrderPanel({
             </div>
           </div>
 
-          <div className="rounded-xl bg-slate-50 p-4"><p className="mb-2 text-sm font-semibold text-navy">Entrega prometida (opcional)</p><p className="mb-3 text-xs text-steel">Registra solo la fecha y hora acordadas con el cliente. Es distinta del inicio de la visita.</p><div className="grid grid-cols-2 gap-2"><input aria-label="Fecha de entrega prometida" type="date" value={deliveryDate} onChange={e=>setDeliveryDate(e.target.value)} className="min-w-0 rounded-xl border border-navy/15 px-3 py-2 text-sm"/><HourSelect value={deliveryTime} onChange={setDeliveryTime}/></div></div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">Asesor responsable</label>
             <select

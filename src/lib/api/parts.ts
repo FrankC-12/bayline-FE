@@ -258,3 +258,9 @@ export const collectPartPayment = (id: string, input: PartPaymentInput) =>
   apiFetch<PartSale>(`/part-sales/${id}/payments`, { method: "POST", body: JSON.stringify(input) });
 
 export const getPartSalePdf = (id: string) => apiFetchBlob(`/part-sales/${id}/invoice/pdf`);
+
+export async function uploadPartImage(id: string, image: File): Promise<Part> {
+ const body=new FormData();body.append("image",image);
+ return apiFetch<Part>(`/parts/${id}/image`,{method:"POST",body});
+}
+export const removePartImage=(id:string)=>apiFetch<Part>(`/parts/${id}/image`,{method:"DELETE"});

@@ -1,7 +1,12 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- Catalog images are uploaded by users. */
 
-import type { ReactNode } from "react";
-import { Pencil, X } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Pencil } from "lucide-react";
+import Modal from "@/components/common/Modal";
+import PartImagePicker from "./PartImagePicker";
+import { uploadPartImage,removePartImage } from "@/lib/api/parts";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { formatCount, formatMoney } from "@/lib/format";
 import type { Part } from "@/types/parts";
 
@@ -10,6 +15,7 @@ interface PartDetailPanelProps {
   part: Part | null;
   onClose: () => void;
   onEdit: (part: Part) => void;
+  onUpdated: (part:Part)=>void;
 }
 
 function Field({ label, value }: { label: string; value: ReactNode }) {
@@ -29,41 +35,22 @@ function compatibilityValue(part: Part): string {
   return `${vehicle}${years}`;
 }
 
-export default function PartDetailPanel({ open, part, onClose, onEdit }: PartDetailPanelProps) {
-  return (
-    <div
-      className={`fixed inset-0 z-50 transition ${open ? "pointer-events-auto" : "pointer-events-none"}`}
-      aria-hidden={!open}
-    >
-      <div
-        onClick={onClose}
-        className={`absolute inset-0 bg-navy/40 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
-      />
-      <aside
-        className={`absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="flex items-center justify-between border-b border-navy/10 px-8 py-5">
-          <h2 className="font-display text-xl font-bold text-navy">Detalle del repuesto</h2>
-          <div className="flex items-center gap-1">
-            {part && (
-              <button
-                onClick={() => onEdit(part)}
-                aria-label="Editar repuesto"
-                className="rounded-lg p-2 text-blue transition hover:bg-blue-light"
-              >
-                <Pencil className="h-5 w-5" />
-              </button>
-            )}
-            <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-
+export default function PartDetailPanel({open,part,onClose,onEdit,onUpdated}:PartDetailPanelProps) {
+ const {canEdit}=useModuleAccess("repuestos");
+ const [busy,setBusy]=useState(false);const lock=useRef(false);const [error,setError]=useState<string|null>(null);
+ useEffect(()=>setError(null),[open,part?.id]);
+ async function changeImage(file:File|null) {
+  if(!part || !canEdit || lock.current)return;
+  lock.current=true;setBusy(true);setError(null);
+  try {const saved=await (file ? uploadPartImage(part.id,file) : removePartImage(part.id));onUpdated(saved);}
+  catch(e){setError(e instanceof Error ? e.message : "No se pudo guardar la imagen.");}
+  finally {lock.current=false;setBusy(false);}
+ }
+ return (<Modal open={open && !!part} onClose={onClose} title="Detalle del repuesto" size="lg" closeDisabled={busy} footer={<><button type="button" disabled={busy} onClick={onClose} className="rounded-full border border-navy/15 px-5 py-2 text-sm font-semibold text-navy">Cerrar</button>{canEdit && part && <button type="button" disabled={busy} onClick={()=>onEdit(part)} className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2 text-sm font-semibold text-white"><Pencil aria-hidden="true" className="h-4 w-4"/>Editar repuesto</button>}</>}>
         {part && (
-          <div className="flex-1 space-y-5 p-8">
+          <div className="space-y-5 p-5 sm:p-7">
+            {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+            {canEdit ? <PartImagePicker imageUrl={part.image_url} name={part.name} disabled={busy} onChange={file=>void changeImage(file)}/> : part.image_url && <div className="rounded-xl bg-slate-50 p-4">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={part.image_url} alt={`Imagen de ${part.name}`} className="mx-auto h-48 max-w-full object-contain"/></div>}
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-mono text-lg font-bold text-blue">{part.code}</p>
@@ -109,7 +96,6 @@ export default function PartDetailPanel({ open, part, onClose, onEdit }: PartDet
             </p>
           </div>
         )}
-      </aside>
-    </div>
+    </Modal>
   );
 }

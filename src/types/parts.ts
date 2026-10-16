@@ -3,6 +3,7 @@ export type ReturnCondition = "nuevo" | "usado" | "defectuoso";
 export type ReturnReason = "pedido_en_exceso" | "defectuoso" | "repuesto_incorrecto" | "otro";
 
 export interface Part {
+  image_url?: string | null;
   id: string;
   filial_id: string;
   code: string;

@@ -9,8 +9,8 @@ export default function PartsLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   return (
-    <div className="mx-auto flex max-w-7xl gap-8 px-6 py-12">
-      <aside className="w-64 shrink-0">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 lg:flex-row lg:gap-8 lg:px-6 lg:py-12">
+      <aside className="min-w-0 shrink-0 lg:w-64">
         <Link href="/dashboard" className="mb-4 flex items-center gap-1.5 text-sm font-medium text-steel hover:text-navy">
           <ChevronLeft className="h-4 w-4" />
           Volver al Dashboard

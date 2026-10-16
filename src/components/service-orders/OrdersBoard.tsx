@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, ClipboardList, UserRound, CalendarClock, CircleCheck } from "lucide-react";
+import { Plus, Search, ClipboardList, UserRound, Clock, CircleCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useServiceOrders } from "@/hooks/useServiceOrders";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
@@ -33,8 +33,7 @@ export default function OrdersBoard() {
   const [search, setSearch] = useState("");
   const [technician, setTechnician] = useState("");
   const [attentionOnly, setAttentionOnly] = useState(false);
-  const needsAttention = (order: ServiceOrder) => !order.technician_user_id ||
-    (order.status !== "completado" && !!order.promised_at && new Date(order.promised_at).getTime() < Date.now());
+  const needsAttention = (order: ServiceOrder) => !order.technician_user_id;
   const filteredOrders = orders.filter(order => {
     const info = vehicleMap.get(order.vehicle_id);
     const haystack = [order.code, info?.vehicle.plate, info?.vehicle.brand, info?.vehicle.model, info?.client.full_name].join(" ").toLocaleLowerCase("es");
@@ -90,7 +89,7 @@ export default function OrdersBoard() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {[{label:"Órdenes activas",value:orders.length,icon:ClipboardList,tone:"bg-blue-light text-blue"},{label:"Sin técnico",value:orders.filter(o=>!o.technician_user_id).length,icon:UserRound,tone:"bg-amber-50 text-amber-700"},{label:"Fecha prometida vencida",value:orders.filter(o=>o.status!=="completado" && o.promised_at && new Date(o.promised_at).getTime()<Date.now()).length,icon:CalendarClock,tone:"bg-red-50 text-red-700"},{label:"Trabajo completado",value:orders.filter(o=>o.status==="completado").length,icon:CircleCheck,tone:"bg-emerald-50 text-emerald-700"}].map(item=><div key={item.label} className="rounded-2xl border border-navy/10 bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-2"><p className="text-xs leading-relaxed text-steel">{item.label}</p><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><item.icon aria-hidden="true" className="h-4 w-4" /></span></div><p className="mt-2 font-display text-2xl font-bold text-navy">{loading ? "—" : item.value}</p></div>)}
+        {[{label:"Órdenes activas",value:orders.length,icon:ClipboardList,tone:"bg-blue-light text-blue"},{label:"Sin técnico",value:orders.filter(o=>!o.technician_user_id).length,icon:UserRound,tone:"bg-amber-50 text-amber-700"},{label:"Trabajo en progreso",value:orders.filter(o=>o.status==="en_progreso").length,icon:Clock,tone:"bg-blue-light text-blue"},{label:"Trabajo completado",value:orders.filter(o=>o.status==="completado").length,icon:CircleCheck,tone:"bg-emerald-50 text-emerald-700"}].map(item=><div key={item.label} className="rounded-2xl border border-navy/10 bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-2"><p className="text-xs leading-relaxed text-steel">{item.label}</p><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><item.icon aria-hidden="true" className="h-4 w-4" /></span></div><p className="mt-2 font-display text-2xl font-bold text-navy">{loading ? "—" : item.value}</p></div>)}
       </div>
       <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-navy/10 bg-white p-4">
         <label className="flex min-w-[180px] flex-1 items-center gap-2 rounded-xl border border-navy/10 bg-slate-50 px-3 py-2.5 focus-within:border-blue focus-within:ring-2 focus-within:ring-blue/10"><Search aria-hidden="true" className="h-4 w-4 shrink-0 text-steel"/><input aria-label="Buscar órdenes" value={search} onChange={e=>setSearch(e.target.value)} placeholder="ODS, placa, vehículo o cliente" className="min-w-0 w-full bg-transparent text-sm outline-none"/></label>
