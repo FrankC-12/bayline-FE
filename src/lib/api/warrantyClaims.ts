@@ -88,3 +88,8 @@ export async function convertWarrantyClaimToOrder(
     body: JSON.stringify(input),
   });
 }
+
+export interface ClaimsOverview { pending: number; monthly_cost: number; monthly_reworks: number; monthly_closed: number; comeback_rate: number }
+export const getClaimsOverview=(filialId:string)=>apiFetch<ClaimsOverview>(`/warranty-claims/overview?filial_id=${filialId}`);
+export const createClaimFromWarranty=(form:FormData)=>apiFetch<WarrantyClaim>("/warranty-claims/from-warranty",{method:"POST",body:form});
+export const reviewClaim=(id:string,input:{decision:"aprobado"|"rechazado";rejection_reason?:string;failure_category?:ReworkFailureCategory},brand=false)=>apiFetch<WarrantyClaim>(`/warranty-claims/${id}/${brand?"brand-response":"review"}`,{method:"POST",body:JSON.stringify(input)});

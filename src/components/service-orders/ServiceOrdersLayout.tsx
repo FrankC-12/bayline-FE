@@ -1,5 +1,8 @@
 "use client";
 
+import {useCallback,useEffect,useState} from "react";
+import {useAuth} from "@/contexts/AuthContext";
+import {getClaimsOverview} from "@/lib/api/warrantyClaims";
 import { formatCount } from "@/lib/format";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,6 +20,10 @@ export default function ServiceOrdersLayout({ children }: { children: React.Reac
 
 function ServiceOrdersLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const {currentUser}=useAuth();
+  const [claimCount,setClaimCount]=useState(0);
+  const updateClaims=useCallback(()=>{if(currentUser?.filialId)void getClaimsOverview(currentUser.filialId).then(v=>setClaimCount(v.pending)).catch(()=>undefined);},[currentUser?.filialId]);
+  useEffect(()=>{updateClaims();window.addEventListener("bayline:claims-updated",updateClaims);const timer=setInterval(updateClaims,30000);return()=>{clearInterval(timer);window.removeEventListener("bayline:claims-updated",updateClaims);};},[updateClaims,pathname]);
   const { upsells } = useUpsellsContext();
   const pendingCount = upsells.filter((u) => u.status === "pendiente").length;
 
@@ -51,10 +58,11 @@ function ServiceOrdersLayoutContent({ children }: { children: React.ReactNode })
                 </div>
               </details>;
             }
-            const showBadge = item.href === "/dashboard/servicios/upsells" && pendingCount > 0;
+            const badgeCount=item.href === "/dashboard/servicios/garantias"?claimCount:item.href === "/dashboard/servicios/upsells"?pendingCount:0;
+            const showBadge=badgeCount>0;
             return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={`flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition ${active ? "bg-blue-light text-blue" : "text-steel hover:bg-ash hover:text-navy"}`}>
               {Icon && <Icon aria-hidden="true" className="h-4 w-4 shrink-0"/>}<span className="flex-1">{item.label}</span>
-              {showBadge && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">{formatCount(pendingCount)}</span>}
+              {showBadge && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">{formatCount(badgeCount)}</span>}
             </Link>;
           })}
         </nav>

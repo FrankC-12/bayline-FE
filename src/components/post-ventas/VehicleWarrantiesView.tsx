@@ -1,4 +1,5 @@
 "use client";
+import { formatEntryDate } from "@/lib/format";
 
 import { NumberInput } from "@/components/ui/NumberInput";
 
@@ -96,7 +97,7 @@ export default function VehicleWarrantiesView() {
                 <tr key={w.id} className="transition hover:bg-ash/60">
                   <td className="px-6 py-4 font-mono text-blue">{w.vin}</td>
                   <td className="px-6 py-4 font-medium text-navy">{w.brand}{w.model ? ` ${w.model}` : ""}</td>
-                  <td className="px-6 py-4 text-steel">{new Date(w.starts_at).toLocaleDateString("es-VE")}</td>
+                  <td className="px-6 py-4 text-steel">{formatEntryDate(w.starts_at)}</td>
                   <td className="px-6 py-4 text-steel">
                     {w.duration_months != null ? `${w.duration_months} meses` : null}
                     {w.duration_months != null && w.duration_km != null ? " · " : null}

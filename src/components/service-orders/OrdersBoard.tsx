@@ -11,7 +11,7 @@ import { useUserDirectory } from "@/hooks/useUserDirectory";
 import ErrorState from "@/components/common/ErrorState";
 import type { ServiceOrder, ServiceOrderStatus } from "@/types/serviceOrder";
 import OrderCard from "./OrderCard";
-import CreateOrderPanel, { type CreateOrderExtra } from "./CreateOrderPanel";
+
 
 const COLUMNS: { status: ServiceOrderStatus; label: string; dot: string }[] = [
   { status: "pendiente", label: "Pendiente", dot: "bg-amber-500" },
@@ -24,18 +24,17 @@ export default function OrdersBoard() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
-  const { orders, loading, error, addOrder, refresh } = useServiceOrders(filialId, "active");
+  const { orders, loading, error, refresh } = useServiceOrders(filialId, "active");
   const { vehicleMap } = useVehicleLookup(filialId);
   const { users } = useUserDirectory({ filialId });
-  const [presetVehicleId,setPresetVehicleId]=useState<string | null>(null);
-  useEffect(()=> {const query=new URLSearchParams(window.location.search);if(query.get("create")==="1") {setPresetVehicleId(query.get("vehicle_id"));setPanelOpen(true);}},[]);
-  const [panelOpen, setPanelOpen] = useState(false);
+  useEffect(()=> {const query=new URLSearchParams(window.location.search);if(query.get("create")==="1") {query.delete("create");router.replace(`/dashboard/servicios/nueva?${query}`);}},[router]);
   const [search, setSearch] = useState("");
   const [technician, setTechnician] = useState("");
   const [attentionOnly, setAttentionOnly] = useState(false);
+  const activeOrders=orders.filter(order=>!order.is_draft);
   const needsAttention = (order: ServiceOrder) => !order.technician_user_id;
   const filteredOrders = orders.filter(order => {
-    const info = vehicleMap.get(order.vehicle_id);
+    const info = vehicleMap.get(order.vehicle_id??"");
     const haystack = [order.code, info?.vehicle.plate, info?.vehicle.brand, info?.vehicle.model, info?.client.full_name].join(" ").toLocaleLowerCase("es");
     return haystack.includes(search.trim().toLocaleLowerCase("es")) &&
       (!technician || order.technician_user_id === technician) && (!attentionOnly || needsAttention(order));
@@ -47,27 +46,10 @@ export default function OrdersBoard() {
   const byStatus = (() => {
     const grouped: Record<string, ServiceOrder[]> = { pendiente: [], en_progreso: [], completado: [] };
     for (const o of filteredOrders) {
-      grouped[o.status]?.push(o);
+      if(!o.is_draft) grouped[o.status]?.push(o);
     }
     return grouped;
   })();
-
-  async function handleCreate(
-    vehicleId: string,
-    orderTypeId: string,
-    extra: CreateOrderExtra,
-    inspectionId: string
-  ) {
-    if (!filialId) return;
-    const created = await addOrder({
-      filial_id: filialId,
-      vehicle_id: vehicleId,
-      order_type_id: orderTypeId,
-      inspection_id: inspectionId,
-      ...extra,
-    });
-    router.push(`/dashboard/servicios/${created.id}`);
-  }
 
   if (!filialId) return null;
 
@@ -80,7 +62,7 @@ export default function OrdersBoard() {
           <p className="mt-1 text-sm text-steel">Organiza el trabajo del taller y consulta el siguiente paso de cada orden.</p>
         </div>
         <button
-          onClick={() => setPanelOpen(true)}
+          onClick={() => router.push("/dashboard/servicios/nueva")}
           className="inline-flex items-center gap-2 rounded-xl bg-blue px-5 py-3 shadow-sm text-sm font-semibold text-white transition hover:bg-navy"
         >
           <Plus className="h-4 w-4" />
@@ -89,7 +71,7 @@ export default function OrdersBoard() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {[{label:"Órdenes activas",value:orders.length,icon:ClipboardList,tone:"bg-blue-light text-blue"},{label:"Sin técnico",value:orders.filter(o=>!o.technician_user_id).length,icon:UserRound,tone:"bg-amber-50 text-amber-700"},{label:"Trabajo en progreso",value:orders.filter(o=>o.status==="en_progreso").length,icon:Clock,tone:"bg-blue-light text-blue"},{label:"Trabajo completado",value:orders.filter(o=>o.status==="completado").length,icon:CircleCheck,tone:"bg-emerald-50 text-emerald-700"}].map(item=><div key={item.label} className="rounded-2xl border border-navy/10 bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-2"><p className="text-xs leading-relaxed text-steel">{item.label}</p><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><item.icon aria-hidden="true" className="h-4 w-4" /></span></div><p className="mt-2 font-display text-2xl font-bold text-navy">{loading ? "—" : item.value}</p></div>)}
+        {[{label:"Órdenes activas",value:activeOrders.length,icon:ClipboardList,tone:"bg-blue-light text-blue"},{label:"Sin técnico",value:activeOrders.filter(o=>!o.technician_user_id).length,icon:UserRound,tone:"bg-amber-50 text-amber-700"},{label:"Trabajo en progreso",value:activeOrders.filter(o=>o.status==="en_progreso").length,icon:Clock,tone:"bg-blue-light text-blue"},{label:"Trabajo completado",value:activeOrders.filter(o=>o.status==="completado").length,icon:CircleCheck,tone:"bg-emerald-50 text-emerald-700"}].map(item=><div key={item.label} className="rounded-2xl border border-navy/10 bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-2"><p className="text-xs leading-relaxed text-steel">{item.label}</p><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><item.icon aria-hidden="true" className="h-4 w-4" /></span></div><p className="mt-2 font-display text-2xl font-bold text-navy">{loading ? "—" : item.value}</p></div>)}
       </div>
       <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-navy/10 bg-white p-4">
         <label className="flex min-w-[180px] flex-1 items-center gap-2 rounded-xl border border-navy/10 bg-slate-50 px-3 py-2.5 focus-within:border-blue focus-within:ring-2 focus-within:ring-blue/10"><Search aria-hidden="true" className="h-4 w-4 shrink-0 text-steel"/><input aria-label="Buscar órdenes" value={search} onChange={e=>setSearch(e.target.value)} placeholder="ODS, placa, vehículo o cliente" className="min-w-0 w-full bg-transparent text-sm outline-none"/></label>
@@ -123,7 +105,7 @@ export default function OrdersBoard() {
                   <Link key={o.id} href={`/dashboard/servicios/${o.id}`} className="block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue">
                     <OrderCard
                       order={o}
-                      info={vehicleMap.get(o.vehicle_id)}
+                      info={vehicleMap.get(o.vehicle_id??"")}
                       technicianName={technicianName(o.technician_user_id)}
                     />
                   </Link>
@@ -139,13 +121,7 @@ export default function OrdersBoard() {
         </div>
       )}
 
-      <CreateOrderPanel
-        open={panelOpen}
-        onClose={() => setPanelOpen(false)}
-        filialId={filialId}
-        presetVehicleId={presetVehicleId}
-        onSubmit={handleCreate}
-      />
+      {filteredOrders.some(o=>o.is_draft) && <section className="mt-6 rounded-2xl border border-dashed border-navy/20 bg-white p-5"><h2 className="font-display text-lg font-bold text-navy">Borradores · por enviar al taller</h2><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{filteredOrders.filter(o=>o.is_draft).map(o=><Link key={o.id} href={`/dashboard/servicios/${o.id}`} className="rounded-xl border border-dashed border-navy/15 p-4"><span className="font-mono text-xs text-blue">{o.code}</span><p className="mt-2 text-sm font-semibold text-navy">{vehicleMap.get(o.vehicle_id??"")?.vehicle.plate || "Seleccionar vehículo"}</p><p className="mt-1 text-xs text-steel">Borrador · {o.estimated_hours || 0} h estimadas</p></Link>)}</div></section>}
     </div>
   );
 }

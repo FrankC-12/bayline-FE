@@ -1,745 +1,465 @@
 "use client";
-
-import { formatCount } from "@/lib/format";
-import { NumberInput } from "@/components/ui/NumberInput";
-
-import { useMemo, useState } from "react";
-import { Clock, Camera, Check, X, Loader2, Search, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import Modal from "@/components/common/Modal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUpsellsContext } from "@/contexts/UpsellsContext";
 import { useServiceOrders } from "@/hooks/useServiceOrders";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
-import { useTemparios } from "@/hooks/useTemparios";
-import { useParts } from "@/hooks/useParts";
-import type { Upsell, UpsellApprovalChannel, UpsellDiscardReason, UpsellSeverity } from "@/types/upsells";
-import EmptyState from "@/components/common/EmptyState";
-import ErrorState from "@/components/common/ErrorState";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
+import { quoteUpsell, type DecideUpsellInput } from "@/lib/api/upsells";
+import { formatEntryDate, formatEntryDateTime } from "@/lib/format";
+import type { Upsell, UpsellApprovalChannel } from "@/types/upsells";
 import DiscardUpsellModal from "./DiscardUpsellModal";
-
-const STATUS_LABELS: Record<string, string> = {
-  aprobado: "Aprobado",
-  pospuesto: "Pospuesto",
-  rechazado: "Rechazado",
+const money = (v: number) =>
+  `$${v.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const severities = {
+  urgente: ["Urgente", "bg-red-100 text-red-700"],
+  pronto: ["Recomendado", "bg-amber-100 text-amber-800"],
+  monitorear: ["Monitorear", "bg-slate-100 text-steel"],
 };
-
-const STATUS_STYLES: Record<string, string> = {
-  aprobado: "bg-emerald-100 text-emerald-700",
-  pospuesto: "bg-amber-100 text-amber-700",
-  rechazado: "bg-red-100 text-red-700",
-};
-
-const SEVERITY_LABELS: Record<UpsellSeverity, string> = {
-  urgente: "Urgente",
-  pronto: "Pronto",
-  monitorear: "Monitorear",
-};
-
-const SEVERITY_STYLES: Record<UpsellSeverity, string> = {
-  urgente: "bg-red-100 text-red-700",
-  pronto: "bg-amber-100 text-amber-700",
-  monitorear: "bg-slate-100 text-slate-600",
-};
-
-const DISCARD_REASON_LABELS: Record<UpsellDiscardReason, string> = {
-  ya_reparado_otro_taller: "Ya reparado en otro taller",
-  cliente_no_lo_quiere: "El cliente no lo quiere",
-  ya_no_aplica: "Ya no aplica",
-  otro: "Otro motivo",
-};
-
-function SeverityBadge({ severity }: { severity: UpsellSeverity }) {
-  return (
-    <span className={`rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest ${SEVERITY_STYLES[severity]}`}>
-      {SEVERITY_LABELS[severity]}
-    </span>
-  );
-}
-
-const CHANNEL_OPTIONS: { value: UpsellApprovalChannel; label: string }[] = [
-  { value: "presencial", label: "Presencial" },
-  { value: "whatsapp", label: "WhatsApp" },
-  { value: "llamada", label: "Llamada telefónica" },
-  { value: "sms", label: "SMS" },
-  { value: "correo", label: "Correo" },
-];
-
-const CHANNEL_LABELS: Record<UpsellApprovalChannel, string> = {
-  presencial: "Presencial",
-  whatsapp: "WhatsApp",
-  llamada: "Llamada telefónica",
-  sms: "SMS",
-  correo: "Correo",
-};
-
-const usd = (value: number) => `$${value.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-function upsellSummary(u: Upsell): string {
-  const parts = [
-    ...u.tasks.map((t) => `${t.code_snapshot} · ${t.name_snapshot}`),
-    ...u.parts.map((p) => `${p.name_snapshot} ×${formatCount(p.quantity)}`),
-  ];
-  return parts.join(" · ");
-}
-
 export default function UpsellsView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
-
-  const { upsells, loading, error, addUpsell, decide, refresh } = useUpsellsContext();
+  const { upsells, loading, error, decide } = useUpsellsContext();
   const { orders } = useServiceOrders(filialId, "all");
   const { vehicleMap } = useVehicleLookup(filialId);
   const { users } = useUserDirectory({ filialId });
-  const [search, setSearch] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
-  const [approvingUpsell, setApprovingUpsell] = useState<Upsell | null>(null);
-  const [discardingUpsell, setDiscardingUpsell] = useState<Upsell | null>(null);
-  const [actingId, setActingId] = useState<string | null>(null);
-
-  const orderById = (id: string) => orders.find((o) => o.id === id);
-  const vehicleLabel = (orderId: string) => {
-    const order = orderById(orderId);
-    if (!order) return "—";
-    const entry = vehicleMap.get(order.vehicle_id);
-    if (!entry) return "—";
-    const plate = entry.vehicle.plate ? ` · ${entry.vehicle.plate}` : "";
-    return `${entry.vehicle.brand} ${entry.vehicle.model} ${entry.vehicle.year}${plate}`;
-  };
-  const ownerName = (orderId: string) => {
-    const order = orderById(orderId);
-    if (!order) return "—";
-    return vehicleMap.get(order.vehicle_id)?.client.full_name ?? "—";
-  };
-  const technicianName = (id: string | null) => (id ? users.find((u) => u.id === id)?.full_name ?? "—" : "—");
-  const isOrderEditable = (orderId: string) => {
-    const order = orderById(orderId);
-    return !!order && !order.invoiced_at && !["orden_cerrada", "cancelado"].includes(order.status);
-  };
-
-  const pending = upsells.filter((u) => u.status === "pendiente");
-  const resolved = upsells.filter((u) => u.status !== "pendiente");
-
-  const filteredResolved = useMemo(() => {
-    if (!search) return resolved;
-    const term = search.toLowerCase();
-    return resolved.filter((u) => {
-      const order = orderById(u.service_order_id);
-      return (
-        u.title.toLowerCase().includes(term) ||
-        vehicleLabel(u.service_order_id).toLowerCase().includes(term) ||
-        technicianName(u.detected_by_user_id).toLowerCase().includes(term) ||
-        (order && order.code.toLowerCase().includes(term)) ||
-        STATUS_LABELS[u.status]?.toLowerCase().includes(term)
-      );
+  const { canEdit } = useModuleAccess("asesor-servicios");
+  const [tab, setTab] = useState<"pending" | "later" | "history">("pending"),
+    [search, setSearch] = useState("");
+  const [quotes, setQuotes] = useState<Record<string, number | null>>({});
+  const [approve, setApprove] = useState<Upsell | null>(null),
+    [discard, setDiscard] = useState<Upsell | null>(null),
+    [channel, setChannel] = useState<UpsellApprovalChannel>("presencial"),
+    [busy, setBusy] = useState<string | null>(null),
+    [actionError, setActionError] = useState("");
+  useEffect(() => {
+    let live = true;
+    Promise.all(
+      upsells.map(async (u) => {
+        try {
+          const q = await quoteUpsell(u.id);
+          return [u.id, q.has_work && q.total > 0 ? q.total : null] as const;
+        } catch {
+          return [u.id, null] as const;
+        }
+      }),
+    ).then((rows) => {
+      if (live) setQuotes(Object.fromEntries(rows));
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolved, search, orders, vehicleMap, users]);
-
-  async function handlePostpone(upsell: Upsell) {
-    if (!isOrderEditable(upsell.service_order_id)) return;
-    setActingId(upsell.id);
-    try {
-      await decide(upsell.id, { status: "pospuesto" });
-    } finally {
-      setActingId(null);
-    }
-  }
-
-  async function handleApprove(upsell: Upsell, channel: UpsellApprovalChannel) {
-    setActingId(upsell.id);
-    try {
-      await decide(upsell.id, { status: "aprobado", approval_channel: channel });
-      setApprovingUpsell(null);
-    } finally {
-      setActingId(null);
-    }
-  }
-
-  async function handleDiscard(upsell: Upsell, reason: UpsellDiscardReason, note: string | undefined) {
-    setActingId(upsell.id);
-    try {
-      await decide(upsell.id, { status: "rechazado", discard_reason: reason, discard_note: note });
-      setDiscardingUpsell(null);
-    } finally {
-      setActingId(null);
-    }
-  }
-
-  return (
-    <div>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-display text-3xl font-bold text-navy">Upsells</h1>
-        <button
-          onClick={() => setCreateOpen(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo upsell
-        </button>
-      </div>
-      <p className="mb-6 text-sm text-steel">
-        Trabajo adicional detectado por los técnicos · aprueba, posterga o consulta el histórico
-      </p>
-
-      {loading ? (
-        <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center text-sm text-steel">
-          Cargando upsells...
-        </div>
-      ) : error ? (
-        <ErrorState error={error} onRetry={refresh} />
-      ) : (
-        <>
-          {pending.length > 0 && (
-            <div className="mb-8 rounded-2xl border border-amber-300 bg-amber-50/60 p-6">
-              <div className="mb-4 flex items-center gap-2">
-                <Clock className="h-5 w-5 text-amber-600" />
-                <span className="font-display text-lg font-bold text-amber-700">Pendiente por Aprobación</span>
-                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-500 px-1.5 text-xs font-bold text-white">
-                  {pending.length}
-                </span>
-              </div>
-
-              <div className="space-y-4">
-                {pending.map((u, i) => (
-                  <div
-                    key={u.id}
-                    className={`flex items-start justify-between gap-6 pt-4 ${i > 0 ? "border-t border-amber-200" : ""}`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-display text-lg font-bold text-navy">{u.title}</p>
-                        <SeverityBadge severity={u.severity} />
-                        <span className="rounded-full bg-blue-light px-2.5 py-1 text-xs font-bold text-blue">
-                          {usd(u.amount)}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-steel">{u.description}</p>
-                      {upsellSummary(u) && <p className="mt-1 text-xs text-steel">{upsellSummary(u)}</p>}
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-steel">
-                        <span className="font-mono text-blue">{orderById(u.service_order_id)?.code ?? "—"}</span>
-                        <span>·</span>
-                        <span>{vehicleLabel(u.service_order_id)}</span>
-                        <span>·</span>
-                        <span>{ownerName(u.service_order_id)}</span>
-                        <span>·</span>
-                        <span>{technicianName(u.detected_by_user_id)}</span>
-                        {u.detected_mileage != null && <span>· {u.detected_mileage.toLocaleString("es-VE")} km</span>}
-                        {u.photo_urls.length > 0 && (
-                          <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                            <Camera className="h-3 w-3" />
-                            {u.photo_urls.length} evidencia{u.photo_urls.length > 1 ? "s" : ""}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-2">
-                      <button
-                        onClick={() => setDiscardingUpsell(u)}
-                        disabled={actingId === u.id || !isOrderEditable(u.service_order_id)}
-                        className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
-                      >
-                        Rechazar
-                      </button>
-                      <button
-                        onClick={() => handlePostpone(u)}
-                        disabled={actingId === u.id || !isOrderEditable(u.service_order_id)}
-                        className="rounded-full border border-navy/15 px-4 py-2 text-sm font-semibold text-navy transition hover:bg-ash disabled:opacity-50"
-                      >
-                        Posponer
-                      </button>
-                      <button
-                        onClick={() => setApprovingUpsell(u)}
-                        disabled={actingId === u.id || !isOrderEditable(u.service_order_id)}
-                        className="flex items-center gap-1.5 rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-50"
-                      >
-                        {actingId === u.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                        Aprobar
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="rounded-2xl border border-navy/10 bg-white p-6">
-            <p className="font-display text-lg font-bold text-navy">Histórico de upsells</p>
-            <p className="mt-1 text-sm text-steel">Upsells aprobados, pospuestos y rechazados</p>
-
-            <div className="relative my-4">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por fecha, vehículo, técnico, estado o N.º de ODS..."
-                className="w-full rounded-full border border-navy/15 py-3 pl-11 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-              />
-            </div>
-
-            {filteredResolved.length === 0 ? (
-              <EmptyState
-                compact
-                title={search ? `Sin resultados para "${search}"` : "No hay upsells en el histórico."}
-              />
-            ) : (
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-navy/10">
-                  <tr>
-                    <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Fecha</th>
-                    <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Upsell</th>
-                    <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Vehículo</th>
-                    <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Técnico</th>
-                    <th className="py-2 text-right font-mono text-[11px] uppercase tracking-widest text-steel">Monto</th>
-                    <th className="py-2 font-mono text-[11px] uppercase tracking-widest text-steel">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-navy/5">
-                  {filteredResolved.map((u) => (
-                    <tr key={u.id}>
-                      <td className="py-3 text-steel">{new Date(u.created_at).toLocaleDateString("es-VE")}</td>
-                      <td className="py-3">
-                        <div className="flex items-center gap-1.5">
-                          <p className="font-semibold text-navy">{u.title}</p>
-                          <SeverityBadge severity={u.severity} />
-                        </div>
-                        <p className="text-xs text-steel">
-                          {orderById(u.service_order_id)?.code ?? "—"}
-                          {u.photo_urls.length > 0 &&
-                            ` · ${u.photo_urls.length} evidencia${u.photo_urls.length !== 1 ? "s" : ""}`}
-                        </p>
-                        {u.status === "aprobado" && (
-                          <p className="mt-0.5 text-xs text-emerald-700">
-                            Aprobado por {technicianName(u.approved_by_user_id)}
-                            {u.approval_channel && ` · ${CHANNEL_LABELS[u.approval_channel]}`}
-                            {u.resolved_at && ` · ${new Date(u.resolved_at).toLocaleDateString("es-VE")}`}
-                          </p>
-                        )}
-                        {u.status === "rechazado" && u.discard_reason && (
-                          <p className="mt-0.5 text-xs text-red-600">
-                            {DISCARD_REASON_LABELS[u.discard_reason]}
-                            {u.discard_note && ` — ${u.discard_note}`}
-                          </p>
-                        )}
-                      </td>
-                      <td className="py-3 text-navy">{vehicleLabel(u.service_order_id)}</td>
-                      <td className="py-3 text-steel">{technicianName(u.detected_by_user_id)}</td>
-                      <td className="py-3 text-right font-semibold text-navy">{usd(u.amount)}</td>
-                      <td className="py-3">
-                        <span
-                          className={`rounded-full px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest ${STATUS_STYLES[u.status]}`}
-                        >
-                          {STATUS_LABELS[u.status]}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </>
-      )}
-
-      {filialId && (
-        <CreateUpsellModal
-          open={createOpen}
-          onClose={() => setCreateOpen(false)}
-          filialId={filialId}
-          orders={orders.filter((order) => !order.invoiced_at && !["orden_cerrada", "cancelado"].includes(order.status))}
-          currentUserId={currentUser?.userId ?? null}
-          onSubmit={addUpsell}
-        />
-      )}
-
-      {approvingUpsell && (
-        <ApproveUpsellModal
-          upsell={approvingUpsell}
-          submitting={actingId === approvingUpsell.id}
-          onClose={() => setApprovingUpsell(null)}
-          onConfirm={(channel) => handleApprove(approvingUpsell, channel)}
-        />
-      )}
-
-      {discardingUpsell && (
-        <DiscardUpsellModal
-          title={discardingUpsell.title}
-          submitting={actingId === discardingUpsell.id}
-          onClose={() => setDiscardingUpsell(null)}
-          onConfirm={(reason, note) => handleDiscard(discardingUpsell, reason, note)}
-        />
-      )}
-    </div>
+    return () => {
+      live = false;
+    };
+  }, [upsells]);
+  const order = (u: Upsell) => orders.find((o) => o.id === u.service_order_id);
+  const entry = (u: Upsell) => {
+    const o = order(u);
+    return o ? vehicleMap.get(o.vehicle_id ?? "") : undefined;
+  };
+  const name = (id: string | null) =>
+    users.find((u) => u.id === id)?.full_name ?? "Sin registrar";
+  const editable = (u: Upsell) => {
+    const o = order(u);
+    return (
+      !!o &&
+      !o.is_draft &&
+      !o.invoiced_at &&
+      !["orden_cerrada", "cancelado"].includes(o.status)
+    );
+  };
+  const groups = {
+    pending: upsells.filter((u) => u.status === "pendiente" && editable(u)),
+    later: upsells.filter((u) => u.status === "pospuesto"),
+    history: upsells.filter((u) =>
+      ["aprobado", "rechazado"].includes(u.status),
+    ),
+  };
+  const month = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Caracas",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date());
+  const monthOf = (v: string) =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Caracas",
+      year: "numeric",
+      month: "2-digit",
+    }).format(new Date(v));
+  const answered = upsells.filter(
+    (u) =>
+      u.resolved_at &&
+      monthOf(u.resolved_at) === month &&
+      u.status !== "pendiente",
   );
-}
-
-function ApproveUpsellModal({
-  upsell,
-  submitting,
-  onClose,
-  onConfirm,
-}: {
-  upsell: Upsell;
-  submitting: boolean;
-  onClose: () => void;
-  onConfirm: (channel: UpsellApprovalChannel) => void;
-}) {
-  const [channel, setChannel] = useState<UpsellApprovalChannel>("presencial");
-
+  const accepted = answered.filter((u) => u.status === "aprobado");
+  const sum = (list: Upsell[]) =>
+    list.reduce((v, u) => v + (quotes[u.id] ?? 0), 0);
+  const rows = groups[tab].filter((u) => {
+    const v = entry(u);
+    return `${u.title} ${v?.vehicle.brand} ${v?.vehicle.model} ${v?.vehicle.plate} ${v?.client.full_name} ${name(u.detected_by_user_id)} ${order(u)?.code}`
+      .toLowerCase()
+      .includes(search.toLowerCase());
+  });
+  async function act(u: Upsell, input: DecideUpsellInput) {
+    setBusy(u.id);
+    setActionError("");
+    try {
+      await decide(u.id, input);
+      setApprove(null);
+      setDiscard(null);
+    } catch (e) {
+      setActionError(
+        e instanceof Error ? e.message : "No se pudo registrar la respuesta.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div onClick={onClose} className="absolute inset-0 bg-navy/40" />
-      <div className="relative w-full max-w-sm rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-navy/10 px-6 py-4">
-          <h2 className="font-display text-lg font-bold text-navy">Aprobar upsell</h2>
-          <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy">
-            <X className="h-5 w-5" />
-          </button>
+    <div className="space-y-5">
+      <header>
+        <h1 className="font-display text-3xl font-bold text-navy">Upsells</h1>
+        <p className="mt-2 text-sm text-steel">
+          Trabajos extra que encuentran los técnicos en la app.
+        </p>
+      </header>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          {
+            label: "Aceptación · este mes",
+            value: answered.length
+              ? `${Math.round((accepted.length / answered.length) * 100)} %`
+              : "—",
+            note: `${accepted.length} de ${answered.length} respondidos`,
+            tone: "",
+          },
+          {
+            label: "Vendido · este mes",
+            value: money(sum(accepted)),
+            note: "",
+            tone: "text-emerald-700",
+          },
+          {
+            label: "Por preguntar · este mes",
+            value: money(
+              sum(
+                groups.pending.filter((u) => monthOf(u.created_at) === month),
+              ),
+            ),
+            note: "",
+            tone: "text-amber-800 bg-amber-50",
+          },
+          {
+            label: "Para después · este mes",
+            value: money(
+              sum(
+                groups.later.filter(
+                  (u) => monthOf(u.resolved_at ?? u.created_at) === month,
+                ),
+              ),
+            ),
+            note: "",
+            tone: "",
+          },
+        ].map((k) => (
+          <div
+            key={k.label}
+            className={`rounded-2xl border border-navy/10 bg-white p-5 ${k.tone}`}
+          >
+            <p className="text-xs text-steel">{k.label}</p>
+            <p className="mt-2 text-2xl font-bold">{k.value}</p>
+            {k.note && <p className="mt-1 text-xs text-steel">{k.note}</p>}
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex rounded-full bg-slate-100 p-1">
+          {(
+            [
+              ["pending", "Por preguntar"],
+              ["later", "Para después"],
+              ["history", "Historial"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`rounded-full px-4 py-2 text-xs ${tab === key ? "bg-white font-semibold text-navy shadow-sm" : "text-steel"}`}
+            >
+              {label}{" "}
+              <span className="ml-1 rounded-full bg-slate-100 px-2">
+                {groups[key].length}
+              </span>
+            </button>
+          ))}
         </div>
-        <div className="space-y-4 p-6">
-          <p className="text-sm text-steel">
-            {upsell.title} · <span className="font-semibold text-navy">{usd(upsell.amount)}</span>
+        <input
+          aria-label="Buscar upsells"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por placa, cliente, técnico u ODS"
+          className="min-w-0 flex-1 rounded-full border border-navy/10 bg-white px-4 py-2.5 text-sm"
+        />
+      </div>
+      {(error || actionError) && (
+        <p
+          role="alert"
+          className="rounded-xl bg-red-50 p-3 text-sm text-red-700"
+        >
+          {actionError || error?.message}
+        </p>
+      )}
+      <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
+        <table className="w-full min-w-[760px] text-left text-sm">
+          <thead className="border-b border-navy/10 font-mono text-[10px] uppercase tracking-wider text-steel">
+            <tr>
+              {[
+                "Fecha",
+                "Trabajo",
+                "Vehículo · cliente",
+                "Técnico",
+                "Monto",
+                tab === "history"
+                  ? "Respuesta registrada"
+                  : "Respuesta del cliente",
+              ].map((h) => (
+                <th key={h} className="px-4 py-4">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((u) => {
+              const v = entry(u),
+                o = order(u),
+                severity = severities[u.severity];
+              return (
+                <tr key={u.id} className="border-b border-navy/5 last:border-0">
+                  <td className="px-4 py-5 text-xs text-steel">
+                    {formatEntryDate(u.created_at)}
+                  </td>
+                  <td className="max-w-xs px-4 py-5">
+                    <p className="font-semibold text-navy">
+                      {u.title}{" "}
+                      <span
+                        className={`ml-1 inline-block rounded-full px-2 py-1 text-[10px] ${severity[1]}`}
+                      >
+                        {severity[0]}
+                      </span>
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-xs text-steel">
+                      {u.description}
+                    </p>
+                    <Link
+                      href={`/dashboard/servicios/${u.service_order_id}`}
+                      className="mt-1 inline-block font-mono text-xs text-blue underline"
+                    >
+                      {o?.code ?? "Ver ODS"}
+                    </Link>
+                    {u.photo_urls.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {u.photo_urls.map((url, i) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-blue underline"
+                          >
+                            Foto {i + 1}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-5">
+                    <p className="font-semibold text-navy">
+                      {v ? `${v.vehicle.brand} ${v.vehicle.model}` : "Vehículo"}{" "}
+                      <span className="font-mono text-xs font-normal">
+                        {v?.vehicle.plate}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs text-steel">
+                      {v?.client.full_name ?? "—"}
+                    </p>
+                    {tab === "later" && v?.client.phone_primary && (
+                      <a
+                        href={`tel:${v.client.phone_primary}`}
+                        className="mt-1 block text-xs text-blue"
+                      >
+                        {v.client.phone_primary}
+                      </a>
+                    )}
+                  </td>
+                  <td className="px-4 py-5 text-xs">
+                    {name(u.detected_by_user_id)}
+                  </td>
+                  <td className="px-4 py-5 font-semibold text-navy">
+                    {quotes[u.id] != null ? (
+                      money(quotes[u.id]!)
+                    ) : (
+                      <span className="text-xs text-amber-800">
+                        Revisar cotización
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-5">
+                    {tab === "pending" ? (
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          disabled={!canEdit || !!busy || quotes[u.id] == null}
+                          onClick={() => {
+                            setActionError("");
+                            setApprove(u);
+                          }}
+                          className="rounded-full bg-blue px-3 py-2 text-xs text-white disabled:opacity-40"
+                        >
+                          Sí
+                        </button>
+                        <button
+                          disabled={!canEdit || !!busy}
+                          onClick={() => void act(u, { status: "pospuesto" })}
+                          className="rounded-full border border-navy/15 px-3 py-2 text-xs"
+                        >
+                          Después
+                        </button>
+                        <button
+                          disabled={!canEdit || !!busy}
+                          onClick={() => setDiscard(u)}
+                          className="rounded-full border border-navy/15 px-3 py-2 text-xs"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : tab === "later" ? (
+                      canEdit && v ? (
+                        <Link
+                          href={`/dashboard/servicios/nueva?vehicle_id=${v.vehicle.id}&upsell_id=${u.id}`}
+                          className="inline-block rounded-full bg-blue px-3 py-2 text-xs font-semibold text-white"
+                        >
+                          Crear ODS
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-steel">Pendiente</span>
+                      )
+                    ) : (
+                      <div className="space-y-1 text-xs">
+                        <b
+                          className={
+                            u.status === "aprobado"
+                              ? "text-emerald-700"
+                              : "text-steel"
+                          }
+                        >
+                          {u.status === "aprobado" ? "Aprobado" : "Rechazado"}
+                        </b>
+                        <p>
+                          {name(u.resolved_by_user_id ?? u.approved_by_user_id)}
+                        </p>
+                        <p className="text-steel">
+                          {u.resolved_at
+                            ? formatEntryDateTime(u.resolved_at)
+                            : "Sin fecha"}
+                        </p>
+                        {u.discard_note && (
+                          <p className="text-steel">{u.discard_note}</p>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {loading ? (
+          <p className="p-8 text-center text-sm text-steel">
+            Cargando hallazgos…
           </p>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">¿Por qué medio aprobó el cliente? *</label>
+        ) : (
+          !rows.length && (
+            <p className="p-8 text-center text-sm text-steel">
+              No hay trabajos en esta bandeja.
+            </p>
+          )
+        )}
+      </div>
+      <p className="text-xs text-steel">
+        Montos estimados con el precio actual del servicio y sus repuestos. Las
+        cotizaciones pendientes de revisión no se suman.
+      </p>
+      <Modal
+        open={!!approve}
+        onClose={() => {
+          if (!busy) setApprove(null);
+        }}
+        title="Registrar aceptación"
+        size="md"
+      >
+        <div className="space-y-4 p-6">
+          <p className="text-sm text-navy">{approve?.title}</p>
+          <label className="block text-sm">
+            ¿Cómo aceptó el cliente?
             <select
               value={channel}
-              onChange={(e) => setChannel(e.target.value as UpsellApprovalChannel)}
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+              onChange={(e) =>
+                setChannel(e.target.value as UpsellApprovalChannel)
+              }
+              className="mt-2 w-full rounded-xl border border-navy/15 p-3"
             >
-              {CHANNEL_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
+              {[
+                ["presencial", "Presencial"],
+                ["whatsapp", "WhatsApp"],
+                ["llamada", "Llamada"],
+                ["sms", "SMS"],
+                ["correo", "Correo"],
+              ].map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
                 </option>
               ))}
             </select>
-          </div>
+          </label>
+          {actionError && (
+            <p role="alert" className="text-sm text-red-700">
+              {actionError}
+            </p>
+          )}
           <button
-            onClick={() => onConfirm(channel)}
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-emerald-700 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-50"
+            disabled={!!busy}
+            onClick={() =>
+              approve &&
+              void act(approve, {
+                status: "aprobado",
+                approval_channel: channel,
+              })
+            }
+            className="w-full rounded-full bg-blue p-3 font-semibold text-white disabled:opacity-50"
           >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            Confirmar aprobación
+            {busy ? "Guardando…" : "Aceptar y agregar a la ODS"}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-interface TaskDraft {
-  tempario_id: string;
-  code: string;
-  name: string;
-  hours: number;
-}
-
-interface PartDraft {
-  part_id: string;
-  code: string;
-  name: string;
-  quantity: string;
-}
-
-function CreateUpsellModal({
-  open,
-  onClose,
-  filialId,
-  orders,
-  currentUserId,
-  onSubmit,
-}: {
-  open: boolean;
-  onClose: () => void;
-  filialId: string;
-  orders: { id: string; code: string }[];
-  currentUserId: string | null;
-  onSubmit: (
-    orderId: string,
-    input: {
-      title: string;
-      description: string;
-      severity: UpsellSeverity;
-      detected_by_user_id?: string | null;
-      tasks?: { tempario_id: string }[];
-      parts?: { part_id: string; quantity: number }[];
-    },
-    photos?: File[]
-  ) => Promise<unknown>;
-}) {
-  const [orderId, setOrderId] = useState("");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [severity, setSeverity] = useState<UpsellSeverity>("monitorear");
-  const [photos, setPhotos] = useState<File[]>([]);
-  const [taskSearch, setTaskSearch] = useState("");
-  const [partSearch, setPartSearch] = useState("");
-  const [selectedTasks, setSelectedTasks] = useState<TaskDraft[]>([]);
-  const [selectedParts, setSelectedParts] = useState<PartDraft[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const { temparios } = useTemparios(filialId, taskSearch || undefined);
-  const { parts } = useParts(filialId, partSearch || undefined);
-
-  const taskResults = temparios.filter((t) => !selectedTasks.some((s) => s.tempario_id === t.id)).slice(0, 6);
-  const partResults = parts.filter((p) => !selectedParts.some((s) => s.part_id === p.id)).slice(0, 6);
-
-  function reset() {
-    setOrderId("");
-    setTitle("");
-    setDescription("");
-    setSeverity("monitorear");
-    setPhotos([]);
-    setTaskSearch("");
-    setPartSearch("");
-    setSelectedTasks([]);
-    setSelectedParts([]);
-    setError(null);
-  }
-
-  async function handleSubmit() {
-    if (!orderId || !title.trim() || !description.trim()) {
-      setError("Selecciona la ODS y completa título y descripción.");
-      return;
-    }
-    if (selectedTasks.length === 0 && selectedParts.length === 0) {
-      setError("Agrega al menos una tarea del tempario o un repuesto.");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    try {
-      await onSubmit(
-        orderId,
-        {
-          title,
-          description,
-          severity,
-          detected_by_user_id: currentUserId,
-          tasks: selectedTasks.map((t) => ({ tempario_id: t.tempario_id })),
-          parts: selectedParts.map((p) => ({ part_id: p.part_id, quantity: Number(p.quantity) || 1 })),
-        },
-        photos
-      );
-      reset();
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo crear el upsell.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div onClick={onClose} className="absolute inset-0 bg-navy/40" />
-      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-navy/10 px-6 py-4">
-          <h2 className="font-display text-lg font-bold text-navy">Nuevo upsell</h2>
-          <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="space-y-5 p-6">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Orden de Servicio</label>
-            <select
-              value={orderId}
-              onChange={(e) => setOrderId(e.target.value)}
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            >
-              <option value="">Selecciona una ODS...</option>
-              {orders.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.code}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Título</label>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Fuga en amortiguador trasero"
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Descripción</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Amortiguador trasero derecho con fuga de aceite; se recomienda cambio del par."
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Tareas del tempario</label>
-            <div className="relative">
-              <input
-                value={taskSearch}
-                onChange={(e) => setTaskSearch(e.target.value)}
-                placeholder="Buscar por código o nombre..."
-                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-              />
-              {taskSearch && taskResults.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">
-                  {taskResults.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedTasks((prev) => [
-                          ...prev,
-                          { tempario_id: t.id, code: t.code, name: t.name, hours: t.estimated_hours },
-                        ]);
-                        setTaskSearch("");
-                      }}
-                      className="block w-full px-4 py-2 text-left text-sm hover:bg-ash"
-                    >
-                      <span className="font-mono text-blue">{t.code}</span>{" "}
-                      <span className="text-navy">{t.name}</span>{" "}
-                      <span className="text-steel">({formatCount(t.estimated_hours)}h)</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {selectedTasks.length > 0 && (
-              <div className="mt-2 space-y-1.5">
-                {selectedTasks.map((t) => (
-                  <div key={t.tempario_id} className="flex items-center justify-between rounded-lg bg-ash px-3 py-2 text-sm">
-                    <span>
-                      <span className="font-mono text-blue">{t.code}</span> {t.name}{" "}
-                      <span className="text-steel">({formatCount(t.hours)}h)</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTasks((prev) => prev.filter((x) => x.tempario_id !== t.tempario_id))}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Repuestos</label>
-            <div className="relative">
-              <input
-                value={partSearch}
-                onChange={(e) => setPartSearch(e.target.value)}
-                placeholder="Buscar por código o nombre..."
-                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-              />
-              {partSearch && partResults.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full divide-y divide-navy/5 rounded-xl border border-navy/10 bg-white shadow-lg">
-                  {partResults.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedParts((prev) => [
-                          ...prev, { part_id: p.id, code: p.code, name: p.name, quantity: "1" },
-                        ]);
-                        setPartSearch("");
-                      }}
-                      className="block w-full px-4 py-2 text-left text-sm hover:bg-ash"
-                    >
-                      <span className="font-mono text-blue">{p.code}</span> <span className="text-navy">{p.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {selectedParts.length > 0 && (
-              <div className="mt-2 space-y-1.5">
-                {selectedParts.map((p) => (
-                  <div key={p.part_id} className="flex items-center justify-between gap-2 rounded-lg bg-ash px-3 py-2 text-sm">
-                    <span className="flex-1">
-                      <span className="font-mono text-blue">{p.code}</span> {p.name}
-                    </span>
-                    <NumberInput
-                      min="1"
-                      value={p.quantity}
-                      onValueChange={(value) =>
-                        setSelectedParts((prev) =>
-                          prev.map((x) => (x.part_id === p.part_id ? { ...x, quantity: value } : x))
-                        )
-                      }
-                      className="w-16 rounded-lg border border-navy/15 px-2 py-1 text-center text-sm outline-none focus:border-blue"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setSelectedParts((prev) => prev.filter((x) => x.part_id !== p.part_id))}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Severidad</label>
-            <select
-              value={severity}
-              onChange={(e) => setSeverity(e.target.value as UpsellSeverity)}
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            >
-              <option value="urgente">Urgente</option>
-              <option value="pronto">Pronto</option>
-              <option value="monitorear">Monitorear</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Evidencia fotográfica</label>
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={(e) => setPhotos(Array.from(e.target.files ?? []))}
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            />
-            {photos.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {photos.map((file, i) => (
-                  <span key={i} className="rounded-full bg-ash px-3 py-1 text-xs text-steel">
-                    {file.name}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Crear upsell
-          </button>
-        </div>
-      </div>
+      </Modal>
+      {discard && (
+        <DiscardUpsellModal
+          title={discard.title}
+          submitting={!!busy}
+          actionError={actionError}
+          onClose={() => {
+            if (!busy) setDiscard(null);
+          }}
+          onConfirm={(reason, note) =>
+            void act(discard, {
+              status: "rechazado",
+              discard_reason: reason,
+              discard_note: note,
+            })
+          }
+        />
+      )}
     </div>
   );
 }

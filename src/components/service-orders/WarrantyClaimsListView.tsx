@@ -1,277 +1,533 @@
 "use client";
-
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Loader2, ShieldCheck, ShieldX } from "lucide-react";
+import Modal from "@/components/common/Modal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
-import { authorizeWarrantyClaim, convertWarrantyClaimToOrder, listWarrantyClaims } from "@/lib/api/warrantyClaims";
-import WarrantyClaimForm from "./WarrantyClaimForm";
-import EmptyState from "@/components/common/EmptyState";
-import type { ReworkFailureCategory, WarrantyClaim, WarrantyClaimStatus } from "@/types/warrantyClaim";
-
-const CLAIM_TYPE_LABELS: Record<WarrantyClaim["claim_type"], string> = {
-  fabrica: "Fábrica / importador",
-  comeback: "Trabajo previo (comeback)",
-  repuesto_proveedor: "Repuesto — proveedor",
-  campana_recall: "Campaña o recall",
-};
-
-const STATUS_LABELS: Record<WarrantyClaimStatus, string> = {
-  solicitado: "Solicitado",
+import { useUserDirectory } from "@/hooks/useUserDirectory";
+import {
+  getClaimsOverview,
+  listWarrantyClaims,
+  reviewClaim,
+  type ClaimsOverview,
+} from "@/lib/api/warrantyClaims";
+import { formatEntryDate, formatEntryDateTime } from "@/lib/format";
+import type {
+  ReworkFailureCategory,
+  WarrantyClaim,
+} from "@/types/warrantyClaim";
+import ClaimSupplierAction from "./ClaimSupplierAction";
+import NewWarrantyClaim from "./NewWarrantyClaim";
+const labels = {
+  solicitado: "Por aprobar",
   autorizado: "Autorizado",
   rechazado: "Rechazado",
   convertido_a_ods: "Convertido a ODS",
 };
-
-const STATUS_STYLES: Record<WarrantyClaimStatus, string> = {
-  solicitado: "bg-amber-100 text-amber-700",
-  autorizado: "bg-blue-light text-blue",
-  rechazado: "bg-red-100 text-red-700",
-  convertido_a_ods: "bg-emerald-100 text-emerald-700",
+const types = {
+  comeback: "Comeback",
+  fabrica: "Garantía de fábrica",
+  campana_recall: "Campaña o recall",
+  repuesto_proveedor: "Repuesto · proveedor",
 };
-
-const FAILURE_CATEGORY_LABELS: Record<ReworkFailureCategory, string> = {
+const money = (v: number) =>
+  `$${v.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const failures: Record<ReworkFailureCategory, string> = {
   mano_de_obra: "Mano de obra",
   repuesto_defectuoso: "Repuesto defectuoso",
   error_diagnostico: "Error de diagnóstico",
   mal_uso_cliente: "Mal uso del cliente",
-  no_determinada: "No se pudo determinar",
+  no_determinada: "No determinada",
 };
-
+function coverageDescription(claim: WarrantyClaim) {
+  const coverage = claim.coverage_snapshot;
+  const terms = [
+    coverage?.duration_days ? `${coverage.duration_days} días` : null,
+    coverage?.duration_months ? `${coverage.duration_months} meses` : null,
+    coverage?.duration_km
+      ? `${coverage.duration_km.toLocaleString("es-VE")} km`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" o ");
+  return `${coverage?.label ?? claim.tempario_name ?? types[claim.claim_type]}${terms ? ` · ${terms}` : ""}`;
+}
 export default function WarrantyClaimsListView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
-  const { canEdit: canAuthorize } = useModuleAccess("administracion");
-
-  const [claims, setClaims] = useState<WarrantyClaim[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  const [authDecision, setAuthDecision] = useState<"aprobado" | "rechazado" | null>(null);
-  const [authWarrantyOverride, setAuthWarrantyOverride] = useState(false);
-  const [authWarrantyOverrideNote, setAuthWarrantyOverrideNote] = useState("");
-  const [authFailureCategory, setAuthFailureCategory] = useState<ReworkFailureCategory | "">("");
-  const [working, setWorking] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-
-  function load() {
+  const { canEdit } = useModuleAccess("asesor-servicios"),
+    { canEdit: canAuthorize } = useModuleAccess("administracion");
+  const { users } = useUserDirectory({ filialId });
+  const [claims, setClaims] = useState<WarrantyClaim[]>([]),
+    [overview, setOverview] = useState<ClaimsOverview | null>(null),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState("");
+  const [tab, setTab] = useState("all"),
+    [search, setSearch] = useState(""),
+    [creating, setCreating] = useState(false),
+    [selected, setSelected] = useState<string | null>(null),
+    [busy, setBusy] = useState(false),
+    [reason, setReason] = useState(""),
+    [failure, setFailure] = useState<ReworkFailureCategory>("no_determinada");
+  const load = useCallback(async () => {
     if (!filialId) {
       setLoading(false);
       return;
     }
-    setLoading(true);
-    listWarrantyClaims(filialId)
-      .then(setClaims)
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(load, [filialId]);
-
-  function toggleExpand(claim: WarrantyClaim) {
-    setExpandedId((prev) => (prev === claim.id ? null : claim.id));
-    setAuthDecision(null);
-    setAuthWarrantyOverride(false);
-    setAuthWarrantyOverrideNote("");
-    setAuthFailureCategory(claim.failure_category ?? "");
-    setActionError(null);
-  }
-
-  async function handleAuthorize(claim: WarrantyClaim) {
-    if (!authDecision) return;
-    setWorking(true);
-    setActionError(null);
     try {
-      const updated = await authorizeWarrantyClaim(claim.id, {
-        decision: authDecision,
-        warranty_override: authDecision === "aprobado" ? authWarrantyOverride : undefined,
-        warranty_override_note:
-          authDecision === "aprobado" && authWarrantyOverride ? authWarrantyOverrideNote.trim() : undefined,
-        failure_category: authFailureCategory || undefined,
-      });
-      setClaims((prev) => prev.map((c) => (c.id === claim.id ? updated : c)));
-      setAuthDecision(null);
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "No se pudo registrar la decisión.");
+      const [rows, stats] = await Promise.all([
+        listWarrantyClaims(filialId),
+        getClaimsOverview(filialId),
+      ]);
+      setClaims(rows);
+      setOverview(stats);
+      setError("");
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudieron cargar los reclamos.",
+      );
     } finally {
-      setWorking(false);
+      setLoading(false);
+    }
+  }, [filialId]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const matches = (c: WarrantyClaim, key: string) =>
+    key === "all" ||
+    (key === "brand" && c.brand_status === "en_marca") ||
+    c.status === key;
+  const rows = claims.filter(
+    (c) =>
+      matches(c, tab) &&
+      `${c.code} ${c.client_name} ${c.vehicle_plate} ${c.tempario_name} ${c.reported_symptom} ${c.failure_cause}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+  );
+  const claim = claims.find((c) => c.id === selected);
+  const name = (id: string | null) =>
+    users.find((u) => u.id === id)?.full_name ?? "Sin registrar";
+  async function act(decision: "aprobado" | "rechazado") {
+    if (!claim) return;
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await reviewClaim(
+        claim.id,
+        {
+          decision,
+          rejection_reason: reason.trim() || undefined,
+          failure_category: failure,
+        },
+        claim.brand_status === "en_marca",
+      );
+      setClaims((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      setReason("");
+      await load();
+      window.dispatchEvent(new Event("bayline:claims-updated"));
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo registrar la decisión.",
+      );
+    } finally {
+      setBusy(false);
     }
   }
-
-  async function handleConvert(claim: WarrantyClaim) {
-    setWorking(true);
-    setActionError(null);
-    try {
-      const updated = await convertWarrantyClaimToOrder(claim.id, {});
-      setClaims((prev) => prev.map((c) => (c.id === claim.id ? updated : c)));
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "No se pudo convertir el reclamo en orden.");
-    } finally {
-      setWorking(false);
-    }
-  }
-
   return (
-    <div>
-      <h1 className="mb-2 font-display text-3xl font-bold text-navy">Reclamos</h1>
-      <p className="mb-6 text-sm text-steel">
-        Un solo flujo para fábrica, comeback de taller, repuesto defectuoso y campañas — el tipo determina quién
-        paga. Solicitado → autorizado/rechazado → convertido a ODS.
-      </p>
-
-      {filialId && <WarrantyClaimForm filialId={filialId} onCreated={load} />}
-
-      <div className="mt-8 rounded-2xl border border-navy/10 bg-white p-6">
-        <p className="font-display text-lg font-bold text-navy">Reclamos registrados</p>
-
-        <div className="mt-4">
-          {loading ? (
-            <p className="text-sm text-steel">Cargando reclamos...</p>
-          ) : claims.length === 0 ? (
-            <EmptyState compact title="No hay reclamos de garantía registrados." />
-          ) : (
-            <div className="space-y-3">
-              {claims.map((c) => (
-                <div key={c.id} className="rounded-xl border border-navy/10 p-4 text-sm">
-                  <button type="button" onClick={() => toggleExpand(c)} className="flex w-full items-start justify-between gap-3 text-left">
-                    <div>
-                      <p className="font-semibold text-navy">
-                        {c.code} · {c.vehicle_plate} · {c.client_name}
-                      </p>
-                      <p className="mt-1 text-steel">{CLAIM_TYPE_LABELS[c.claim_type]}</p>
-                      <p className="mt-1 text-xs text-steel">{c.failure_cause ?? c.reported_symptom}</p>
-                    </div>
-                    <span className={`shrink-0 rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${STATUS_STYLES[c.status]}`}>
-                      {STATUS_LABELS[c.status]}
-                    </span>
-                  </button>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-steel">
-                    <span>{new Date(c.claimed_at).toLocaleDateString("es-VE")}</span>
-                    <span>·</span>
-                    <span>{c.reported_mileage.toLocaleString("es-VE")} km reportados</span>
-                    {c.mileage_inconsistent && (
-                      <span className="flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">
-                        <AlertTriangle className="h-3 w-3" />
-                        Kilometraje inconsistente
-                      </span>
-                    )}
-                    {c.service_order_code && <span>· ODS: {c.service_order_code}</span>}
-                  </div>
-
-                  {c.auto_generated_supplier_claim_ids.length > 0 && (
-                    <p className="mt-1.5 text-xs font-medium text-emerald-700">Se generó el reclamo al proveedor automáticamente.</p>
-                  )}
-                  {c.supplier_claim_note && <p className="mt-1.5 text-xs text-amber-700">{c.supplier_claim_note}</p>}
-                  {c.resulting_service_order_id && (
-                    <Link
-                      href={`/dashboard/servicios/${c.resulting_service_order_id}`}
-                      className="mt-1.5 inline-block text-xs font-semibold text-blue underline underline-offset-2 hover:text-navy"
-                    >
-                      Ver orden {c.resulting_service_order_code ?? "generada"}
-                    </Link>
-                  )}
-
-                  {expandedId === c.id && (
-                    <div className="mt-3 space-y-3 rounded-lg bg-ash p-3">
-                      {actionError && <p className="text-xs text-red-600">{actionError}</p>}
-
-                      {c.status === "solicitado" &&
-                        (canAuthorize ? (
-                          authDecision ? (
-                            <div className="space-y-2">
-                              {(c.claim_type === "comeback" || c.claim_type === "repuesto_proveedor") &&
-                                authDecision === "aprobado" && (
-                                  <select
-                                    value={authFailureCategory}
-                                    onChange={(e) => setAuthFailureCategory(e.target.value as ReworkFailureCategory)}
-                                    className="w-full rounded-lg border border-navy/15 px-3 py-2 text-xs outline-none focus:border-blue"
-                                  >
-                                    <option value="">Selecciona la causa (obligatoria para aprobar)...</option>
-                                    {(Object.entries(FAILURE_CATEGORY_LABELS) as [ReworkFailureCategory, string][]).map(([value, label]) => (
-                                      <option key={value} value={value}>
-                                        {label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                )}
-                              {(c.claim_type === "fabrica" || c.claim_type === "campana_recall") && authDecision === "aprobado" && (
-                                <div className="space-y-1.5">
-                                  <label className="flex items-center gap-2 text-xs text-navy">
-                                    <input type="checkbox" checked={authWarrantyOverride} onChange={(e) => setAuthWarrantyOverride(e.target.checked)} />
-                                    Autorizar por excepción aunque no haya garantía vigente
-                                  </label>
-                                  {authWarrantyOverride && (
-                                    <textarea
-                                      value={authWarrantyOverrideNote}
-                                      onChange={(e) => setAuthWarrantyOverrideNote(e.target.value)}
-                                      rows={2}
-                                      placeholder="Motivo de la excepción (obligatorio)"
-                                      className="w-full rounded-lg border border-navy/15 px-3 py-2 text-xs outline-none focus:border-blue"
-                                    />
-                                  )}
-                                </div>
-                              )}
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleAuthorize(c)}
-                                  disabled={working}
-                                  className="flex items-center gap-1.5 rounded-full bg-blue px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                                >
-                                  {working && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                                  Confirmar
-                                </button>
-                                <button onClick={() => setAuthDecision(null)} disabled={working} className="rounded-full border border-navy/15 px-3 py-1.5 text-xs font-semibold text-navy">
-                                  Cancelar
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => setAuthDecision("aprobado")}
-                                className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-400"
-                              >
-                                <ShieldCheck className="h-3.5 w-3.5" />
-                                Autorizar
-                              </button>
-                              <button
-                                onClick={() => setAuthDecision("rechazado")}
-                                className="flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:border-red-400"
-                              >
-                                <ShieldX className="h-3.5 w-3.5" />
-                                Rechazar
-                              </button>
-                            </div>
-                          )
-                        ) : (
-                          <p className="text-[11px] italic text-steel">Requiere autorización de un jefe de taller o gerente.</p>
-                        ))}
-
-                      {c.status === "autorizado" &&
-                        (canAuthorize ? (
-                          <button
-                            onClick={() => handleConvert(c)}
-                            disabled={working}
-                            className="flex items-center gap-1.5 rounded-full bg-blue px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                          >
-                            {working && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                            Convertir a ODS
-                          </button>
-                        ) : (
-                          <p className="text-[11px] italic text-steel">Requiere permiso de un jefe de taller o gerente para convertirlo en orden.</p>
-                        ))}
-
-                      {(c.status === "rechazado" || c.status === "convertido_a_ods") && (
-                        <p className="text-[11px] italic text-steel">Este reclamo ya no admite más acciones.</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+    <div className="space-y-5">
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-navy">
+            Reclamos
+          </h1>
+          <p className="mt-2 text-sm text-steel">
+            Garantías del taller, de fábrica y campañas.
+          </p>
+        </div>
+        {canEdit && (
+          <button
+            onClick={() => setCreating(true)}
+            className="rounded-full bg-blue px-5 py-3 text-sm font-semibold text-white"
+          >
+            + Nuevo reclamo
+          </button>
+        )}
+      </header>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <p className="text-xs text-amber-800">Por aprobar</p>
+          <p className="mt-2 text-2xl font-bold text-amber-800">
+            {overview?.pending ?? "—"}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-navy/10 bg-white p-5">
+          <p className="text-xs text-steel">Costo de comebacks · este mes</p>
+          <p className="mt-2 text-2xl font-bold text-navy">
+            {overview ? money(overview.monthly_cost) : "—"}
+          </p>
+          <p className="mt-1 text-xs text-steel">
+            Repuestos despachados y mano de obra completada.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-navy/10 bg-white p-5">
+          <p className="text-xs text-steel">Tasa de comebacks · este mes</p>
+          <p className="mt-2 text-2xl font-bold text-navy">
+            {overview?.monthly_closed
+              ? `${overview.comeback_rate.toLocaleString("es-VE")} %`
+              : "—"}
+          </p>
+          <p className="mt-1 text-xs text-steel">
+            {overview?.monthly_reworks ?? 0} retrabajos de{" "}
+            {overview?.monthly_closed ?? 0} ODS cerradas
+          </p>
         </div>
       </div>
+      <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap rounded-full bg-slate-100 p-1">
+          {[
+            ["all", "Todos"],
+            ["solicitado", "Por aprobar"],
+            ["brand", "En la marca"],
+            ["convertido_a_ods", "Convertidos a ODS"],
+            ["rechazado", "Rechazados"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`rounded-full px-3 py-2 text-xs ${key === tab ? "bg-white font-semibold shadow-sm" : "text-steel"}`}
+            >
+              {label} {claims.filter((c) => matches(c, key)).length}
+            </button>
+          ))}
+        </div>
+        <input
+          aria-label="Buscar reclamos"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por cliente, placa o reclamo"
+          className="min-w-0 flex-1 rounded-full border border-navy/10 px-4 py-2 text-sm"
+        />
+      </div>
+      {error && !claim && (
+        <p
+          role="alert"
+          className="rounded-xl bg-red-50 p-3 text-sm text-red-700"
+        >
+          {error}
+        </p>
+      )}
+      <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
+        <table className="w-full min-w-[700px] text-left text-sm">
+          <thead className="border-b border-navy/10 font-mono text-[10px] uppercase tracking-wide text-steel">
+            <tr>
+              {[
+                "Reclamo",
+                "Vehículo · cliente",
+                "Garantía reclamada",
+                "Tipo",
+                "Estado",
+              ].map((h) => (
+                <th key={h} className="px-4 py-4">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((c) => (
+              <tr
+                key={c.id}
+                onClick={() => {
+                  setSelected(c.id);
+                  setReason("");
+                  setError("");
+                  setFailure(c.failure_category ?? "no_determinada");
+                }}
+                className="cursor-pointer border-b border-navy/5 last:border-0 hover:bg-slate-50"
+              >
+                <td className="px-4 py-5">
+                  <button
+                    onClick={() => {
+                      setSelected(c.id);
+                      setReason("");
+                      setError("");
+                      setFailure(c.failure_category ?? "no_determinada");
+                    }}
+                    className="font-mono text-xs font-semibold text-blue underline"
+                  >
+                    {c.code}
+                  </button>
+                  <p className="mt-2 text-xs text-steel">
+                    {formatEntryDate(c.claimed_at)}
+                  </p>
+                </td>
+                <td className="px-4 py-5">
+                  <button
+                    onClick={() => {
+                      setSelected(c.id);
+                      setReason("");
+                      setError("");
+                    }}
+                    className="text-left"
+                  >
+                    <b>
+                      {c.vehicle_label ?? "Vehículo"}{" "}
+                      <span className="font-mono text-xs font-normal text-steel">
+                        {c.vehicle_plate ?? c.vehicle_vin ?? "Sin placa"}
+                      </span>
+                    </b>
+                    <p className="mt-1 text-xs text-steel">{c.client_name}</p>
+                  </button>
+                </td>
+                <td className="max-w-xs px-4 py-5">
+                  <p className="font-medium">{coverageDescription(c)}</p>
+                  <p className="mt-1 break-words text-xs text-steel">
+                    {c.reported_symptom ?? c.failure_cause}
+                  </p>
+                </td>
+                <td className="px-4 py-5 text-xs">{types[c.claim_type]}</td>
+                <td className="px-4 py-5">
+                  <span
+                    className={`rounded-full px-2 py-1 text-[11px] font-semibold ${c.status === "solicitado" ? "bg-amber-100 text-amber-800" : c.status === "convertido_a_ods" ? "bg-emerald-100 text-emerald-800" : c.brand_status === "en_marca" ? "bg-blue-light text-blue" : "bg-slate-100 text-steel"}`}
+                  >
+                    {c.brand_status === "en_marca"
+                      ? "En la marca"
+                      : labels[c.status]}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {loading ? (
+          <p className="p-8 text-center text-sm text-steel">
+            Cargando reclamos…
+          </p>
+        ) : (
+          !rows.length && (
+            <p className="p-8 text-center text-sm text-steel">
+              No hay reclamos en esta bandeja.
+            </p>
+          )
+        )}
+      </div>
+      {creating && filialId && (
+        <NewWarrantyClaim
+          filialId={filialId}
+          onClose={() => setCreating(false)}
+          onCreated={() => {
+            setCreating(false);
+            void load();
+            window.dispatchEvent(new Event("bayline:claims-updated"));
+          }}
+        />
+      )}
+      <Modal
+        open={!!claim}
+        onClose={() => {
+          if (!busy) setSelected(null);
+        }}
+        closeDisabled={busy}
+        title={claim ? `Reclamo ${claim.code}` : "Reclamo"}
+        description={
+          claim ? `${types[claim.claim_type]} · ${claim.client_name}` : ""
+        }
+        size="lg"
+      >
+        {claim && (
+          <div className="space-y-5 p-6">
+            <div className="grid gap-4 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-2">
+              <p>
+                <span className="block text-xs text-steel">Vehículo</span>
+                {claim.vehicle_plate ?? "Sin placa"} ·{" "}
+                {claim.vehicle_vin ?? "Sin VIN"}
+              </p>
+              <p>
+                <span className="block text-xs text-steel">
+                  Kilometraje reportado
+                </span>
+                {claim.reported_mileage.toLocaleString("es-VE")} km
+              </p>
+              <p>
+                <span className="block text-xs text-steel">
+                  Garantía reclamada
+                </span>
+                {coverageDescription(claim)}
+              </p>
+              <p>
+                <span className="block text-xs text-steel">ODS de origen</span>
+                {claim.service_order_id ? (
+                  <Link
+                    href={`/dashboard/servicios/${claim.service_order_id}`}
+                    className="text-blue underline"
+                  >
+                    {claim.service_order_code ?? "Ver ODS"}
+                  </Link>
+                ) : (
+                  "Sin ODS de origen"
+                )}
+              </p>
+            </div>
+            {claim.mileage_inconsistent && (
+              <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+                El kilometraje reportado es menor que el último registro del
+                vehículo.
+              </p>
+            )}
+            <section>
+              <h3 className="font-semibold text-navy">
+                Lo que reporta el cliente
+              </h3>
+              <p className="mt-2 whitespace-pre-wrap break-words text-sm text-steel">
+                {claim.reported_symptom ?? claim.failure_cause}
+              </p>
+              {claim.note && (
+                <p className="mt-2 text-sm text-steel">{claim.note}</p>
+              )}
+            </section>
+            <section>
+              <h3 className="font-semibold text-navy">Fotos y documentos</h3>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[...claim.photo_urls, ...claim.document_urls].map((url, i) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg border border-navy/10 px-3 py-2 text-sm text-blue underline"
+                  >
+                    {i < claim.photo_urls.length ? "Foto" : "Documento"} {i + 1}
+                  </a>
+                ))}
+                {!claim.photo_urls.length && !claim.document_urls.length && (
+                  <p className="text-sm text-steel">Sin anexos.</p>
+                )}
+              </div>
+            </section>
+            <section>
+              <h3 className="font-semibold text-navy">Seguimiento</h3>
+              <ol className="mt-3 space-y-3 border-l border-navy/10 pl-4 text-xs text-steel">
+                <li>
+                  Registrado por {name(claim.recorded_by_user_id)} ·{" "}
+                  {formatEntryDateTime(claim.created_at)}
+                </li>
+                {claim.authorized_at && (
+                  <li>
+                    {claim.status === "rechazado" ? "Rechazado" : "Revisado"}{" "}
+                    por {name(claim.authorized_by_user_id)} ·{" "}
+                    {formatEntryDateTime(claim.authorized_at)}
+                  </li>
+                )}
+                {claim.brand_sent_at && (
+                  <li>
+                    Enviado a la marca ·{" "}
+                    {formatEntryDateTime(claim.brand_sent_at)}
+                  </li>
+                )}
+                {claim.brand_response_at && (
+                  <li>
+                    Respuesta de la marca: {claim.brand_status} ·{" "}
+                    {name(claim.brand_responded_by_user_id ?? null)} ·{" "}
+                    {formatEntryDateTime(claim.brand_response_at)}
+                  </li>
+                )}
+                {claim.converted_at && (
+                  <li>
+                    Convertido a ODS por {name(claim.converted_by_user_id)} ·{" "}
+                    {formatEntryDateTime(claim.converted_at)}
+                  </li>
+                )}
+              </ol>
+            </section>
+            {claim.rejection_reason && (
+              <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
+                Motivo del rechazo: {claim.rejection_reason}
+              </p>
+            )}
+            {claim.resulting_service_order_id && (
+              <Link
+                href={`/dashboard/servicios/${claim.resulting_service_order_id}`}
+                className="inline-block rounded-full bg-blue px-4 py-2 text-sm font-semibold text-white"
+              >
+                Ver {claim.resulting_service_order_code ?? "ODS generada"}
+              </Link>
+            )}
+            {canAuthorize &&
+              claim.claim_type === "comeback" &&
+              claim.status === "convertido_a_ods" && (
+                <ClaimSupplierAction
+                  claim={claim}
+                  onUpdated={(updated) =>
+                    setClaims((prev) =>
+                      prev.map((c) => (c.id === updated.id ? updated : c)),
+                    )
+                  }
+                />
+              )}
+            {error && (
+              <p role="alert" className="text-sm text-red-700">
+                {error}
+              </p>
+            )}
+            {canAuthorize &&
+              (claim.status === "solicitado" ||
+                claim.brand_status === "en_marca") && (
+                <section className="space-y-3 border-t border-navy/10 pt-5">
+                  <h3 className="font-semibold text-navy">
+                    {claim.brand_status === "en_marca"
+                      ? "Registrar respuesta de la marca"
+                      : "Decisión del jefe de taller / gerente"}
+                  </h3>
+                  {claim.claim_type === "comeback" && (
+                    <select
+                      aria-label="Causa de la falla"
+                      value={failure}
+                      onChange={(e) =>
+                        setFailure(e.target.value as ReworkFailureCategory)
+                      }
+                      className="w-full rounded-xl border border-navy/15 p-3 text-sm"
+                    >
+                      {Object.entries(failures).map(([key, label]) => (
+                        <option key={key} value={key}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <textarea
+                    aria-label="Motivo del rechazo"
+                    placeholder="Motivo del rechazo (obligatorio al rechazar)"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className="w-full rounded-xl border border-navy/15 p-3 text-sm"
+                  />
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      disabled={busy}
+                      onClick={() => void act("aprobado")}
+                      className="rounded-full bg-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                    >
+                      {busy
+                        ? "Guardando…"
+                        : claim.brand_status === "en_marca"
+                          ? "Marca autorizó · crear ODS"
+                          : claim.claim_type === "comeback"
+                            ? "Autorizar y crear ODS"
+                            : "Aprobar y enviar a la marca"}
+                    </button>
+                    <button
+                      disabled={busy || !reason.trim()}
+                      onClick={() => void act("rechazado")}
+                      className="rounded-full border border-red-200 px-4 py-2 text-sm text-red-700 disabled:opacity-40"
+                    >
+                      Rechazar
+                    </button>
+                  </div>
+                </section>
+              )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

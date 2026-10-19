@@ -60,3 +60,6 @@ export async function decideUpsell(upsellId: string, input: DecideUpsellInput): 
     body: JSON.stringify(input),
   });
 }
+
+export interface UpsellQuote { total: number; has_work: boolean; estimated_at: string }
+export const quoteUpsell = (id: string) => apiFetch<UpsellQuote>(`/upsells/${id}/quote`);

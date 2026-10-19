@@ -42,16 +42,18 @@ export default function TasksCard({ filialId, tasks, onAdd, onRemove, children, 
   const [search, setSearch] = useState("");
   const { temparios } = useTemparios(filialId, search || undefined);
   const [adding, setAdding] = useState(false);
+  const [actionError,setActionError]=useState<string|null>(null);
 
   const results = search ? temparios.slice(0, 6) : [];
 
   async function handleAdd(temparioId: string) {
     if (readOnly) return;
     setAdding(true);
+    setActionError(null);
     try {
       await onAdd(temparioId, "cliente");
       setSearch("");
-    } finally {
+    } catch(e){setActionError(e instanceof Error?e.message:"No se pudo agregar la tarea.");} finally {
       setAdding(false);
     }
   }
@@ -100,12 +102,13 @@ export default function TasksCard({ filialId, tasks, onAdd, onRemove, children, 
 
       </div>
 
+      {actionError&&<p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-xs text-red-700">{actionError}</p>}
       {tasks.length === 0 ? (
         <p className="rounded-xl bg-ash px-4 py-6 text-center text-sm text-steel">
           Todavía no hay tareas agregadas a esta orden.
         </p>
       ) : (
-        <ul className="divide-y divide-navy/10">{tasks.map(task=><li key={task.id} className="py-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-navy">{task.name_snapshot}</p><p className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-steel"><span className="font-mono text-blue">{task.code_snapshot}</span><span>{formatCount(task.hours_snapshot)} h</span><TaskTimerCell task={task}/></p></div><div className="flex items-center gap-2"><span className={`rounded-lg px-2 py-1 text-[10px] font-semibold ${STATUS_STYLES[task.status]}`}>{STATUS_LABELS[task.status]}</span>{!readOnly && task.status === "pendiente" && <button type="button" disabled={adding} onClick={()=>void onRemove(task.id)} aria-label={`Quitar tarea ${task.name_snapshot}`} className="rounded-lg p-1 text-steel hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5"/></button>}</div></div></li>)}</ul>
+        <ul className="divide-y divide-navy/10">{tasks.map(task=><li key={task.id} className="py-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-navy">{task.name_snapshot}</p><p className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-steel"><span className="font-mono text-blue">{task.code_snapshot}</span><span>{formatCount(task.hours_snapshot)} h</span><TaskTimerCell task={task}/></p></div><div className="flex items-center gap-2"><span className={`rounded-lg px-2 py-1 text-[10px] font-semibold ${STATUS_STYLES[task.status]}`}>{STATUS_LABELS[task.status]}</span>{!readOnly && task.status === "pendiente" && <button type="button" disabled={adding} onClick={()=>{setActionError(null);void onRemove(task.id).catch(e=>setActionError(e instanceof Error?e.message:"No se pudo quitar la tarea."));}} aria-label={`Quitar tarea ${task.name_snapshot}`} className="rounded-lg p-1 text-steel hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5"/></button>}</div></div></li>)}</ul>
       )}
       {children}
     </div>

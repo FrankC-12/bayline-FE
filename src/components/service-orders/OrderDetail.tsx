@@ -16,10 +16,11 @@ import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useInspectionForOrder } from "@/hooks/useInspectionForOrder";
 import { useInspections } from "@/hooks/useInspections";
 import { useOrderSummary } from "@/hooks/useOrderSummary";
-import OrderDatesEditor from "./OrderDatesEditor";
 import TasksCard from "./TaskCard";
 import TransfersCard from "./TransferCard";
 import InspectionReadout from "./InspectionReadout";
+import InspectionRecordModal from "./InspectionRecordModal";
+import DraftOrderEditor from "./DraftOrderEditor";
 import OrderStages from "./OrderStages";
 import { useDetailedInspection } from "@/hooks/useDetailedInspection";
 import { useUpsellsContext } from "@/contexts/UpsellsContext";
@@ -31,7 +32,6 @@ import WarrantyClaimModal from "./WarrantyClaimModal";
 import VehicleDamageMap from "@/components/inspections/VehicleDamageMap";
 import { useOrderPaymentStatus } from "@/hooks/useOrderPaymentStatus";
 import { closeServiceOrder } from "@/lib/api/serviceOrderBilling";
-import { CALENDAR_TIME_ZONE } from "@/lib/calendar";
 import { formatElapsed, serviceOrderStoppedAt } from "@/lib/time";
 import LiveDot from "@/components/common/LiveDot";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
@@ -98,6 +98,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const [addingPlanTask, setAddingPlanTask] = useState(false);
   const stoppedAt = order ? serviceOrderStoppedAt(order) : null;
   const [elapsed, setElapsed] = useState(() => (order ? formatElapsed(order.created_at, stoppedAt) : ""));
+  const [inspectionRecord,setInspectionRecord]=useState<"preliminary"|"detailed"|null>(null);
   const [damageMapOpen, setDamageMapOpen] = useState(false);
 
   useEffect(() => {
@@ -137,7 +138,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     );
   }
 
-  const info = vehicleMap.get(order.vehicle_id);
+  const info = vehicleMap.get(order.vehicle_id??"");
   const orderPayer: import("@/types/serviceOrder").ServiceOrderPayer = ["retrabajo","comeback"].includes(order.order_type.code)
     ? summary?.tasks.find(t=>t.payer!=="cliente")?.payer ?? "garantia_taller"
     : ["garantia_fabrica","campana"].includes(order.order_type.code) ? "garantia_fabrica" : "cliente";
@@ -282,8 +283,11 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     }
   }
 
+  if(order.is_draft) return <DraftOrderEditor key={order.id} order={order} onSubmitted={async()=>{await refreshOrder();await refreshSummary();}}/>;
+
   return (
     <div className="min-w-0">
+      <InspectionRecordModal kind={inspectionRecord} onClose={()=>setInspectionRecord(null)} preliminary={inspection} detailed={detailed.inspection} inspector={users.find(u=>u.id===inspection?.inspector_user_id)?.full_name??"Sin registrar"} technician={users.find(u=>u.id===(detailed.inspection?.completed_by_user_id??order.technician_user_id))?.full_name??"Sin asignar"}/>
       <button
         onClick={() => router.push("/dashboard/servicios")}
         className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-steel hover:text-navy"
@@ -339,16 +343,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           !!order.invoiced_at && payment.settled,
           order.status === "orden_cerrada",
         ]}/>
-        <details className="mt-4 text-xs text-steel"><summary className="cursor-pointer font-semibold">Datos de recepción y agenda</summary><dl className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[
-          {label:"Kilometraje de ingreso",value:order.intake_mileage != null ? `${order.intake_mileage.toLocaleString("es-VE")} km` : "Sin registrar"},
-          {label:"Asesor responsable",value:users.find(u=>u.id===order.advisor_user_id)?.full_name ?? "—"},
-          {label:"Inicio de visita",value:order.scheduled_at ? new Date(order.scheduled_at).toLocaleString("es-VE",{timeZone:CALENDAR_TIME_ZONE}) : "Sin fecha"},
-          {label:"Creación",value:new Date(order.created_at).toLocaleString("es-VE",{timeZone:CALENDAR_TIME_ZONE})},
-          {label:"Motivo del cliente",value:order.customer_reason || "Sin registrar"},
-        ].map(item=><div key={item.label}><dt>{item.label}</dt><dd className="mt-1 font-semibold text-navy">{item.value}</dd></div>)}</dl>
-        <OrderDatesEditor key={`${order.id}-${order.updated_at}`} order={order} disabled={readOnly || saving} onSave={update} />
 
-        </details>
         {(order.status === "completado" || order.status === "orden_cerrada") && <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
           {order.status === "completado" && <>
             <button onClick={() => setBillingOpen(true)} disabled={saving}
@@ -440,7 +435,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border border-navy/10 bg-white p-5">
           <div className="mb-2 flex items-center justify-between">
-            <p className="font-display text-sm font-bold text-navy">Inspección preliminar</p>
+            <button type="button" disabled={!inspection} onClick={()=>setInspectionRecord("preliminary")} className="text-left font-display text-sm font-bold text-navy enabled:underline enabled:decoration-blue/30 enabled:underline-offset-4">Inspección preliminar ↗</button>
             {inspection && (
               <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest text-emerald-700">
                 Lista
@@ -488,7 +483,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           )}
         </div>
         <div className="rounded-2xl border border-navy/10 bg-white p-5">
-          <div className="flex items-center justify-between gap-2"><h2 className="font-display text-sm font-bold text-navy">Inspección minuciosa</h2><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${detailed.inspection?.status === "completada" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-steel"}`}>{detailed.loading ? "Cargando…" : detailed.inspection?.status === "completada" ? "Lista" : detailed.inspection ? "En proceso" : "Pendiente"}</span></div>
+          <div className="flex items-center justify-between gap-2"><button type="button" disabled={!detailed.inspection} onClick={()=>setInspectionRecord("detailed")} className="text-left font-display text-sm font-bold text-navy enabled:underline enabled:decoration-blue/30 enabled:underline-offset-4">Inspección minuciosa ↗</button><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${detailed.inspection?.status === "completada" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-steel"}`}>{detailed.loading ? "Cargando…" : detailed.inspection?.status === "completada" ? "Lista" : detailed.inspection ? "En proceso" : "Pendiente"}</span></div>
           {detailed.error ? <p role="alert" className="mt-3 text-xs text-red-700">{detailed.error}<button onClick={()=>void detailed.refresh()} className="ml-2 font-semibold underline">Reintentar</button></p> : <><dl className="mt-3 space-y-2 text-xs"><div className="flex justify-between gap-3"><dt className="text-steel">Técnico</dt><dd className="font-semibold text-navy">{users.find(u=>u.id===(detailed.inspection?.completed_by_user_id ?? order.technician_user_id))?.full_name ?? "Sin asignar"}</dd></div><div className="flex justify-between"><dt className="text-steel">Hallazgos</dt><dd className="font-semibold text-navy">{upsells.filter(u=>u.service_order_id===orderId).length}</dd></div></dl>{detailed.inspection ? <details className="mt-3 text-xs text-steel"><summary className="cursor-pointer font-semibold text-blue">Ver revisión · {detailed.inspection.completed_steps}/{detailed.inspection.total_steps}</summary><InspectionReadout inspection={detailed.inspection}/></details> : <p className="mt-3 text-xs text-steel">El técnico registra la revisión desde la app.</p>}</>}
         </div>
       </div>
@@ -554,10 +549,10 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           >
             <OrderFindings orderId={orderId} readOnly={readOnly || saving} onApplied={async()=>{await refreshOrder();await refreshSummary();}}/>
       <PendingUpsellsBlock
-        vehicleId={order.vehicle_id}
+        vehicleId={order.vehicle_id??""}
         orderId={orderId}
-        readOnly={readOnly}
-        onApplied={() => { void refreshOrder(); void refreshSummary(); }}
+        readOnly={readOnly || saving}
+        onApplied={async () => { await Promise.all([refreshOrder(), refreshSummary()]); }}
       />
 
           </TasksCard>
@@ -590,7 +585,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
       {claimModalOpen && filialId && (
         <WarrantyClaimModal
           filialId={filialId}
-          vehicleId={order.vehicle_id}
+          vehicleId={order.vehicle_id??""}
           serviceOrderId={orderId}
           onClose={() => setClaimModalOpen(false)}
           initialClaimType={suggestedClaimType}

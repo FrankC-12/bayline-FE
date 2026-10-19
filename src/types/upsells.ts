@@ -21,6 +21,7 @@ export interface UpsellPart {
 }
 
 export interface Upsell {
+  resolved_by_user_id?: string | null;
   id: string;
   service_order_id: string;
   title: string;

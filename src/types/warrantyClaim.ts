@@ -31,6 +31,15 @@ export interface WorkshopWarranty {
 }
 
 export interface WarrantyClaim {
+  vehicle_label?: string | null;
+  coverage_snapshot?: {label?:string;duration_days?:number|null;duration_months?:number|null;duration_km?:number|null;expires_at?:string|null;expiration_mileage?:number|null;starts_at?:string}|null;
+  brand_responded_by_user_id?: string | null;
+  workshop_warranty_id?: string | null;
+  factory_warranty_id?: string | null;
+  rejection_reason?: string | null;
+  brand_status?: string | null;
+  brand_sent_at?: string | null;
+  brand_response_at?: string | null;
   id: string;
   code: string;
   filial_id: string;

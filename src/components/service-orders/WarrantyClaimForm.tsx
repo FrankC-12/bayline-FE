@@ -1,4 +1,6 @@
 "use client";
+import { calendarDate } from "@/lib/calendar";
+import { formatEntryDate } from "@/lib/format";
 
 import { NumberInput } from "@/components/ui/NumberInput";
 
@@ -84,7 +86,7 @@ export default function WarrantyClaimForm({
   const [reportedSymptom, setReportedSymptom] = useState("");
   const [reportedMileage, setReportedMileage] = useState("");
   const [mileageTouched, setMileageTouched] = useState(false);
-  const [claimedAt, setClaimedAt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [claimedAt, setClaimedAt] = useState(() => calendarDate(new Date()));
   const [note, setNote] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
   const [documents, setDocuments] = useState<File[]>([]);
@@ -108,7 +110,7 @@ export default function WarrantyClaimForm({
   // Picking a service order always derives the vehicle from it — a claim
   // never disagrees with the order it's attached to about which car it is.
   useEffect(() => {
-    if (selectedOrder) setVehicleId(selectedOrder.vehicle_id);
+    if (selectedOrder) setVehicleId(selectedOrder.vehicle_id??"");
   }, [selectedOrder]);
 
   useEffect(() => {
@@ -401,7 +403,7 @@ export default function WarrantyClaimForm({
                 Última visita:{" "}
                 <span className="font-medium text-navy">
                   {context.last_visit_date
-                    ? `${new Date(context.last_visit_date).toLocaleDateString("es-VE")}${
+                    ? `${formatEntryDate(context.last_visit_date)}${
                         context.last_visit_service_order_code ? ` (${context.last_visit_service_order_code})` : ""
                       }`
                     : "sin registro"}
@@ -424,7 +426,7 @@ export default function WarrantyClaimForm({
                   {context.factory_warranty
                     ? `${context.factory_warranty.status === "vigente" ? "Vigente" : "Vencida"}${
                         context.factory_warranty.expires_at
-                          ? ` — vence ${new Date(context.factory_warranty.expires_at).toLocaleDateString("es-VE")}`
+                          ? ` — vence ${formatEntryDate(context.factory_warranty.expires_at)}`
                           : ""
                       }`
                     : "sin garantía registrada"}
@@ -443,7 +445,7 @@ export default function WarrantyClaimForm({
                         )}
                         <span className="font-medium text-navy">{w.tempario_name_snapshot}</span> —{" "}
                         {w.status === "vigente" ? "vigente" : "vencida"}, vence{" "}
-                        {new Date(w.expires_at).toLocaleDateString("es-VE")}
+                        {formatEntryDate(w.expires_at)}
                       </li>
                     ))}
                   </ul>

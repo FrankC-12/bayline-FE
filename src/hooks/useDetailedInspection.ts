@@ -2,6 +2,7 @@
 import { apiFetch } from "@/lib/api/client";
 import { useListLoader } from "./useListLoader";
 export interface DetailedInspection {
+ created_at?:string;updated_at?:string;completed_at?:string|null;created_by_user_id?:string;
  status: string; completed_steps: number; total_steps: number;
  completed_by_user_id: string | null; updated_by_user_id: string;
  data: { observations: string | null; engine?: Record<string, unknown>; underbody?: Record<string, unknown>; tires?: Record<string, unknown>; brakes?: Record<string, unknown> };

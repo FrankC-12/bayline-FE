@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { X } from "lucide-react";
-import { formatThousands, stripThousands } from "@/lib/format";
+import { formatThousands, stripThousands, formatEntryDate } from "@/lib/format";
 import { isPlateInvalid, type VehicleFormValue } from "@/types/client-form";
 import type { VehicleBrandOption } from "@/types/vehicleCatalog";
 import { VEHICLE_BODY_TYPES } from "@/lib/vehicleTypes";
 import BrandModelSelect from "@/components/common/BrandModelSelect";
 
 function formatVisitDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-VE", { day: "numeric", month: "long", year: "numeric" });
+  return formatEntryDate(iso, { day: "numeric", month: "long", year: "numeric" });
 }
 
 const FUEL_TYPES = [

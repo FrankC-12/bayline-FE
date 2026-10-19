@@ -14,11 +14,12 @@ const REASON_OPTIONS: { value: UpsellDiscardReason; label: string }[] = [
 interface DiscardUpsellModalProps {
   title: string;
   submitting: boolean;
+  actionError?: string | null;
   onClose: () => void;
   onConfirm: (reason: UpsellDiscardReason, note: string | undefined) => void;
 }
 
-export default function DiscardUpsellModal({ title, submitting, onClose, onConfirm }: DiscardUpsellModalProps) {
+export default function DiscardUpsellModal({ title, submitting, actionError, onClose, onConfirm }: DiscardUpsellModalProps) {
   const [reason, setReason] = useState<UpsellDiscardReason>("ya_reparado_otro_taller");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,11 +34,11 @@ export default function DiscardUpsellModal({ title, submitting, onClose, onConfi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div onClick={onClose} className="absolute inset-0 bg-navy/40" />
+      <div onClick={() => { if (!submitting) onClose(); }} className="absolute inset-0 bg-navy/40" />
       <div className="relative w-full max-w-sm rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-navy/10 px-6 py-4">
           <h2 className="font-display text-lg font-bold text-navy">Descartar recomendación</h2>
-          <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy">
+          <button disabled={submitting} onClick={onClose} aria-label="Cerrar" className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -71,6 +72,7 @@ export default function DiscardUpsellModal({ title, submitting, onClose, onConfi
               />
             </div>
           )}
+          {actionError && <p role="alert" className="text-sm text-red-700">{actionError}</p>}
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
           <button
             onClick={handleConfirm}

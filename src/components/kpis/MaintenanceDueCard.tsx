@@ -1,4 +1,5 @@
 "use client";
+import { formatEntryDate } from "@/lib/format";
 
 import { formatCount } from "@/lib/format";
 import { useEffect, useState } from "react";
@@ -94,7 +95,7 @@ export default function MaintenanceDueCard({ filialId }: MaintenanceDueCardProps
                       {row.phone_primary}
                     </a>
                   </td>
-                  <td className="py-3 text-steel">{new Date(row.due_at).toLocaleDateString("es-VE")}</td>
+                  <td className="py-3 text-steel">{formatEntryDate(row.due_at)}</td>
                   <td className="py-3 text-right font-medium text-navy">{formatCount(row.days_until_due)} días</td>
                 </tr>
               ))}

@@ -9,11 +9,17 @@ export type ServiceOrderStatus =
   | "cancelado";
 
 export interface ServiceOrder {
+  is_draft?: boolean;
+  draft_revision?: number;
+  estimated_hours?: number;
+  creation_source?: string;
+  workshop_stage?: string;
+  submitted_at?: string | null;
   discount_label: DiscountLabel;
   id: string;
   filial_id: string;
   code: string;
-  vehicle_id: string;
+  vehicle_id: string | null;
   status: ServiceOrderStatus;
   order_type: ServiceOrderTypeCatalog;
   warranty_claim_id: string | null;

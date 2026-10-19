@@ -1,4 +1,5 @@
 "use client";
+import BaysSettingsView from "./BaysSettingsView";
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -31,6 +32,7 @@ export default function AjustesView({ section = "impuestos" }: { section?: strin
     <main className="min-w-0">
       {section !== "temparios" && <h2 className="mb-5 font-display text-3xl font-bold text-navy">{title}</h2>}
       {["impuestos","retenciones","movimientos-manuales","mano-de-obra","garantias"].includes(section) && <SettingsSectionView key={section} section={section} onDirtyChange={setDirty} />}
+      {section==="bahias" && <BaysSettingsView/>}
       {section==="temparios" && <TemparioListView />}
       {section==="marcas-modelos" && <MarcasModelosView />}
       {section==="categorias-repuestos" && <PartCategoriesView />}

@@ -1,428 +1,482 @@
 "use client";
-
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBays } from "@/hooks/useBays";
-import { useScheduledOrders } from "@/hooks/useScheduledOrders";
-import { CALENDAR_TIME_ZONE, UNASSIGNED_BAY, calendarDate, calendarHour, calendarTimestamp, shiftCalendarDate, calendarLayout } from "@/lib/calendar";
-import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
-import { useRoleDirectory } from "@/hooks/useRoleDirectory";
-import { capitalizeFirst } from "@/lib/format";
+import { useBays } from "@/hooks/useBays";
+import { useServiceOrders } from "@/hooks/useServiceOrders";
+import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
+import {
+  calendarDate,
+  calendarTimestamp,
+  shiftCalendarDate,
+} from "@/lib/calendar";
+import {
+  calendarBlocks,
+  positionBlocks,
+  slotAvailable,
+  WORKSHOP_STAGES,
+  orderStage,
+} from "@/lib/workshopCalendar";
+import {
+  createOrderDraft,
+  saveOrderDraft,
+  updateServiceOrder,
+} from "@/lib/api/serviceOrders";
+import { formatCount } from "@/lib/format";
+import Modal from "@/components/common/Modal";
 import ErrorState from "@/components/common/ErrorState";
-import type { ServiceOrderStatus } from "@/types/serviceOrder";
-import ConfigureBaysModal from "./ConfigureBaysModal";
-import ScheduleOrderModal from "./ScheduledOrderModal";
-
-const CALENDAR_STATUS: Record<ServiceOrderStatus, {label: string; style: string}> = {
-  pendiente: {label: "Pendiente", style: "border-amber-200 bg-amber-50 text-amber-800"},
-  en_progreso: {label: "En progreso", style: "border-blue/20 bg-blue-light text-blue"},
-  completado: {label: "Completada", style: "border-emerald-200 bg-emerald-50 text-emerald-800"},
-  cancelado: {label: "Cancelada", style: "border-red-200 bg-red-50 text-red-700"},
-  orden_cerrada: {label: "Cerrada", style: "border-slate-200 bg-slate-100 text-slate-600"},
-};
 
 export default function CalendarView() {
   const router = useRouter();
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
-
-  const [selectedDate, setSelectedDate] = useState(() => calendarDate(new Date()));
-  const { bays, addBay, toggleActive, renameBay } = useBays(filialId);
-  const { orders, activeOrders, loading, error, addOrder, rescheduleOrder, refresh } = useScheduledOrders(filialId, selectedDate);
-  const unscheduledOrders = useMemo(
-    () => activeOrders.filter((o) => !o.scheduled_at),
-    [activeOrders]
-  );
-  const scheduledWithoutBay = useMemo(
-    () => orders.filter((o) => !o.bay_id),
-    [orders]
-  );
-  const { vehicleMap } = useVehicleLookup(filialId);
+  const { canEdit } = useModuleAccess("asesor-servicios");
+  const { canEdit: canConfigure } = useModuleAccess("ajustes");
+  const { bays } = useBays(filialId);
   const { users } = useUserDirectory({ filialId });
-  const { roles } = useRoleDirectory("filial");
-
-  const technicianRoleId = roles.find((r) => r.slug === "tecnico")?.id;
-  const technicians = users.filter((u) => u.role_id === technicianRoleId);
-  const advisorRoleId = roles.find((r) => r.slug === "asesor")?.id;
-  const advisors = users.filter((u) => u.role_id === advisorRoleId);
-
-  const [configureOpen, setConfigureOpen] = useState(false);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [clickedSlot, setClickedSlot] = useState<{ hour: number; bayId: string } | null>(null);
-  const [hoveredCell, setHoveredCell] = useState<string | null>(null);
-  const [movingId, setMovingId] = useState<string | null>(null);
-  const [moveError, setMoveError] = useState<string | null>(null);
-  const draggingRef = useRef(false);
-
-  function openScheduleModal(slot?: { hour: number; bayId: string }) {
-    setClickedSlot(slot ?? null);
-    setScheduleOpen(true);
-  }
-
-  const activeBays = useMemo(() => bays.filter((b) => b.is_active), [bays]);
-
-  const { columns: calendarBays, hours } = useMemo(() => calendarLayout(orders, bays), [orders, bays]);
-
-  const ordersByBayAndHour = useMemo(() => {
-    const map = new Map<string, typeof orders>();
-    for (const o of orders) {
-      if (!o.scheduled_at) continue;
-      const hour = calendarHour(o.scheduled_at);
-      const key = `${o.bay_id ?? UNASSIGNED_BAY}-${hour}`;
-      const arr = map.get(key) ?? [];
-      arr.push(o);
-      map.set(key, arr);
-    }
-    return map;
-  }, [orders]);
-
-  // Capitalize only the first letter — Spanish weekday/month names stay
-  // lowercase mid-string ("viernes, 4 de septiembre", not "... De ...").
-  const dateLabel = capitalizeFirst(
-    new Date(`${selectedDate}T12:00:00-04:00`).toLocaleDateString("es-VE", {
-      timeZone: CALENDAR_TIME_ZONE,
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    })
+  const { orders, loading, error, refresh } = useServiceOrders(filialId, "all");
+  const { vehicleMap } = useVehicleLookup(filialId);
+  const today = calendarDate(new Date());
+  const [day, setDay] = useState(today);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [slot, setSlot] = useState<{ bayId: string; hour: number } | null>(
+    null,
   );
-
-  function shiftDate(days: number) {
-    setSelectedDate(shiftCalendarDate(selectedDate, days));
-  }
-
-  function handleDragStart(e: React.DragEvent, orderId: string) {
-    if (orders.some((order) => order.id === orderId && (!!order.invoiced_at || ["orden_cerrada", "cancelado"].includes(order.status)))) {
-      e.preventDefault();
+  const [vehicle, setVehicle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [actionError, setError] = useState<string | null>(null);
+  const blocks = useMemo(
+    () => calendarBlocks(orders, day, today),
+    [orders, day, today],
+  );
+  const visibleBays = bays.filter(
+    (b) => b.is_active || blocks.some((block) => block.order.bay_id === b.id),
+  );
+  const missingBayIds = Array.from(
+    new Set(
+      blocks
+        .map((b) => b.order.bay_id)
+        .filter(
+          (id): id is string => !!id && !visibleBays.some((b) => b.id === id),
+        ),
+    ),
+  );
+  const columns = [
+    ...visibleBays,
+    ...missingBayIds.map((id) => ({
+      id,
+      name: "Bahía no disponible",
+      is_active: false,
+      filial_id: filialId ?? "",
+    })),
+  ];
+  const startHour = Math.min(8, ...blocks.map((b) => Math.floor(b.start)));
+  const endHour = Math.max(
+    18,
+    ...blocks.map((b) => Math.ceil(b.start + b.duration)),
+  );
+  const hours = Array.from(
+    { length: endHour - startHour },
+    (_, i) => startHour + i,
+  );
+  const unscheduled = orders.filter(
+    (o) =>
+      (o.is_draft && !o.scheduled_at) ||
+      (o.scheduled_at && calendarDate(o.scheduled_at) === day && !o.bay_id),
+  );
+  const label = (id: string | null) => {
+    const info = vehicleMap.get(id ?? "");
+    return info
+      ? `${info.vehicle.brand} ${info.vehicle.model} ${info.vehicle.year ?? ""}`
+      : "Vehículo por seleccionar";
+  };
+  async function place(bayId: string, hour: number, id = selected) {
+    setError(null);
+    const order = orders.find((o) => o.id === id);
+    if (
+      !slotAvailable(
+        blocks,
+        bayId,
+        hour,
+        Math.max(0.5, order?.estimated_hours || 0),
+        id ?? undefined,
+      )
+    ) {
+      setError("Este horario ya está ocupado. Elige otro espacio.");
       return;
     }
-    draggingRef.current = true;
-    e.dataTransfer.setData("text/plain", orderId);
-    e.dataTransfer.effectAllowed = "move";
-  }
-
-  function handleCardClick(orderId: string) {
-    if (draggingRef.current) {
-      draggingRef.current = false;
+    if (!id) {
+      setSlot({ bayId, hour });
+      setVehicle("");
       return;
     }
-    router.push(`/dashboard/servicios/${orderId}`);
-  }
-
-  function handleDragOver(e: React.DragEvent, cellKey: string) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (hoveredCell !== cellKey) setHoveredCell(cellKey);
-  }
-
-  async function handleDrop(e: React.DragEvent, bayId: string, hour: number) {
-    e.preventDefault();
-    setHoveredCell(null);
-    const orderId = e.dataTransfer.getData("text/plain");
-    if (orders.some((order) => order.id === orderId && (!!order.invoiced_at || ["orden_cerrada", "cancelado"].includes(order.status)))) return;
-    if (!orderId) return;
-
-    const order = orders.find((o) => o.id === orderId);
-    if (!order || !order.scheduled_at) return;
-
-    const targetBay = bayId === UNASSIGNED_BAY ? null : bayId;
-    if (calendarHour(order.scheduled_at) === hour && order.bay_id === targetBay) return;
-    const minute = new Date(order.scheduled_at).getUTCMinutes();
-    const scheduledAt = calendarTimestamp(selectedDate, `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
-
-    setMoveError(null);
-    setMovingId(orderId);
+    if (!order) return;
+    setBusy(true);
     try {
-      await rescheduleOrder(orderId, { scheduled_at: scheduledAt, bay_id: targetBay, clear_bay: targetBay === null });
-    } catch (err) {
-      setMoveError(err instanceof Error ? err.message : "No se pudo reagendar la ODS.");
+      const data = {
+        bay_id: bayId,
+        scheduled_at: calendarTimestamp(
+          day,
+          `${String(hour).padStart(2, "0")}:00`,
+        ),
+      };
+      if (order.is_draft) await saveOrderDraft(id, data);
+      else await updateServiceOrder(id, data);
+      setSelected(null);
+      await refresh();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo asignar el horario.",
+      );
     } finally {
-      setMovingId(null);
+      setBusy(false);
     }
   }
-
-  if (!filialId) return null;
-
+  async function create() {
+    if (!filialId || !slot || !vehicle) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const order = await createOrderDraft({
+        filial_id: filialId,
+        vehicle_id: vehicle,
+        bay_id: slot.bayId,
+        scheduled_at: calendarTimestamp(
+          day,
+          `${String(slot.hour).padStart(2, "0")}:00`,
+        ),
+      });
+      router.push(`/dashboard/servicios/${order.id}`);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo crear el borrador.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div className="min-w-0">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold text-navy">Calendario del Taller</h1>
-          <p className="mt-1 text-sm text-steel">{dateLabel}</p>
+          <h1 className="font-display text-3xl font-bold text-navy">
+            Calendario del taller
+          </h1>
+          <p className="mt-2 text-sm text-steel">
+            Bahías, trabajo en curso y citas agendadas
+          </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setConfigureOpen(true)}
-            className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
+            aria-label="Día anterior"
+            onClick={() => setDay(shiftCalendarDate(day, -1))}
+            className="rounded-full border bg-white p-2"
           >
-            Configurar bahías
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <input
+            aria-label="Fecha del calendario"
+            type="date"
+            value={day}
+            onChange={(e) => e.target.value && setDay(e.target.value)}
+            className="rounded-xl border border-navy/15 bg-white px-3 py-2 text-sm"
+          />
+          <button
+            aria-label="Día siguiente"
+            onClick={() => setDay(shiftCalendarDate(day, 1))}
+            className="rounded-full border bg-white p-2"
+          >
+            <ChevronRight className="h-4 w-4" />
           </button>
           <button
-            onClick={() => openScheduleModal()}
-            className="rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
+            onClick={() => setDay(today)}
+            className="rounded-full border bg-white px-3 py-2 text-sm"
           >
-            + Agendar Orden de Servicio
+            Hoy
           </button>
         </div>
       </div>
-
-      <div className="mb-3 flex items-center gap-2">
-        <button
-          onClick={() => shiftDate(-1)}
-          aria-label="Día anterior"
-          className="rounded-lg border border-navy/15 p-2 text-steel hover:text-navy"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => { if (e.target.value) setSelectedDate(e.target.value); }}
-          className="rounded-lg border border-navy/15 px-3 py-2 text-sm outline-none focus:border-blue"
-        />
-        <button
-          onClick={() => shiftDate(1)}
-          aria-label="Día siguiente"
-          className="rounded-lg border border-navy/15 p-2 text-steel hover:text-navy"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => setSelectedDate(calendarDate(new Date()))}
-          className="rounded-lg border border-navy/15 px-3 py-2 text-sm text-steel hover:text-navy"
-        >
-          Hoy
-        </button>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {[
+          "agendada",
+          "en_revision",
+          "esperando_repuestos",
+          "en_trabajo",
+          "por_cobrar",
+          "cancelada",
+          "cerrada",
+        ].map((stage) => (
+          <span
+            key={stage}
+            className={`rounded-full border px-2.5 py-1 text-xs ${WORKSHOP_STAGES[stage].style}`}
+          >
+            {WORKSHOP_STAGES[stage].label} ·{" "}
+            {blocks.filter((b) => orderStage(b.order) === stage).length}
+          </span>
+        ))}
+        <p className="ml-auto text-xs text-steel">
+          {selected
+            ? "Ahora toca una hora libre para asignar el borrador"
+            : "Toca una hora libre para crear una ODS"}
+        </p>
       </div>
-
-      <p className="mb-6 flex items-center gap-1.5 text-xs text-steel">
-        <GripVertical className="h-3.5 w-3.5" />
-        Arrastra una cita a otra hora o bahía para reagendarla. Haz clic en un espacio libre para agendar una nueva.
-      </p>
-
-      <div aria-label="Estados de las citas" className="mb-5 flex flex-wrap gap-2">{Object.entries(CALENDAR_STATUS).map(([status, item])=><span key={status} className={`rounded-full border px-3 py-1 text-xs font-semibold ${item.style}`}>{item.label} · {orders.filter(order=>order.status===status).length}</span>)}</div>
-      {moveError && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{moveError}</p>}
-      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-        <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
-          {loading ? (
-            <div className="p-12 text-center text-sm text-steel">
-              Cargando agenda...
-            </div>
-          ) : error ? (
-            <div className="p-6"><ErrorState error={error} onRetry={refresh} /></div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-navy/10 bg-ash">
-                    <th className="w-20 px-4 py-3" />
-                    {calendarBays.map((b) => (
-                      <th
-                        key={b.id}
-                        className="px-4 py-3 font-mono text-[11px] uppercase tracking-widest text-steel"
-                      >
-                        {b.name}{!b.is_active && " (inactiva)"}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {hours.map((hour) => (
-                    <tr key={hour} className="border-b border-navy/5">
-                      <td className="px-4 py-4 font-mono text-xs text-steel">
-                        {hour.toString().padStart(2, "0")}:00
-                      </td>
-                      {calendarBays.map((b) => {
-                        const cellKey = `${b.id}-${hour}`;
-                        const cellOrders = ordersByBayAndHour.get(cellKey) ?? [];
-                        const isHovered = hoveredCell === cellKey;
-                        const isEmpty = cellOrders.length === 0;
-                        return (
-                          <td
-                            key={b.id}
-                            onDragOver={(e) => { if (b.is_active) handleDragOver(e, cellKey); }}
-                            onDragLeave={() => setHoveredCell((prev) => (prev === cellKey ? null : prev))}
-                            onDrop={(e) => { if (b.is_active) void handleDrop(e, b.id, hour); }}
-                            onClick={() => {
-                              if (isEmpty && b.is_active) openScheduleModal({ hour, bayId: b.id === UNASSIGNED_BAY ? "" : b.id });
-                            }}
-                            title={isEmpty && b.is_active ? "Clic para agendar una orden de servicio" : undefined}
-                            className={`border-l border-navy/5 px-2 py-2 align-top transition-colors ${
-                              isHovered ? "bg-blue-light/70" : isEmpty && b.is_active ? "cursor-pointer hover:bg-ash" : ""
-                            }`}
-                          >
-                            {cellOrders.map((o) => {
-                              const info = vehicleMap.get(o.vehicle_id);
-                              return (
-                                <div
-                                  key={o.id}
-                                  draggable={!o.invoiced_at && !["orden_cerrada", "cancelado"].includes(o.status)}
-                                  onDragStart={(e) => handleDragStart(e, o.id)}
-                                  onDragEnd={() => { draggingRef.current = false; setHoveredCell(null); }}
-                                  onClick={() => handleCardClick(o.id)}
-                                  className={`mb-1 rounded-lg border px-2 py-2 text-xs transition last:mb-0 hover:shadow-sm ${CALENDAR_STATUS[o.status].style} ${!o.invoiced_at && !["orden_cerrada", "cancelado"].includes(o.status) ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${
-                                    movingId === o.id ? "opacity-50" : ""
-                                  }`}
-                                >
-                                  <p className="mb-1 text-[10px] font-bold uppercase tracking-wide">{CALENDAR_STATUS[o.status].label}</p>
-                                  <p className="font-semibold">{o.code} · {o.scheduled_at && new Date(o.scheduled_at).toLocaleTimeString("es-VE", { timeZone: CALENDAR_TIME_ZONE, hour: "2-digit", minute: "2-digit" })}</p>
-                                  <p>{info?.vehicle.plate ?? "Sin placa"}</p>
-                                  <p className="opacity-80">{info?.client.full_name}</p>
-                                </div>
-                              );
-                            })}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      {actionError && (
+        <p
+          role="alert"
+          className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700"
+        >
+          {actionError}
+        </p>
+      )}
+      {loading ? (
+        <p className="p-8 text-steel">Cargando agenda…</p>
+      ) : error ? (
+        <ErrorState error={error} onRetry={refresh} />
+      ) : !columns.length ? (
+        <div className="rounded-2xl border border-dashed border-navy/20 bg-white p-8 text-center">
+          <p className="text-sm text-steel">No hay bahías configuradas.</p>
+          {canConfigure && (
+            <Link
+              href="/dashboard/ajustes/bahias"
+              className="mt-3 inline-block font-semibold text-blue underline"
+            >
+              Configurarlas en Ajustes
+            </Link>
           )}
         </div>
-
-        <div className="flex flex-col gap-6">
-          <div className="rounded-2xl border border-navy/10 bg-white p-5">
-            <p className="mb-3 font-display font-bold text-navy">Citas del día seleccionado</p>
-            {loading ? (
-              <p className="text-sm text-steel">Cargando...</p>
-            ) : error ? (
-              <ErrorState error={error} onRetry={refresh} compact />
-            ) : orders.length === 0 ? (
-              <p className="text-sm italic text-steel">No hay citas programadas para esta fecha.</p>
-            ) : (
-              <div className="space-y-2">
-                {orders
-                  .slice()
-                  .sort((a, b) => (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? ""))
-                  .map((o) => {
-                    const info = vehicleMap.get(o.vehicle_id);
-                    return (
-                      <Link
-                        key={o.id}
-                        href={`/dashboard/servicios/${o.id}`}
-                        className={`block rounded-xl border px-3 py-2 text-sm transition hover:shadow-sm ${CALENDAR_STATUS[o.status].style}`}
-                      >
-                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wide">{CALENDAR_STATUS[o.status].label}</p>
-                        <p className="font-mono text-xs">
-                          {o.scheduled_at &&
-                            new Date(o.scheduled_at).toLocaleTimeString("es-VE", {
-                              timeZone: CALENDAR_TIME_ZONE,
-                            hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                        </p>
-                        <p className="font-medium text-navy">
-                          {info ? `${info.vehicle.brand} ${info.vehicle.model}` : o.code}
-                        </p>
-                        <p className="text-xs text-steel">{info?.client.full_name}</p>
-                      </Link>
-                    );
-                  })}
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-navy/10 bg-white p-5">
-            <p className="mb-1 font-display font-bold text-navy">Sin agendar</p>
-            <p className="mb-3 text-xs text-steel">
-              Órdenes activas del Kanban que todavía no tienen fecha/hora asignada.
-            </p>
-            {unscheduledOrders.length === 0 ? (
-              <p className="text-sm italic text-steel">No hay órdenes activas sin agendar.</p>
-            ) : (
-              <div className="space-y-2">
-                {unscheduledOrders.map((o) => {
-                  const info = vehicleMap.get(o.vehicle_id);
+      ) : (
+        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_230px]">
+          <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
+            <div style={{ minWidth: Math.max(520, columns.length * 190 + 54) }}>
+              <div
+                className="grid border-b border-navy/10"
+                style={{
+                  gridTemplateColumns: `54px repeat(${columns.length},minmax(0,1fr))`,
+                }}
+              >
+                <div className="p-2 text-xs text-steel">Hora</div>
+                {columns.map((bay) => {
+                  const load = blocks
+                    .filter(
+                      (b) =>
+                        b.order.bay_id === bay.id &&
+                        !["cancelada", "cerrada"].includes(orderStage(b.order)),
+                    )
+                    .reduce((sum, b) => sum + b.estimated, 0);
                   return (
-                    <Link
-                      key={o.id}
-                      href={`/dashboard/servicios/${o.id}`}
-                      className="block rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm transition hover:bg-amber-100"
-                    >
-                      <p className="font-medium text-navy">
-                        {info ? `${info.vehicle.brand} ${info.vehicle.model}` : o.code}
+                    <div key={bay.id} className="border-l border-navy/10 p-3">
+                      <div className="flex items-center justify-between">
+                        <b className="text-sm text-navy">{bay.name}</b>
+                        {canConfigure && (
+                          <Link
+                            aria-label="Configurar bahías"
+                            href="/dashboard/ajustes/bahias"
+                            className="text-steel hover:text-blue"
+                          >
+                            <Settings2 className="h-3.5 w-3.5" />
+                          </Link>
+                        )}
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className={`h-full ${load > 8 ? "bg-red-500" : "bg-emerald-500"}`}
+                          style={{ width: `${Math.min(100, load * 10)}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-[10px] text-steel">
+                        {load.toLocaleString("es-VE")} h de 10 h
                       </p>
-                      <p className="text-xs text-steel">{info?.client.full_name}</p>
-                    </Link>
+                    </div>
                   );
                 })}
               </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-navy/10 bg-white p-5">
-            <p className="mb-1 font-display font-bold text-navy">Sin bahía asignada</p>
-            <p className="mb-3 text-xs text-steel">
-              Órdenes agendadas (fecha/hora) a las que todavía no se les eligió una bahía.
-            </p>
-            {scheduledWithoutBay.length === 0 ? (
-              <p className="text-sm italic text-steel">No hay órdenes agendadas sin bahía.</p>
-            ) : (
-              <div className="space-y-2">
-                {scheduledWithoutBay.map((o) => {
-                  const info = vehicleMap.get(o.vehicle_id);
-                  return (
-                    <Link
-                      key={o.id}
-                      href={`/dashboard/servicios/${o.id}`}
-                      className="block rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm transition hover:bg-amber-100"
+              <div
+                className="grid"
+                style={{
+                  gridTemplateColumns: `54px repeat(${columns.length},minmax(0,1fr))`,
+                }}
+              >
+                <div>
+                  {hours.map((hour) => (
+                    <div
+                      key={hour}
+                      style={{ height: 60 }}
+                      className="border-b border-navy/5 px-2 pt-1 font-mono text-[10px] text-steel"
                     >
-                      <p className="font-mono text-xs text-blue">
-                        {o.scheduled_at &&
-                          new Date(o.scheduled_at).toLocaleString("es-VE", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            timeZone: CALENDAR_TIME_ZONE,
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                      </p>
-                      <p className="font-medium text-navy">
-                        {info ? `${info.vehicle.brand} ${info.vehicle.model}` : o.code}
-                      </p>
-                      <p className="text-xs text-steel">{info?.client.full_name}</p>
-                    </Link>
-                  );
-                })}
+                      {String(hour).padStart(2, "0")}:00
+                    </div>
+                  ))}
+                </div>
+                {columns.map((bay) => (
+                  <div
+                    key={bay.id}
+                    className="relative border-l border-navy/10"
+                    style={{ height: hours.length * 60 }}
+                  >
+                    {hours.map((hour) => (
+                      <button
+                        key={hour}
+                        disabled={busy || !canEdit || !bay.is_active}
+                        aria-label={`${bay.name}, ${hour}:00, asignar horario`}
+                        onClick={() => void place(bay.id, hour)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          void place(
+                            bay.id,
+                            hour,
+                            e.dataTransfer.getData("text/plain"),
+                          );
+                        }}
+                        className="absolute inset-x-0 border-b border-navy/5 transition hover:bg-blue-light/40 disabled:hover:bg-transparent"
+                        style={{ top: (hour - startHour) * 60, height: 60 }}
+                      />
+                    ))}
+                    {positionBlocks(
+                      blocks.filter((b) => b.order.bay_id === bay.id),
+                    ).map((b) => {
+                      const stage = orderStage(b.order);
+                      return (
+                        <Link
+                          key={b.order.id}
+                          href={`/dashboard/servicios/${b.order.id}`}
+                          className={`absolute overflow-hidden rounded-lg border border-l-[3px] p-2 text-xs transition hover:shadow-md ${WORKSHOP_STAGES[stage]?.style ?? WORKSHOP_STAGES.en_revision.style} ${stage === "agendada" || b.order.is_draft ? "border-dashed" : ""}`}
+                          style={{
+                            top: (b.start - startHour) * 60 + 2,
+                            height: Math.max(28, b.duration * 60 - 4),
+                            left: `calc(${(b.lane / b.lanes) * 100}% + 3px)`,
+                            width: `calc(${100 / b.lanes}% - 6px)`,
+                          }}
+                        >
+                          <span className="flex justify-between gap-1 font-mono text-[10px]">
+                            <b>{b.order.code}</b>
+                            <span>
+                              {Math.floor(b.start).toString().padStart(2, "0")}:
+                              {String(Math.round((b.start % 1) * 60)).padStart(
+                                2,
+                                "0",
+                              )}
+                            </span>
+                          </span>
+                          <p className="mt-1 truncate font-semibold">
+                            {label(b.order.vehicle_id)}
+                          </p>
+                          <p className="mt-1 truncate text-[10px]">
+                            {users.find(
+                              (user) => user.id === b.order.technician_user_id,
+                            )?.full_name ?? "Sin técnico"}{" "}
+                            · {WORKSHOP_STAGES[stage]?.label}
+                          </p>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
           </div>
+          <aside className="rounded-2xl border border-navy/10 bg-white p-4">
+            <div className="flex justify-between gap-3">
+              <h2 className="text-sm font-bold text-navy">
+                Sin agendar / sin bahía
+              </h2>
+              <span className="text-xs text-steel">
+                {formatCount(unscheduled.length)}
+              </span>
+            </div>
+            <p className="mt-2 text-xs text-steel">
+              Selecciona un borrador y toca una hora libre, o arrástralo a una
+              bahía.
+            </p>
+            <div className="mt-4 space-y-3">
+              {unscheduled.map((o) => (
+                <button
+                  key={o.id}
+                  draggable={canEdit}
+                  disabled={!canEdit || busy}
+                  onDragStart={(e) =>
+                    e.dataTransfer.setData("text/plain", o.id)
+                  }
+                  onClick={() => setSelected(selected === o.id ? null : o.id)}
+                  className={`w-full rounded-xl border border-dashed p-3 text-left ${selected === o.id ? "border-blue bg-blue-light" : "border-navy/20 bg-slate-50"}`}
+                >
+                  <span className="flex justify-between gap-3 font-mono text-[10px] text-blue">
+                    <b>{o.code}</b>
+                    <span>{o.estimated_hours || 0} h</span>
+                  </span>
+                  <p className="mt-2 text-xs font-semibold text-navy">
+                    {label(o.vehicle_id)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-steel">
+                    {vehicleMap.get(o.vehicle_id ?? "")?.vehicle.plate ||
+                      "Sin placa"}{" "}
+                    ·{" "}
+                    {vehicleMap.get(o.vehicle_id ?? "")?.client.full_name ??
+                      "Sin cliente"}{" "}
+                    · {o.is_draft ? "Borrador" : "Sin bahía"}
+                  </p>
+                </button>
+              ))}
+            </div>
+            {selected && (
+              <Link
+                className="mt-4 block text-xs text-blue underline"
+                href={`/dashboard/servicios/${selected}`}
+              >
+                Abrir borrador seleccionado
+              </Link>
+            )}
+          </aside>
         </div>
-      </div>
-
-      <ConfigureBaysModal
-        open={configureOpen}
-        onClose={() => setConfigureOpen(false)}
-        bays={bays}
-        onToggle={toggleActive}
-        onAdd={async (name) => {
-          await addBay(name);
-        }}
-        onRename={renameBay}
-      />
-
-      <ScheduleOrderModal
-        open={scheduleOpen}
-        onClose={() => setScheduleOpen(false)}
-        filialId={filialId}
-        defaultDate={selectedDate}
-        defaultTime={clickedSlot ? `${clickedSlot.hour.toString().padStart(2, "0")}:00` : undefined}
-        defaultBayId={clickedSlot?.bayId}
-        hours={hours}
-        bays={activeBays}
-        technicians={technicians}
-        advisors={advisors}
-        onSubmit={async (input) => {
-          const created = await addOrder(input);
-          if (created.scheduled_at) setSelectedDate(calendarDate(created.scheduled_at));
-        }}
-      />
+      )}
+      <Modal
+        open={!!slot}
+        onClose={() => !busy && setSlot(null)}
+        title="Nueva ODS"
+        description={
+          slot
+            ? `${columns.find((b) => b.id === slot.bayId)?.name} · ${String(slot.hour).padStart(2, "0")}:00 · ${day}`
+            : ""
+        }
+        size="md"
+        closeDisabled={busy}
+        footer={
+          <button
+            disabled={busy || !vehicle}
+            onClick={() => void create()}
+            className="rounded-full bg-blue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {busy ? "Creando…" : "Crear borrador"}
+          </button>
+        }
+      >
+        {actionError && (
+          <p role="alert" className="px-5 pt-4 text-sm text-red-700">
+            {actionError}
+          </p>
+        )}
+        <label className="block p-5 text-sm text-navy">
+          Vehículo
+          <select
+            aria-label="Vehículo para la nueva ODS"
+            value={vehicle}
+            onChange={(e) => setVehicle(e.target.value)}
+            className="mt-2 w-full rounded-xl border border-navy/15 p-3"
+          >
+            <option value="">Seleccionar vehículo</option>
+            {Array.from(vehicleMap.values()).map((v) => (
+              <option key={v.vehicle.id} value={v.vehicle.id}>
+                {v.vehicle.brand} {v.vehicle.model} ·{" "}
+                {v.vehicle.plate || "Sin placa"} · {v.client.full_name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </Modal>
     </div>
   );
 }

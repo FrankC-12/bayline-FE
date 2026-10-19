@@ -52,7 +52,7 @@ export async function listServiceOrders(
   view: "active" | "history" | "all" = "active",
   date?: string
 ): Promise<ServiceOrder[]> {
-  const query = new URLSearchParams({ filial_id: filialId, view });
+  const query = new URLSearchParams({ filial_id: filialId, view, include_drafts: "true" });
   if (date) query.set("date", date);
   return apiFetch<ServiceOrder[]>(`/service-orders?${query.toString()}`);
 }
@@ -222,3 +222,10 @@ export async function listServiceOrderPage(filialId: string, page: number, pageS
 export function deleteServiceOrderTransfer(id: string): Promise<void> {
   return apiFetch<void>(`/service-order-transfers/${id}`, { method: "DELETE" });
 }
+
+
+export interface DraftFields { vehicle_id: string | null; technician_user_id: string | null; bay_id: string | null; customer_reason: string; scheduled_at: string | null }
+export function createOrderDraft(input: {filial_id:string;vehicle_id?:string|null;bay_id?:string|null;scheduled_at?:string|null;upsell_id?:string|null}):Promise<ServiceOrder> {return apiFetch("/service-order-drafts",{method:"POST",body:JSON.stringify(input)});}
+export function saveOrderDraft(id:string,input:Partial<DraftFields>&{expected_revision?:number}):Promise<ServiceOrder> {return apiFetch(`/service-order-drafts/${id}`,{method:"PATCH",body:JSON.stringify(input),keepalive:true});}
+export function submitOrderDraft(id:string):Promise<ServiceOrder> {return apiFetch(`/service-order-drafts/${id}/submit`,{method:"POST"});}
+export function discardOrderDraft(id:string):Promise<void> {return apiFetch(`/service-order-drafts/${id}`,{method:"DELETE"});}

@@ -140,7 +140,6 @@ export default function CreateOrderPanel({
     return candidates[0] ?? null;
   }, [presetInspection, unlinkedInspections, selectedVehicleId]);
 
-  const inheritedReason = matchedInspection?.notes?.trim() || null;
 
   const presetVehicleLabel = useMemo(() => {
     if (!presetInspection) return null;
@@ -158,13 +157,6 @@ export default function CreateOrderPanel({
       setSelectedVehicleId(presetInspection.vehicle_id);
     }
   }, [open, presetInspection]);
-
-  useEffect(() => {
-    if (matchedInspection) {
-      setCustomerReason(matchedInspection.notes ?? "");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchedInspection?.id]);
 
   useEffect(()=> {
     if (!open || !presetVehicleId || presetInspection) return;
@@ -392,11 +384,6 @@ export default function CreateOrderPanel({
             <label className="mb-1.5 block text-sm font-medium text-navy">
               Motivo o síntoma reportado por el cliente
             </label>
-            {inheritedReason ? (
-              <p className="w-full whitespace-pre-wrap rounded-xl border border-navy/10 bg-ash px-4 py-2.5 text-sm text-navy">
-                {inheritedReason}
-              </p>
-            ) : (
               <textarea
                 value={customerReason}
                 onChange={(e) => setCustomerReason(e.target.value)}
@@ -404,7 +391,7 @@ export default function CreateOrderPanel({
                 placeholder="Ej: Ruido en frenos delanteros al frenar..."
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
               />
-            )}
+
           </div>
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}

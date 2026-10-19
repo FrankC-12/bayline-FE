@@ -60,8 +60,9 @@ export function formatVenezuelanPhone(raw: string): string {
  * computed the date in the first place. `new Date("YYYY-MM-DD")` parses as
  * UTC midnight, which a UTC-negative browser (like one in Venezuela) then
  * renders as the previous day; anchoring to noon UTC sidesteps that. */
-export function formatEntryDate(dateOnly: string): string {
+export function formatEntryDate(dateOnly: string, options?: Intl.DateTimeFormatOptions): string {
   return new Date(`${dateOnly}T12:00:00Z`).toLocaleDateString("es-VE", {
+    ...options,
     timeZone: "America/Caracas",
   });
 }
