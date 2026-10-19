@@ -1,4 +1,5 @@
 "use client";
+import ErrorState from "@/components/common/ErrorState";
 import { deleteServiceOrderTransfer } from "@/lib/api/serviceOrders";
 
 import { useEffect, useRef, useState } from "react";
@@ -78,6 +79,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const { inspections: unlinkedInspections } = useInspections(filialId, true);
   const {
     summary,
+    error: summaryError,
     refresh: refreshSummary,
     addTask,
     removeTask,
@@ -515,6 +517,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
         </div>
       )}
 
+      {summaryError && <ErrorState error={summaryError} onRetry={refreshSummary} />}
       {summary && summary.warnings.length > 0 && (
         <div className="mt-6 space-y-2">
           {summary.warnings.map((warning, i) => (

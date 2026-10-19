@@ -240,27 +240,27 @@ export default function TransfersCard({
       ) : (
         <div className="space-y-4">
           {transfers.map((transfer) => {
-            const canEditLines = !readOnly && transfer.status === "pendiente";
+            const canEditLines = !readOnly && !transfer.closed_at && transfer.status === "pendiente";
             return (
               <div key={transfer.id} className="rounded-xl border border-navy/10 p-3">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <Package className="h-4 w-4 text-blue" />
                     <span className="font-mono text-sm font-semibold text-navy">{transfer.code}</span>
-                    {canDelete && !readOnly && transfer.status === "pendiente" && !transfer.stock_deducted && <details className="relative"><summary aria-label={`Más acciones de ${transfer.code}`} className="cursor-pointer list-none rounded-full border border-navy/15 px-2 py-0.5 text-steel">•••</summary><button type="button" onClick={() => setDeletingId(transfer.id)} className="absolute right-0 z-10 mt-1 whitespace-nowrap rounded-lg border border-navy/10 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">Eliminar ODT</button></details>}
+                    {canDelete && !readOnly && !transfer.closed_at && transfer.status === "pendiente" && !transfer.stock_deducted && <details className="relative"><summary aria-label={`Más acciones de ${transfer.code}`} className="cursor-pointer list-none rounded-full border border-navy/15 px-2 py-0.5 text-steel">•••</summary><button type="button" onClick={() => setDeletingId(transfer.id)} className="absolute right-0 z-10 mt-1 whitespace-nowrap rounded-lg border border-navy/10 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">Eliminar ODT</button></details>}
                     <span
                       className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest ${
-                        transfer.status === "completado"
+                        transfer.closed_at ? "bg-slate-100 text-steel" : transfer.status === "completado"
                           ? "bg-emerald-100 text-emerald-700"
                           : transfer.status === "pedido"
                             ? "bg-blue-light text-blue"
                             : "bg-amber-100 text-amber-700"
                       }`}
                     >
-                      {transfer.status === "completado" ? (transfer.picked_up_at ? "Recibida" : "Por retirar") : transfer.status === "pedido" ? "Pedido" : "Pendiente"}
+                      {transfer.closed_at ? "Cerrada" : transfer.status === "completado" ? (transfer.picked_up_at ? "Recibida" : "Por retirar") : transfer.status === "pedido" ? "Pedido" : "Pendiente"}
                     </span>
                   </div>
-                  {transfer.status === "pendiente" && transfer.lines.length > 0 && (
+                  {!transfer.closed_at && transfer.status === "pendiente" && transfer.lines.length > 0 && (
                     <button
                       type="button"
                       disabled={readOnly || adding}

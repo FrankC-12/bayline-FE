@@ -11,7 +11,7 @@ function deferred() {
 }
 
 // Exercise the real hook with controlled effect lifecycles and fetch timing.
-function harness() {
+function harness(summaryApi) {
   const slots = [];
   let cursor = 0, effects = [], quiet, updates = 0;
   const equal = (a, b) => a && a.length === b.length && a.every((value, i) => Object.is(value, b[i]));
@@ -50,10 +50,22 @@ function harness() {
     if (name === "@/lib/api/listError") return { classifyListError: (error) => ({ message: error.message }) };
     throw new Error(name);
   }, mod, mod.exports);
+  let renderHook=(fetcher,deps)=>mod.exports.useListLoader(fetcher,deps,15000);
+  if(summaryApi){
+    const summaryModule={exports:{}};
+    const summaryCode=ts.transpileModule(fs.readFileSync(path.join(__dirname,"../src/hooks/useOrderSummary.ts"),"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
+    new Function("require","module","exports",summaryCode)((name)=>{
+      if(name==="react")return react;
+      if(name==="./useListLoader")return mod.exports;
+      if(name==="@/lib/api/serviceOrders")return summaryApi;
+      throw new Error(name);
+    },summaryModule,summaryModule.exports);
+    renderHook=(orderId)=>summaryModule.exports.useOrderSummary(orderId);
+  }
   return {
-    render(fetcher, deps) {
+    render(...args) {
       cursor = 0;
-      const result = mod.exports.useListLoader(fetcher, deps, 15000);
+      const result = renderHook(...args);
       const pending = effects; effects = [];
       pending.forEach((effect) => effect());
       return result;
@@ -119,4 +131,62 @@ test("unmount ignores late results and Strict Mode replay can load again", async
   const pending = h.render(fetcher, []).refresh();
   h.unmount(); const count = h.updates(); await pending;
   assert.equal(h.updates(), count);
+});
+
+
+test("a successful edit cannot be undone by an older background response",async()=>{
+ const h=harness(),poll=deferred();let calls=0;
+ const fetcher=()=>++calls===1?Promise.resolve(["before"]):poll.promise;
+ h.render(fetcher,["a"]);await flush();
+ const background=h.quiet();h.render(fetcher,["a"]).setData(["saved"]);
+ poll.resolve(["stale"]);await background;
+ const view=h.render(fetcher,["a"]);
+ assert.deepEqual(view.data,["saved"]);assert.equal(view.loading,false);assert.equal(view.error,null);
+});
+
+test("local edits finish foreground loading and supersede its eventual failure",async()=>{
+ const h=harness(),request=deferred();const fetcher=()=>request.promise;
+ h.render(fetcher,["a"]).setData(["saved"]);
+ request.reject(new Error("late failure"));await flush();
+ const view=h.render(fetcher,["a"]);
+ assert.deepEqual(view.data,["saved"]);assert.equal(view.loading,false);assert.equal(view.error,null);
+});
+
+test("setData from a previous filial is ignored after switching scope",async()=>{
+ const h=harness(),fetcher=()=>Promise.resolve([]);
+ h.render(fetcher,["a"]);await flush();const old=h.render(fetcher,["a"]);
+ h.render(fetcher,["b"]);await flush();old.setData(["wrong tenant"]);
+ assert.deepEqual(h.render(fetcher,["b"]).data,[]);
+});
+
+test("ODS summary polling cannot overwrite a freshly saved task",async()=>{
+ const poll=deferred();let reads=0;const before={total:10,tasks:[],warnings:[]},saved={total:30,tasks:[{id:"task"}],warnings:[]};
+ const h=harness({getOrderSummary:()=>++reads===1?Promise.resolve(before):poll.promise,addTask:()=>Promise.resolve(saved)});
+ h.render("one");await flush();const background=h.quiet();
+ await h.render("one").addTask("catalog");poll.resolve(before);await background;
+ assert.deepEqual(h.render("one").summary,saved);
+});
+
+test("an old ODS mutation cannot populate the next order's summary",async()=>{
+ const mutation=deferred();const first={total:1,tasks:[]},second={total:2,tasks:[]};
+ const h=harness({getOrderSummary:id=>Promise.resolve(id==="one"?first:second),addTask:()=>mutation.promise});
+ h.render("one");await flush();const pending=h.render("one").addTask("catalog");
+ h.render("two");await flush();mutation.resolve({...first,total:99});await pending;
+ assert.deepEqual(h.render("two").summary,second);
+});
+
+test("ODS summary exposes load failures for retry without an unhandled rejection",async()=>{
+ let failing=true;const saved={total:25,tasks:[]};const h=harness({getOrderSummary:()=>failing?Promise.reject(new Error("Connection lost")):Promise.resolve(saved)});
+ h.render("one");await flush();const failed=h.render("one");assert.equal(failed.error.message,"Connection lost");assert.equal(failed.loading,false);
+ failing=false;await failed.refresh();assert.deepEqual(h.render("one").summary,saved);assert.equal(h.render("one").error,null);
+});
+
+
+test("editing before the first load revalidates the whole list without losing saved rows",async()=>{
+ const h=harness(),initial=deferred();let calls=0;
+ const fetcher=()=>++calls===1?initial.promise:Promise.resolve(["saved","other"]);
+ const view=h.render(fetcher,["a"]);view.setData(current=>["saved",...current]);await flush();
+ initial.resolve(["other"]);await flush();
+ assert.deepEqual(h.render(fetcher,["a"]).data,["saved","other"]);
+ assert.equal(h.render(fetcher,["a"]).loading,false);
 });

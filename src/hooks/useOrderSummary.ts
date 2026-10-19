@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, type SetStateAction } from "react";
 import {
   getOrderSummary,
   addTask,
@@ -15,34 +15,37 @@ import {
   removeTransferLine,
   markTransferOrdered,
 } from "@/lib/api/serviceOrders";
-import { useAutoRefresh } from "./useAutoRefresh";
-import type { OrderSummary, ServiceOrderPayer, ServiceOrderTask, TaskStatus } from "@/types/serviceOrder";
+import { useListLoader } from "./useListLoader";
+import type {
+  OrderSummary,
+  ServiceOrderPayer,
+  ServiceOrderTask,
+  TaskStatus,
+} from "@/types/serviceOrder";
 
 export function useOrderSummary(orderId: string | null) {
-  const [summary, setSummary] = useState<OrderSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async (background = false) => {
-    if (!orderId) {
-      setSummary(null);
-      setLoading(false);
-      return;
-    }
-    if (!background) setLoading(true);
-    try {
-      const data = await getOrderSummary(orderId);
-      setSummary(data);
-    } finally {
-      if (!background) setLoading(false);
-    }
-  }, [orderId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const refreshQuietly = useCallback(() => load(true), [load]);
-  useAutoRefresh(refreshQuietly, orderId ? 15000 : 0);
+  const {
+    data,
+    setData,
+    loading,
+    error,
+    refresh: load,
+  } = useListLoader<OrderSummary>(
+    async () => (orderId ? [await getOrderSummary(orderId)] : []),
+    [orderId],
+    orderId ? 15000 : 0,
+  );
+  const summary = data[0] ?? null;
+  const setSummary = useCallback(
+    (update: SetStateAction<OrderSummary | null>) => {
+      setData((current) => {
+        const next =
+          typeof update === "function" ? update(current[0] ?? null) : update;
+        return next ? [next] : [];
+      });
+    },
+    [setData],
+  );
 
   const addTaskAndRefresh = useCallback(
     async (temparioId: string, payer: ServiceOrderPayer = "cliente") => {
@@ -50,7 +53,7 @@ export function useOrderSummary(orderId: string | null) {
       const updated = await addTask(orderId, temparioId, payer);
       setSummary(updated);
     },
-    [orderId]
+    [orderId, setSummary],
   );
 
   const toggleTaskStatus = useCallback(
@@ -58,7 +61,7 @@ export function useOrderSummary(orderId: string | null) {
       await updateTaskStatus(taskId, status);
       await load();
     },
-    [load]
+    [load],
   );
 
   const changeTaskPayer = useCallback(
@@ -67,7 +70,7 @@ export function useOrderSummary(orderId: string | null) {
       const updated = await updateTaskPayer(orderId, taskId, payer);
       setSummary(updated);
     },
-    [orderId]
+    [orderId, setSummary],
   );
 
   const removeTask = useCallback(
@@ -75,38 +78,50 @@ export function useOrderSummary(orderId: string | null) {
       await deleteTask(taskId);
       await load();
     },
-    [load]
+    [load],
   );
 
-  const replaceTask = useCallback((updated: ServiceOrderTask) => {
-    setSummary((current) =>
-      current
-        ? { ...current, tasks: current.tasks.map((t) => (t.id === updated.id ? updated : t)) }
-        : current
-    );
-  }, []);
+  const replaceTask = useCallback(
+    (updated: ServiceOrderTask) => {
+      setSummary((current) =>
+        current
+          ? {
+              ...current,
+              tasks: current.tasks.map((t) =>
+                t.id === updated.id ? updated : t,
+              ),
+            }
+          : current,
+      );
+    },
+    [setSummary],
+  );
 
   const startTaskTimerAndRefresh = useCallback(
     async (taskId: string) => {
       replaceTask(await startTaskTimer(taskId));
     },
-    [replaceTask]
+    [replaceTask],
   );
 
   const pauseTaskTimerAndRefresh = useCallback(
     async (taskId: string) => {
       replaceTask(await pauseTaskTimer(taskId));
     },
-    [replaceTask]
+    [replaceTask],
   );
 
   const addLineAndRefresh = useCallback(
-    async (partId: string, quantity: number, payer: ServiceOrderPayer = "cliente") => {
+    async (
+      partId: string,
+      quantity: number,
+      payer: ServiceOrderPayer = "cliente",
+    ) => {
       if (!orderId) return;
       const updated = await addTransferLine(orderId, partId, quantity, payer);
       setSummary(updated);
     },
-    [orderId]
+    [orderId, setSummary],
   );
 
   const changeLinePayer = useCallback(
@@ -115,16 +130,20 @@ export function useOrderSummary(orderId: string | null) {
       const updated = await updateTransferLinePayer(orderId, lineId, payer);
       setSummary(updated);
     },
-    [orderId]
+    [orderId, setSummary],
   );
 
   const changeLineQuantity = useCallback(
     async (lineId: string, quantity: number) => {
       if (!orderId) return;
-      const updated = await updateTransferLineQuantity(orderId, lineId, quantity);
+      const updated = await updateTransferLineQuantity(
+        orderId,
+        lineId,
+        quantity,
+      );
       setSummary(updated);
     },
-    [orderId]
+    [orderId, setSummary],
   );
 
   const removeLine = useCallback(
@@ -133,7 +152,7 @@ export function useOrderSummary(orderId: string | null) {
       const updated = await removeTransferLine(orderId, lineId);
       setSummary(updated);
     },
-    [orderId]
+    [orderId, setSummary],
   );
 
   const markOrdered = useCallback(
@@ -141,16 +160,17 @@ export function useOrderSummary(orderId: string | null) {
       await markTransferOrdered(transferId);
       await load();
     },
-    [load]
+    [load],
   );
 
   const dismissWarnings = useCallback(() => {
     setSummary((current) => (current ? { ...current, warnings: [] } : current));
-  }, []);
+  }, [setSummary]);
 
   return {
     summary,
     loading,
+    error,
     refresh: load,
     addTask: addTaskAndRefresh,
     toggleTaskStatus,

@@ -19,6 +19,7 @@ import {
 import { formatMoney } from "@/lib/format";
 import type { ServiceOrder } from "@/types/serviceOrder";
 import TasksCard from "./TaskCard";
+import ErrorState from "@/components/common/ErrorState";
 import OrderStages from "./OrderStages";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 
@@ -38,7 +39,7 @@ export default function DraftOrderEditor({
   const { users } = useUserDirectory({ filialId });
   const { roles } = useRoleDirectory("filial");
   const { bays } = useBays(filialId);
-  const { summary, addTask, removeTask } = useOrderSummary(order.id);
+  const { summary, addTask, removeTask, error: summaryError, refresh: refreshSummary } = useOrderSummary(order.id);
   const [fields, setFields] = useState<DraftFields>({
     vehicle_id: order.vehicle_id || null,
     technician_user_id: order.technician_user_id,
@@ -250,6 +251,7 @@ export default function DraftOrderEditor({
           </button>
         </div>
       )}
+      {summaryError && <ErrorState error={summaryError} onRetry={refreshSummary} />}
       <div className="grid items-start gap-4 xl:grid-cols-2">
         <section className="rounded-2xl border border-navy/10 bg-white p-5">
           <div className="flex justify-between gap-3">

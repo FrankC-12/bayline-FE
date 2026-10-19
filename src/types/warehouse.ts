@@ -68,12 +68,14 @@ export interface ServiceOrderPartRequestLine {
 }
 
 export interface ServiceOrderPartRequest {
+  closed_at?:string|null;
+  closed_by_user_id?:string|null;
   id: string;
   code: string;
   service_order_id: string;
   service_order_code: string;
   vehicle_label: string;
-  status: "pedido" | "completado";
+  status: "pendiente" | "pedido" | "completado";
   fulfilled_at: string | null;
   completed_at: string | null;
   warehouse_seen: boolean;

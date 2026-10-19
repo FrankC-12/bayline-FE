@@ -93,6 +93,8 @@ export interface TransferLine {
 }
 
 export interface ServiceOrderTransfer {
+  closed_at?:string|null;
+  closed_by_user_id?:string|null;
   id: string;
   code: string;
   status: TransferStatus;

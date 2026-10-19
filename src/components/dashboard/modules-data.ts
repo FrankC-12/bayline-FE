@@ -1,6 +1,5 @@
 import {
   FileText,
-  Smartphone,
   ClipboardList,
   ShieldCheck,
   BarChart3,
@@ -36,8 +35,7 @@ export interface ModuleCardData {
   href?: string;
   /** Matches a key in the caller's access map (GET /auth/access) — see
    * app/scripts/seed_roles.py's ALL_MODULES on the backend for the
-   * authoritative list. A card with no moduleId (the mobile-only
-   * "Técnico de Servicio" placeholder) is never filtered out. */
+   * authoritative list. Cards without moduleId are always visible. */
   moduleId?: string;
 }
 
@@ -50,14 +48,6 @@ export const modules: ModuleCardData[] = [
     tint: "bg-indigo-100 text-indigo-600",
     href: "/dashboard/servicios",
     moduleId: "asesor-servicios",
-  },
-  {
-    icon: Smartphone,
-    title: "Técnico de Servicio",
-    description: "Acceso móvil: tareas asignadas, cronómetro, inspección minuciosa y upsells.",
-    badge: "VISTA MÓVIL",
-    tint: "bg-amber-100 text-amber-600",
-    moduleId: "tecnico-servicio",
   },
   {
     icon: ClipboardList,
