@@ -24,6 +24,9 @@ export interface TemparioPart {
 }
 
 export interface Tempario {
+  pricing_basis?: string;
+  pricing_notes?: string[];
+  pricing_warnings?: string[];
   legacy_warranty_label?: string | null;
   warranty_mode: "standard" | "custom" | "none";
   warranty_days: number | null;
@@ -58,7 +61,10 @@ export interface Tempario {
 
 export interface LaborSettings {
   bcv_rate_mode: "automatic" | "manual";
-  field_changes: Record<string, { user_name?: string | null; changed_at: string }>;
+  field_changes: Record<
+    string,
+    { user_name?: string | null; changed_at: string }
+  >;
   filial_id: string;
   hourly_rate: number;
   commission_percentage: number;
@@ -68,6 +74,7 @@ export interface LaborSettings {
   bcv_rate_date: string | null;
   bcv_rate_is_stale: boolean;
   part_warranty_days: number;
+  vehicle_warranty_default_km?: number | null;
   vehicle_warranty_default_months: number;
   workshop_warranty_days: number;
   workshop_warranty_km: number;

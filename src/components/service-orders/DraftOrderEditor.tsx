@@ -39,7 +39,13 @@ export default function DraftOrderEditor({
   const { users } = useUserDirectory({ filialId });
   const { roles } = useRoleDirectory("filial");
   const { bays } = useBays(filialId);
-  const { summary, addTask, removeTask, error: summaryError, refresh: refreshSummary } = useOrderSummary(order.id);
+  const {
+    summary,
+    addTask,
+    removeTask,
+    error: summaryError,
+    refresh: refreshSummary,
+  } = useOrderSummary(order.id);
   const [fields, setFields] = useState<DraftFields>({
     vehicle_id: order.vehicle_id || null,
     technician_user_id: order.technician_user_id,
@@ -251,7 +257,9 @@ export default function DraftOrderEditor({
           </button>
         </div>
       )}
-      {summaryError && <ErrorState error={summaryError} onRetry={refreshSummary} />}
+      {summaryError && (
+        <ErrorState error={summaryError} onRetry={refreshSummary} />
+      )}
       <div className="grid items-start gap-4 xl:grid-cols-2">
         <section className="rounded-2xl border border-navy/10 bg-white p-5">
           <div className="flex justify-between gap-3">
@@ -294,10 +302,11 @@ export default function DraftOrderEditor({
         <TasksCard
           readOnly={busy || !canEdit || !fields.vehicle_id}
           filialId={order.filial_id}
+          orderId={order.id}
           tasks={summary?.tasks ?? []}
-          onAdd={async (id) => {
+          onAdd={async (id, _payer, expectedTotal) => {
             await saveRef.current({ ...latest.current });
-            await addTask(id);
+            await addTask(id, "cliente", expectedTotal);
           }}
           onRemove={removeTask}
         />

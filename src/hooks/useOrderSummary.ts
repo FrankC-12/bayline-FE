@@ -48,9 +48,13 @@ export function useOrderSummary(orderId: string | null) {
   );
 
   const addTaskAndRefresh = useCallback(
-    async (temparioId: string, payer: ServiceOrderPayer = "cliente") => {
+    async (
+      temparioId: string,
+      payer: ServiceOrderPayer = "cliente",
+      expectedTotal?: number,
+    ) => {
       if (!orderId) return;
-      const updated = await addTask(orderId, temparioId, payer);
+      const updated = await addTask(orderId, temparioId, payer, expectedTotal);
       setSummary(updated);
     },
     [orderId, setSummary],

@@ -12,6 +12,9 @@ export interface InspectionDamage {
 }
 
 export interface Inspection {
+  interior?: Record<string, unknown>;
+  fluids?: Record<string, unknown>;
+  mileage_correction_reason?: string | null;
   id: string;
   filial_id: string;
   vehicle_id: string;

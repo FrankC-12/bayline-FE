@@ -1,7 +1,9 @@
 import type { VehicleWarranty } from "@/types/vehicleWarranty";
 
-export type WarrantyClaimType = "fabrica" | "comeback" | "repuesto_proveedor" | "campana_recall";
-export type WarrantyClaimStatus = "solicitado" | "autorizado" | "rechazado" | "convertido_a_ods";
+export type WarrantyClaimType =
+  "fabrica" | "comeback" | "repuesto_proveedor" | "campana_recall";
+export type WarrantyClaimStatus =
+  "solicitado" | "autorizado" | "rechazado" | "convertido_a_ods";
 
 export type ReworkFailureCategory =
   | "mano_de_obra"
@@ -31,8 +33,38 @@ export interface WorkshopWarranty {
 }
 
 export interface WarrantyClaim {
+  failure_confirmed?: boolean;
+  odometer_photo_url?: string | null;
+  warranty_assessment?: {
+    applicable: boolean;
+    valid: boolean | null;
+    time: {
+      used: number;
+      limit: number;
+      expires_at: string;
+      valid: boolean;
+    } | null;
+    distance: {
+      used: number;
+      limit: number;
+      start_mileage: number;
+      expiration_mileage: number;
+      valid: boolean;
+    } | null;
+  };
+  source_order_closed_at?: string | null;
+  source_order_exit_mileage?: number | null;
+  source_technician_name?: string | null;
   vehicle_label?: string | null;
-  coverage_snapshot?: {label?:string;duration_days?:number|null;duration_months?:number|null;duration_km?:number|null;expires_at?:string|null;expiration_mileage?:number|null;starts_at?:string}|null;
+  coverage_snapshot?: {
+    label?: string;
+    duration_days?: number | null;
+    duration_months?: number | null;
+    duration_km?: number | null;
+    expires_at?: string | null;
+    expiration_mileage?: number | null;
+    starts_at?: string;
+  } | null;
   brand_responded_by_user_id?: string | null;
   workshop_warranty_id?: string | null;
   factory_warranty_id?: string | null;

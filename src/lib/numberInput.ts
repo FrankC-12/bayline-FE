@@ -6,18 +6,25 @@ export function displayNumberInput(value: string | number): string {
 }
 
 /** Parse localized input; pasted ungrouped decimal values are accepted too. */
-export function parseNumberInput(text: string, decimals: number, allowNegative = false): string {
+export function parseNumberInput(
+  text: string,
+  decimals: number,
+  allowNegative = false,
+): string {
   let clean = text.replace(/[^\d.,-]/g, "");
   const sign = allowNegative && clean.startsWith("-") ? "-" : "";
   clean = clean.replace(/-/g, "");
   if (clean.includes(",")) {
     clean = clean.replace(/\./g, "").replace(",", ".");
-  } else if (/^\d{1,3}(\.\d{3})+$/.test(clean)) {
+  } else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(clean)) {
     clean = clean.replace(/\./g, "");
   }
   const [integer, ...fractions] = clean.split(".");
   const whole = integer.replace(/^0+(?=\d)/, "");
   if (!decimals) return sign + whole;
-  return sign + (whole || (fractions.length ? "0" : "")) +
-    (fractions.length ? `.${fractions.join("").slice(0, decimals)}` : "");
+  return (
+    sign +
+    (whole || (fractions.length ? "0" : "")) +
+    (fractions.length ? `.${fractions.join("").slice(0, decimals)}` : "")
+  );
 }

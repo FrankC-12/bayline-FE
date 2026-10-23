@@ -21,9 +21,16 @@ export default function LotsSystemView() {
   const [lotMatches, setLotMatches] = useState<PartLot[]>([]);
   const [detailLotId, setDetailLotId] = useState<string | null>(null);
 
-  const results = search && !selectedPart
-    ? parts.filter((p) => p.code.toLowerCase().includes(search.toLowerCase()) || p.name.toLowerCase().includes(search.toLowerCase())).slice(0, 6)
-    : [];
+  const results =
+    search && !selectedPart
+      ? parts
+          .filter(
+            (p) =>
+              p.code.toLowerCase().includes(search.toLowerCase()) ||
+              p.name.toLowerCase().includes(search.toLowerCase()),
+          )
+          .slice(0, 6)
+      : [];
 
   useEffect(() => {
     if (!filialId || !selectedPart) {
@@ -31,10 +38,12 @@ export default function LotsSystemView() {
       return;
     }
     setLoading(true);
-    listLots(filialId, selectedPart.id, activeWarehouseId ?? undefined).then((data) => {
-      setLots(data);
-      setLoading(false);
-    });
+    listLots(filialId, selectedPart.id, activeWarehouseId ?? undefined).then(
+      (data) => {
+        setLots(data);
+        setLoading(false);
+      },
+    );
   }, [activeWarehouseId, filialId, selectedPart]);
 
   // Also search by lot code (e.g. "L-104") — matched independently of the
@@ -63,7 +72,9 @@ export default function LotsSystemView() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl font-bold text-navy">Sistema de Lotes</h1>
+      <h1 className="font-display text-3xl font-bold text-navy">
+        Sistema de Lotes
+      </h1>
       <p className="mt-1 text-sm text-steel">
         {activeWarehouse
           ? `Lotes FIFO de ${activeWarehouse.name} · el lote de menor número se consume primero`
@@ -71,7 +82,9 @@ export default function LotsSystemView() {
       </p>
 
       <div className="mt-6 flex items-center gap-3">
-        <span className="whitespace-nowrap text-sm font-medium text-navy">Repuesto:</span>
+        <span className="whitespace-nowrap text-sm font-medium text-navy">
+          Repuesto:
+        </span>
         <div className="relative w-full max-w-md">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
           <input
@@ -94,7 +107,9 @@ export default function LotsSystemView() {
                     onClick={() => openLotFromSearch(lot)}
                     className="block w-full bg-blue-light/40 px-4 py-2 text-left text-sm hover:bg-blue-light"
                   >
-                    <span className="font-mono font-semibold text-blue">{lot.code}</span>{" "}
+                    <span className="font-mono font-semibold text-blue">
+                      {lot.code}
+                    </span>{" "}
                     {part ? (
                       <span className="text-navy">
                         — {part.code} {part.name}
@@ -129,18 +144,32 @@ export default function LotsSystemView() {
       {selectedPart && (
         <div className="mt-6 overflow-hidden rounded-2xl border border-navy/10 bg-white">
           {loading ? (
-            <div className="p-12 text-center text-sm text-steel">Cargando lotes...</div>
+            <div className="p-12 text-center text-sm text-steel">
+              Cargando lotes...
+            </div>
           ) : lots.length === 0 ? (
-            <div className="p-12 text-center text-sm text-steel">Este repuesto no tiene lotes registrados.</div>
+            <div className="p-12 text-center text-sm text-steel">
+              Este repuesto no tiene lotes registrados.
+            </div>
           ) : (
             <table className="w-full text-left text-sm">
               <thead className="border-b border-navy/10 bg-ash">
                 <tr>
-                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Lote</th>
-                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Costo unitario</th>
-                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Cant. inicial</th>
-                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Cant. disponible</th>
-                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Estado</th>
+                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                    Lote
+                  </th>
+                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                    Costo unitario
+                  </th>
+                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                    Cant. inicial
+                  </th>
+                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                    Cant. disponible
+                  </th>
+                  <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                    Estado
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy/5">
@@ -150,17 +179,35 @@ export default function LotsSystemView() {
                     onClick={() => setDetailLotId(lot.id)}
                     className="cursor-pointer transition hover:bg-ash/60"
                   >
-                    <td className="px-6 py-4 font-mono font-semibold text-blue">{lot.code}</td>
-                    <td className="px-6 py-4 text-navy">${formatMoney(lot.unit_cost)}</td>
-                    <td className="px-6 py-4 text-navy">{formatCount(lot.quantity_received)}</td>
-                    <td className="px-6 py-4 text-navy">{formatCount(lot.quantity_remaining)}</td>
+                    <td className="px-6 py-4 font-mono font-semibold text-blue">
+                      {lot.code}
+                    </td>
+                    <td className="px-6 py-4 text-navy">
+                      ${formatMoney(lot.unit_cost)}
+                    </td>
+                    <td className="px-6 py-4 text-navy">
+                      {formatCount(lot.quantity_received)}
+                    </td>
+                    <td className="px-6 py-4 text-navy">
+                      {formatCount(lot.quantity_remaining)}
+                    </td>
                     <td className="px-6 py-4">
                       <span
                         className={`rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${
-                          lot.quantity_remaining > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          lot.fifo_status === "en_uso"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-slate-100 text-slate-500"
                         }`}
                       >
-                        {lot.quantity_remaining > 0 ? "Activo" : "Agotado"}
+                        {lot.fifo_status === "en_uso"
+                          ? "Activo · en uso FIFO"
+                          : lot.fifo_status === "en_espera_fifo"
+                            ? "Inactivo · espera FIFO"
+                            : lot.fifo_status === "reservado"
+                              ? "Reservado"
+                              : lot.quantity_remaining > 0
+                                ? "Disponible"
+                                : "Agotado"}
                       </span>
                     </td>
                   </tr>
@@ -171,7 +218,10 @@ export default function LotsSystemView() {
         </div>
       )}
 
-      <LotDetailModal lotId={detailLotId} onClose={() => setDetailLotId(null)} />
+      <LotDetailModal
+        lotId={detailLotId}
+        onClose={() => setDetailLotId(null)}
+      />
     </div>
   );
 }

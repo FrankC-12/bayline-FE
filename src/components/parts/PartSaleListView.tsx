@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePartSales } from "@/hooks/usePartSales";
-import { formatMoney } from "@/lib/format";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { formatMoney, formatCount } from "@/lib/format";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 
@@ -37,14 +38,34 @@ export default function PartSalesListView() {
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
-  const { sales, loading, error, refresh } = usePartSales(filialId, search || undefined);
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const { sales, loading, error, refresh } = usePartSales(
+    filialId,
+    debouncedSearch || undefined,
+  );
+  const [filter, setFilter] = useState("todas");
+  const visible = sales.filter((sale) => {
+    if (filter === "todas") return true;
+    if (filter === "en_almacen")
+      return ["pendiente", "pedido"].includes(sale.status);
+    if (filter === "por_cobrar")
+      return sale.status === "completado" && sale.pending_amount > 0;
+    return sale.status === filter;
+  });
+  const unpaid = sales
+    .filter((sale) => sale.status !== "cancelado")
+    .reduce((sum, sale) => sum + sale.pending_amount, 0);
 
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold text-navy">Ventas de Repuestos</h1>
-          <p className="mt-1 text-sm text-steel">Venta directa de repuestos al público</p>
+          <h1 className="font-display text-3xl font-bold text-navy">
+            Ventas de Repuestos
+          </h1>
+          <p className="mt-1 text-sm text-steel">
+            Venta directa de repuestos al público
+          </p>
         </div>
         <Link
           href="/dashboard/repuestos/ventas/nueva"
@@ -55,6 +76,73 @@ export default function PartSalesListView() {
         </Link>
       </div>
 
+      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+        {[
+          {
+            label: "En almacén",
+            value: formatCount(
+              sales.filter((sale) =>
+                ["pendiente", "pedido"].includes(sale.status),
+              ).length,
+            ),
+            filter: "en_almacen",
+            note: "Pendientes o en preparación",
+            color: "text-blue",
+          },
+          {
+            label: "Listas para cobrar",
+            value: formatCount(
+              sales.filter(
+                (sale) =>
+                  sale.status === "completado" && sale.pending_amount > 0,
+              ).length,
+            ),
+            filter: "por_cobrar",
+            note: "Confirmadas en mostrador con saldo",
+            color: "text-amber-800",
+          },
+          {
+            label: "Saldo pendiente",
+            value: `$${formatMoney(unpaid)}`,
+            filter: "todas",
+            note: "Ventas de esta búsqueda, sin canceladas",
+            color: "text-navy",
+          },
+        ].map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => setFilter(item.filter)}
+            className="rounded-2xl border border-navy/10 bg-white p-5 text-left transition hover:border-blue/30"
+          >
+            <p className="text-xs text-steel">{item.label}</p>
+            <p className={`my-2 font-display text-2xl font-bold ${item.color}`}>
+              {item.value}
+            </p>
+            <p className="text-xs text-steel">{item.note}</p>
+          </button>
+        ))}
+      </div>
+      <div className="mb-4 flex flex-wrap gap-2">
+        {[
+          { id: "todas", label: "Todas" },
+          { id: "en_almacen", label: "En almacén" },
+          { id: "por_cobrar", label: "Por cobrar" },
+          { id: "pendiente", label: "Pendientes" },
+          { id: "pedido", label: "En despacho" },
+          { id: "completado", label: "En mostrador" },
+          { id: "cancelado", label: "Canceladas" },
+        ].map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setFilter(item.id)}
+            className={`rounded-full px-4 py-2 text-xs font-semibold ${filter === item.id ? "bg-blue text-white" : "border border-navy/10 bg-white text-steel"}`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
       <div className="relative mb-4">
         <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
         <input
@@ -65,18 +153,26 @@ export default function PartSalesListView() {
         />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
         {loading ? (
-          <div className="p-12 text-center text-sm text-steel">Cargando ventas...</div>
+          <div className="p-12 text-center text-sm text-steel">
+            Cargando ventas...
+          </div>
         ) : error ? (
           <ErrorState error={error} onRetry={refresh} compact />
-        ) : sales.length === 0 ? (
+        ) : visible.length === 0 ? (
           <EmptyState
             compact
-            title={search ? `Sin resultados para "${search}"` : "Aún no hay ventas registradas."}
+            title={
+              search
+                ? `Sin resultados para "${search}"`
+                : filter !== "todas"
+                  ? "No hay ventas en esta etapa."
+                  : "Aún no hay ventas registradas."
+            }
           />
         ) : (
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[1000px] text-left text-sm">
             <thead className="border-b border-navy/10 bg-ash">
               <tr>
                 <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
@@ -106,19 +202,35 @@ export default function PartSalesListView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-navy/5">
-              {sales.map((s) => (
+              {visible.map((s) => (
                 <tr
                   key={s.id}
-                  onClick={() => router.push(`/dashboard/repuestos/ventas/${s.id}`)}
+                  onClick={() =>
+                    router.push(`/dashboard/repuestos/ventas/${s.id}`)
+                  }
                   className="cursor-pointer transition hover:bg-ash/60"
                 >
-                  <td className="px-6 py-4 font-mono font-semibold text-blue">{s.code}</td>
-                  <td className="px-6 py-4 font-medium text-navy">{s.client_name}</td>
-                  <td className="px-6 py-4 text-steel">{s.warehouse_name ?? "—"}</td>
+                  <td className="px-6 py-4 font-mono font-semibold text-blue">
+                    <Link
+                      href={`/dashboard/repuestos/ventas/${s.id}`}
+                      onClick={(event) => event.stopPropagation()}
+                      className="underline"
+                    >
+                      {s.code}
+                    </Link>
+                  </td>
+                  <td className="px-6 py-4 font-medium text-navy">
+                    {s.client_name}
+                  </td>
+                  <td className="px-6 py-4 text-steel">
+                    {s.warehouse_name ?? "—"}
+                  </td>
                   <td className="px-6 py-4 text-steel">
                     {new Date(s.created_at).toLocaleDateString("es-VE")}
                   </td>
-                  <td className="px-6 py-4 font-semibold text-navy">${formatMoney(s.total_with_taxes)}</td>
+                  <td className="px-6 py-4 font-semibold text-navy">
+                    ${formatMoney(s.total_with_taxes)}
+                  </td>
                   <td className="px-6 py-4">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${STATUS_STYLES[s.status]}`}
@@ -126,8 +238,18 @@ export default function PartSalesListView() {
                       {STATUS_LABELS[s.status]}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-steel">{s.status === "cancelado" ? "—" : s.pending_amount <= 0 ? "Pagado" : s.amount_collected > 0 ? "Abono" : "Pendiente"}</td>
-                  <td className="px-6 py-4 text-steel">{WAREHOUSE_LABELS[s.status]}</td>
+                  <td className="px-6 py-4 text-steel">
+                    {s.status === "cancelado"
+                      ? "—"
+                      : s.pending_amount <= 0
+                        ? "Pagado"
+                        : s.amount_collected > 0
+                          ? "Abono"
+                          : "Pendiente"}
+                  </td>
+                  <td className="px-6 py-4 text-steel">
+                    {WAREHOUSE_LABELS[s.status]}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -1,6 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import WarrantyCoverage from "./WarrantyCoverage";
+import { assessClaimCoverage } from "@/lib/claimCoverage";
 import Modal from "@/components/common/Modal";
+import { NumberInput } from "@/components/ui/NumberInput";
 import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import {
   createClaimFromWarranty,
@@ -13,7 +16,9 @@ export default function NewWarrantyClaim({
   onCreated,
   initialVehicleId = "",
   initialCoverage = "",
+  initialServiceOrderId,
 }: {
+  initialServiceOrderId?: string;
   initialVehicleId?: string;
   initialCoverage?: string;
   filialId: string;
@@ -21,6 +26,7 @@ export default function NewWarrantyClaim({
   onCreated: () => void;
 }) {
   const { vehicleMap } = useVehicleLookup(filialId);
+  const submitting = useRef(false);
   const [step, setStep] = useState(1),
     [vehicle, setVehicle] = useState(initialVehicleId),
     [coverage, setCoverage] = useState(""),
@@ -32,21 +38,29 @@ export default function NewWarrantyClaim({
     [error, setError] = useState("");
   const [photos, setPhotos] = useState<File[]>([]),
     [documents, setDocuments] = useState<File[]>([]);
+  const [odometer, setOdometer] = useState<File | null>(null);
   useEffect(() => {
     if (!vehicle) return;
     let alive = true;
     setLoading(true);
+    setPhotos([]);
+    setDocuments([]);
+    setSymptom("");
+    setMileage("");
+    setOdometer(null);
     setContext(null);
     setCoverage("");
     setError("");
-    getWarrantyClaimContext(vehicle)
+    getWarrantyClaimContext(
+      vehicle,
+      vehicle === initialVehicleId ? initialServiceOrderId : undefined,
+    )
       .then((c) => {
         if (alive) {
           setContext(c);
           setCoverage(initialCoverage);
-          setMileage(
-            c.current_mileage == null ? "" : String(c.current_mileage),
-          );
+          setMileage("");
+          setOdometer(null);
         }
       })
       .catch((e) => {
@@ -58,39 +72,68 @@ export default function NewWarrantyClaim({
     return () => {
       alive = false;
     };
-  }, [vehicle, initialCoverage]);
+  }, [vehicle, initialCoverage, initialVehicleId, initialServiceOrderId]);
   const options = [
     ...(context?.workshop_warranties ?? []).map((w) => ({
       id: `workshop:${w.id}`,
+      assessment: assessClaimCoverage(
+        { ...w, kind: "workshop" },
+        mileage === "" ? (context?.current_mileage ?? null) : Number(mileage),
+      ),
       label: `${w.tempario_name_snapshot} · ${w.duration_days ?? "—"} días / ${w.duration_km ?? "—"} km`,
       expired:
         w.status !== "vigente" ||
         (w.expiration_mileage != null &&
-          Number(mileage) >= w.expiration_mileage),
+          (mileage === ""
+            ? (context?.current_mileage ?? 0)
+            : Number(mileage)) >= w.expiration_mileage),
     })),
     ...(context?.factory_warranty
       ? [
           {
             id: `factory:${context.factory_warranty.id}`,
+            assessment: assessClaimCoverage(
+              { ...context.factory_warranty, kind: "factory" },
+              mileage === ""
+                ? (context?.current_mileage ?? null)
+                : Number(mileage),
+            ),
             label: `Fábrica · ${context.factory_warranty.duration_months ?? "—"} meses / ${context.factory_warranty.duration_km ?? "—"} km`,
             expired:
               context.factory_warranty.status !== "vigente" ||
               (context.factory_warranty.duration_km != null &&
-                Number(mileage) >= context.factory_warranty.duration_km),
+                (mileage === ""
+                  ? (context?.current_mileage ?? 0)
+                  : Number(mileage)) >= context.factory_warranty.duration_km),
           },
         ]
       : []),
-    { id: "campaign", label: "Campaña o recall", expired: false },
+    {
+      id: "campaign",
+      label: "Campaña o recall",
+      expired: false,
+      assessment: assessClaimCoverage({ kind: "campaign" }, null),
+    },
   ];
   const valid =
     !!coverage && options.some((o) => o.id === coverage && !o.expired);
   async function submit() {
-    if (!valid) return;
+    if (
+      submitting.current ||
+      !valid ||
+      !odometer ||
+      mileage === "" ||
+      !Number.isInteger(Number(mileage)) ||
+      Number(mileage) < (context?.current_mileage ?? 0)
+    )
+      return;
+    submitting.current = true;
     setBusy(true);
     setError("");
     const form = new FormData();
     form.set("vehicle_id", vehicle);
     form.set("reported_mileage", mileage);
+    form.set("odometer_photo", odometer);
     form.set("symptom", symptom.trim());
     if (coverage === "campaign") form.set("campaign", "true");
     else {
@@ -110,12 +153,14 @@ export default function NewWarrantyClaim({
         e instanceof Error ? e.message : "No se pudo registrar el reclamo.",
       );
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
   return (
     <Modal
       open
+      placement="right"
       onClose={onClose}
       closeDisabled={busy}
       title="Nuevo reclamo"
@@ -145,7 +190,9 @@ export default function NewWarrantyClaim({
                 !valid ||
                 symptom.trim().length < 3 ||
                 !mileage ||
-                Number(mileage) < 0
+                !odometer ||
+                !Number.isInteger(Number(mileage)) ||
+                Number(mileage) < (context?.current_mileage ?? 0)
               }
               onClick={() => void submit()}
               className="rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
@@ -213,6 +260,12 @@ export default function NewWarrantyClaim({
                 ))}
               </div>
             )}
+            {coverage && (
+              <WarrantyCoverage
+                assessment={options.find((o) => o.id === coverage)?.assessment}
+                note="Referencia con el último kilometraje registrado. La lectura real se confirma con foto del tablero en el siguiente paso."
+              />
+            )}
             <p className="text-xs text-steel">
               El tipo de reclamo, la ODS de origen y el servicio se toman de la
               garantía elegida.
@@ -222,14 +275,45 @@ export default function NewWarrantyClaim({
           <>
             <label className="block text-sm font-semibold text-navy">
               Kilometraje de hoy
-              <input
-                type="number"
+              <NumberInput
                 min={0}
                 value={mileage}
-                onChange={(e) => setMileage(e.target.value)}
+                onValueChange={setMileage}
                 className="mt-2 w-full rounded-xl border border-navy/15 p-3"
               />
             </label>
+            <p className="text-xs text-steel">
+              Último registro:{" "}
+              {context?.current_mileage == null
+                ? "Sin kilometraje previo"
+                : `${context.current_mileage.toLocaleString("es-VE")} km`}
+              . Ingresa la lectura de hoy; no puede ser menor.
+            </p>
+            <label className="block text-sm font-semibold text-navy">
+              Foto del tablero (obligatoria)
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                capture="environment"
+                onChange={(e) => setOdometer(e.target.files?.[0] ?? null)}
+                className="mt-2 block w-full text-xs"
+              />
+              {odometer && (
+                <span className="mt-1 block text-xs font-normal text-steel">
+                  {odometer.name}
+                </span>
+              )}
+            </label>
+            {coverage && (
+              <WarrantyCoverage
+                assessment={options.find((o) => o.id === coverage)?.assessment}
+                note={
+                  mileage === ""
+                    ? "Referencia con el último kilometraje registrado; ingresa la lectura de hoy."
+                    : "Verificación con el kilometraje de hoy. Vence lo que ocurra primero."
+                }
+              />
+            )}
             {!valid && (
               <p role="alert" className="text-sm text-red-700">
                 El kilometraje está fuera de cobertura. Regresa para seleccionar

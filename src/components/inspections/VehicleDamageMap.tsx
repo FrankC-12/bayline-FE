@@ -26,15 +26,34 @@ interface VehicleDamageMapProps {
 }
 
 const DEFAULT_ZONES = [
-  "capo", "techo", "maletero", "parachoques_delantero", "parachoques_trasero",
-  "parabrisas", "luneta_trasera",
-  "puerta_delantera_izquierda", "puerta_delantera_derecha",
-  "puerta_trasera_izquierda", "puerta_trasera_derecha",
-  "guardafango_delantero_izquierdo", "guardafango_delantero_derecho",
-  "guardafango_trasero_izquierdo", "guardafango_trasero_derecho",
-  "espejo_izquierdo", "espejo_derecho",
+  "capo",
+  "techo",
+  "maletero",
+  "parachoques_delantero",
+  "parachoques_trasero",
+  "parabrisas",
+  "luneta_trasera",
+  "puerta_delantera_izquierda",
+  "puerta_delantera_derecha",
+  "puerta_trasera_izquierda",
+  "puerta_trasera_derecha",
+  "guardafango_delantero_izquierdo",
+  "guardafango_delantero_derecho",
+  "guardafango_trasero_izquierdo",
+  "guardafango_trasero_derecho",
+  "espejo_izquierdo",
+  "espejo_derecho",
 ];
-const DEFAULT_KINDS = ["rayon", "abolladura", "golpe", "oxido", "rotura", "faltante", "grieta", "desgaste"];
+const DEFAULT_KINDS = [
+  "rayon",
+  "abolladura",
+  "golpe",
+  "oxido",
+  "rotura",
+  "faltante",
+  "grieta",
+  "desgaste",
+];
 const DEFAULT_SEVERITIES = ["leve", "moderado", "grave"];
 
 const SEVERITY_DOT: Record<string, string> = {
@@ -59,32 +78,101 @@ function labelize(value: string): string {
  * tapped, so the diagram itself doesn't need labeled regions. */
 function CarOutline() {
   return (
-    <svg viewBox="0 0 100 200" className="h-full w-full">
-      <rect x="18" y="14" width="64" height="172" rx="24" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1.5" />
-      <rect x="28" y="38" width="44" height="22" rx="4" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1" />
-      <rect x="26" y="62" width="48" height="60" rx="6" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1" />
-      <rect x="28" y="124" width="44" height="18" rx="4" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1" />
-      <rect x="9" y="46" width="9" height="14" rx="2" fill="#cbd5e1" />
-      <rect x="82" y="46" width="9" height="14" rx="2" fill="#cbd5e1" />
-      <rect x="10" y="40" width="7" height="26" rx="3" fill="#475569" />
-      <rect x="83" y="40" width="7" height="26" rx="3" fill="#475569" />
-      <rect x="10" y="134" width="7" height="26" rx="3" fill="#475569" />
-      <rect x="83" y="134" width="7" height="26" rx="3" fill="#475569" />
+    <svg
+      viewBox="0 0 100 200"
+      className="h-full w-full"
+      role="img"
+      aria-label="Vista superior del vehículo para localizar daños exteriores"
+    >
+      <defs>
+        <linearGradient id="inspection-body" x1="0" x2="1">
+          <stop stopColor="#cbd5e1" />
+          <stop offset=".5" stopColor="#f8fafc" />
+          <stop offset="1" stopColor="#cbd5e1" />
+        </linearGradient>
+      </defs>
+      <rect x="13" y="43" width="9" height="26" rx="3" fill="#334155" />
+      <rect x="78" y="43" width="9" height="26" rx="3" fill="#334155" />
+      <rect x="13" y="135" width="9" height="26" rx="3" fill="#334155" />
+      <rect x="78" y="135" width="9" height="26" rx="3" fill="#334155" />
+      <path
+        d="M34 14 Q18 16 18 39 L18 164 Q18 184 35 186 H65 Q82 184 82 164 V39 Q82 16 66 14 Z"
+        fill="url(#inspection-body)"
+        stroke="#64748b"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M28 43 Q50 36 72 43 L68 65 H32 Z"
+        fill="#c7d9ef"
+        stroke="#64748b"
+      />
+      <path
+        d="M32 124 H68 L72 148 Q50 154 28 148 Z"
+        fill="#c7d9ef"
+        stroke="#64748b"
+      />
+      <rect
+        x="32"
+        y="68"
+        width="36"
+        height="53"
+        rx="7"
+        fill="#e2e8f0"
+        stroke="#94a3b8"
+      />
+      <path
+        d="M22 70 L29 68 V121 L22 133 Z M78 70 L71 68 V121 L78 133 Z"
+        fill="#bdd2ea"
+        stroke="#64748b"
+      />
+      <path
+        d="M24 94 H29 M71 94 H76 M28 28 Q50 22 72 28 M27 167 Q50 175 73 167"
+        fill="none"
+        stroke="#94a3b8"
+      />
+      <path
+        d="M20 40 L30 36 M70 36 L80 40"
+        stroke="#fbbf24"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M20 172 L29 178 M71 178 L80 172"
+        stroke="#f87171"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M19 69 L11 73 M81 69 L89 73"
+        stroke="#64748b"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 
-export default function VehicleDamageMap({ damages, editable = false, onChange }: VehicleDamageMapProps) {
+export default function VehicleDamageMap({
+  damages,
+  editable = false,
+  onChange,
+}: VehicleDamageMapProps) {
   const [zones, setZones] = useState(DEFAULT_ZONES);
   const [kinds, setKinds] = useState(DEFAULT_KINDS);
   const [severities, setSeverities] = useState(DEFAULT_SEVERITIES);
-  const [draftPoint, setDraftPoint] = useState<{ x: number; y: number; editingIndex: number | null } | null>(null);
+  const [draftPoint, setDraftPoint] = useState<{
+    x: number;
+    y: number;
+    editingIndex: number | null;
+  } | null>(null);
   const [zone, setZone] = useState("");
   const [kind, setKind] = useState("");
   const [severity, setSeverity] = useState("leve");
   const [description, setDescription] = useState("");
   const [pendingPhoto, setPendingPhoto] = useState<File | null>(null);
-  const [pendingPhotoPreview, setPendingPhotoPreview] = useState<string | null>(null);
+  const [pendingPhotoPreview, setPendingPhotoPreview] = useState<string | null>(
+    null,
+  );
   const [activePopover, setActivePopover] = useState<number | null>(null);
 
   useEffect(() => {
@@ -101,48 +189,92 @@ export default function VehicleDamageMap({ damages, editable = false, onChange }
     try {
       const saved = localStorage.getItem("bayline.damageOptions");
       if (!saved) return;
-      const parsed = JSON.parse(saved) as { zones?: string[]; kinds?: string[]; severities?: string[] };
-      if (parsed.zones) setZones(Array.from(new Set([...DEFAULT_ZONES, ...parsed.zones])).sort());
-      if (parsed.kinds) setKinds(Array.from(new Set([...DEFAULT_KINDS, ...parsed.kinds])).sort());
-      if (parsed.severities) setSeverities(Array.from(new Set([...DEFAULT_SEVERITIES, ...parsed.severities])).sort());
+      const parsed = JSON.parse(saved) as {
+        zones?: string[];
+        kinds?: string[];
+        severities?: string[];
+      };
+      if (parsed.zones)
+        setZones(
+          Array.from(new Set([...DEFAULT_ZONES, ...parsed.zones])).sort(),
+        );
+      if (parsed.kinds)
+        setKinds(
+          Array.from(new Set([...DEFAULT_KINDS, ...parsed.kinds])).sort(),
+        );
+      if (parsed.severities)
+        setSeverities(
+          Array.from(
+            new Set([...DEFAULT_SEVERITIES, ...parsed.severities]),
+          ).sort(),
+        );
     } catch {
       // Keep the built-in options if local preferences are unavailable.
     }
   }, []);
 
-  function saveOptions(nextZones = zones, nextKinds = kinds, nextSeverities = severities) {
+  function saveOptions(
+    nextZones = zones,
+    nextKinds = kinds,
+    nextSeverities = severities,
+  ) {
     localStorage.setItem(
       "bayline.damageOptions",
-      JSON.stringify({ zones: nextZones, kinds: nextKinds, severities: nextSeverities })
+      JSON.stringify({
+        zones: nextZones,
+        kinds: nextKinds,
+        severities: nextSeverities,
+      }),
     );
   }
 
   function addZone(value: string) {
-    const next = Array.from(new Set([...zones, value.trim().toLowerCase().replace(/\s+/g, "_")])).sort();
+    const next = Array.from(
+      new Set([...zones, value.trim().toLowerCase().replace(/\s+/g, "_")]),
+    ).sort();
     setZones(next);
-    setZone(next.find((z) => z === value.trim().toLowerCase().replace(/\s+/g, "_")) ?? value);
+    setZone(
+      next.find((z) => z === value.trim().toLowerCase().replace(/\s+/g, "_")) ??
+        value,
+    );
     saveOptions(next, kinds, severities);
   }
 
   function addKind(value: string) {
-    const next = Array.from(new Set([...kinds, value.trim().toLowerCase().replace(/\s+/g, "_")])).sort();
+    const next = Array.from(
+      new Set([...kinds, value.trim().toLowerCase().replace(/\s+/g, "_")]),
+    ).sort();
     setKinds(next);
-    setKind(next.find((k) => k === value.trim().toLowerCase().replace(/\s+/g, "_")) ?? value);
+    setKind(
+      next.find((k) => k === value.trim().toLowerCase().replace(/\s+/g, "_")) ??
+        value,
+    );
     saveOptions(zones, next, severities);
   }
 
   function addSeverity(value: string) {
-    const next = Array.from(new Set([...severities, value.trim().toLowerCase().replace(/\s+/g, "_")])).sort();
+    const next = Array.from(
+      new Set([...severities, value.trim().toLowerCase().replace(/\s+/g, "_")]),
+    ).sort();
     setSeverities(next);
-    setSeverity(next.find((s) => s === value.trim().toLowerCase().replace(/\s+/g, "_")) ?? value);
+    setSeverity(
+      next.find((s) => s === value.trim().toLowerCase().replace(/\s+/g, "_")) ??
+        value,
+    );
     saveOptions(zones, kinds, next);
   }
 
   function handleContainerClick(event: React.MouseEvent<HTMLDivElement>) {
     if (!editable) return;
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-    const y = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+    const x = Math.min(
+      1,
+      Math.max(0, (event.clientX - rect.left) / rect.width),
+    );
+    const y = Math.min(
+      1,
+      Math.max(0, (event.clientY - rect.top) / rect.height),
+    );
     setZone("");
     setKind("");
     setSeverity("leve");
@@ -169,12 +301,20 @@ export default function VehicleDamageMap({ damages, editable = false, onChange }
   function confirmDraft() {
     if (!draftPoint || !zone || !kind || !severity) return;
     const point: DamagePoint = {
-      x: draftPoint.x, y: draftPoint.y, zone, kind, severity, description: description.trim() || null,
+      x: draftPoint.x,
+      y: draftPoint.y,
+      zone,
+      kind,
+      severity,
+      description: description.trim() || null,
       pendingPhoto,
     };
     const next = [...damages];
     if (draftPoint.editingIndex !== null) {
-      next[draftPoint.editingIndex] = { ...next[draftPoint.editingIndex], ...point };
+      next[draftPoint.editingIndex] = {
+        ...next[draftPoint.editingIndex],
+        ...point,
+      };
     } else {
       next.push(point);
     }
@@ -183,7 +323,10 @@ export default function VehicleDamageMap({ damages, editable = false, onChange }
   }
 
   function removeDraft() {
-    if (draftPoint?.editingIndex !== null && draftPoint?.editingIndex !== undefined) {
+    if (
+      draftPoint?.editingIndex !== null &&
+      draftPoint?.editingIndex !== undefined
+    ) {
       onChange?.(damages.filter((_, i) => i !== draftPoint.editingIndex));
     }
     setDraftPoint(null);
@@ -192,8 +335,14 @@ export default function VehicleDamageMap({ damages, editable = false, onChange }
   return (
     <div>
       <div className="flex items-center justify-between">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Mapa de daños</p>
-        {editable && <p className="text-xs text-steel">{damages.length} marcado{damages.length === 1 ? "" : "s"}</p>}
+        <p className="font-mono text-[11px] uppercase tracking-widest text-steel">
+          Mapa de daños
+        </p>
+        {editable && (
+          <p className="text-xs text-steel">
+            {damages.length} marcado{damages.length === 1 ? "" : "s"}
+          </p>
+        )}
       </div>
 
       <div className="mt-2 grid gap-4 sm:grid-cols-[180px_1fr]">
@@ -219,7 +368,9 @@ export default function VehicleDamageMap({ damages, editable = false, onChange }
         <div className="space-y-2">
           {damages.length === 0 && (
             <p className="text-sm text-steel">
-              {editable ? "Toca el diagrama para marcar un daño." : "Sin daños registrados."}
+              {editable
+                ? "Toca el diagrama para marcar un daño."
+                : "Sin daños registrados."}
             </p>
           )}
           {!editable &&
@@ -232,15 +383,29 @@ export default function VehicleDamageMap({ damages, editable = false, onChange }
               >
                 {damage.photo_url && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={damage.photo_url} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                  <img
+                    src={damage.photo_url}
+                    alt=""
+                    className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                  />
                 )}
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 rounded-full border ${dotStyle(damage.severity)}`} />
-                    <span className="font-medium text-navy">{labelize(damage.zone)}</span>
-                    <span className="text-steel">· {labelize(damage.kind)} · {labelize(damage.severity)}</span>
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full border ${dotStyle(damage.severity)}`}
+                    />
+                    <span className="font-medium text-navy">
+                      {labelize(damage.zone)}
+                    </span>
+                    <span className="text-steel">
+                      · {labelize(damage.kind)} · {labelize(damage.severity)}
+                    </span>
                   </div>
-                  {damage.description && <p className="mt-1 text-xs text-steel">{damage.description}</p>}
+                  {damage.description && (
+                    <p className="mt-1 text-xs text-steel">
+                      {damage.description}
+                    </p>
+                  )}
                 </div>
               </button>
             ))}
@@ -252,32 +417,80 @@ export default function VehicleDamageMap({ damages, editable = false, onChange }
                 onClick={(event) => openForEdit(index, event)}
                 className="flex w-full items-center gap-2 rounded-xl border border-navy/10 px-3 py-2 text-left text-sm transition hover:bg-ash"
               >
-                <span className={`h-2.5 w-2.5 shrink-0 rounded-full border ${dotStyle(damage.severity)}`} />
-                <span className="font-medium text-navy">{labelize(damage.zone)}</span>
-                <span className="text-steel">· {labelize(damage.kind)} · {labelize(damage.severity)}</span>
-                {(damage.photo_url || damage.pendingPhoto) && <Camera className="ml-auto h-3.5 w-3.5 text-steel" />}
+                <span
+                  className={`h-2.5 w-2.5 shrink-0 rounded-full border ${dotStyle(damage.severity)}`}
+                />
+                <span className="font-medium text-navy">
+                  {labelize(damage.zone)}
+                </span>
+                <span className="text-steel">
+                  · {labelize(damage.kind)} · {labelize(damage.severity)}
+                </span>
+                {(damage.photo_url || damage.pendingPhoto) && (
+                  <Camera className="ml-auto h-3.5 w-3.5 text-steel" />
+                )}
               </button>
             ))}
         </div>
       </div>
 
       {draftPoint && editable && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setDraftPoint(null)}>
-          <div onClick={(event) => event.stopPropagation()} className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setDraftPoint(null)}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
+          >
             <div className="mb-3 flex items-center justify-between">
               <p className="font-display text-sm font-bold text-navy">
-                {draftPoint.editingIndex !== null ? "Editar daño" : "Nuevo daño"}
+                {draftPoint.editingIndex !== null
+                  ? "Editar daño"
+                  : "Nuevo daño"}
               </p>
-              <button onClick={() => setDraftPoint(null)} aria-label="Cerrar" className="rounded-lg p-1.5 text-steel hover:bg-ash">
+              <button
+                onClick={() => setDraftPoint(null)}
+                aria-label="Cerrar"
+                className="rounded-lg p-1.5 text-steel hover:bg-ash"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="space-y-3">
-              <CreatableSelect label="Zona" required canAdd value={zone} options={zones} onChange={setZone} onAdd={addZone} placeholder="Selecciona una zona..." />
-              <CreatableSelect label="Tipo de daño" required canAdd value={kind} options={kinds} onChange={setKind} onAdd={addKind} placeholder="Selecciona un tipo..." />
-              <CreatableSelect label="Severidad" required canAdd value={severity} options={severities} onChange={setSeverity} onAdd={addSeverity} />
+              <CreatableSelect
+                label="Zona"
+                required
+                canAdd
+                value={zone}
+                options={zones}
+                onChange={setZone}
+                onAdd={addZone}
+                placeholder="Selecciona una zona..."
+              />
+              <CreatableSelect
+                label="Tipo de daño"
+                required
+                canAdd
+                value={kind}
+                options={kinds}
+                onChange={setKind}
+                onAdd={addKind}
+                placeholder="Selecciona un tipo..."
+              />
+              <CreatableSelect
+                label="Severidad"
+                required
+                canAdd
+                value={severity}
+                options={severities}
+                onChange={setSeverity}
+                onAdd={addSeverity}
+              />
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-navy">Descripción (opcional)</label>
+                <label className="mb-1.5 block text-sm font-medium text-navy">
+                  Descripción (opcional)
+                </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -287,11 +500,17 @@ export default function VehicleDamageMap({ damages, editable = false, onChange }
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-navy">Foto (opcional)</label>
+                <label className="mb-1.5 block text-sm font-medium text-navy">
+                  Foto (opcional)
+                </label>
                 {pendingPhotoPreview ? (
                   <div className="flex items-center gap-3">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={pendingPhotoPreview} alt="Vista previa" className="h-14 w-14 rounded-lg object-cover" />
+                    <img
+                      src={pendingPhotoPreview}
+                      alt="Vista previa"
+                      className="h-14 w-14 rounded-lg object-cover"
+                    />
                     <button
                       type="button"
                       onClick={() => setPendingPhoto(null)}
@@ -305,7 +524,9 @@ export default function VehicleDamageMap({ damages, editable = false, onChange }
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    onChange={(e) => setPendingPhoto(e.target.files?.[0] ?? null)}
+                    onChange={(e) =>
+                      setPendingPhoto(e.target.files?.[0] ?? null)
+                    }
                     className="w-full text-sm text-steel file:mr-3 file:rounded-full file:border-0 file:bg-blue-light file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-blue"
                   />
                 )}
@@ -337,19 +558,34 @@ export default function VehicleDamageMap({ damages, editable = false, onChange }
       )}
 
       {activePopover !== null && !editable && damages[activePopover] && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setActivePopover(null)}>
-          <div onClick={(event) => event.stopPropagation()} className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setActivePopover(null)}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
+          >
             <div className="mb-3 flex items-center justify-between">
-              <p className="font-display text-sm font-bold text-navy">{labelize(damages[activePopover].zone)}</p>
-              <button onClick={() => setActivePopover(null)} aria-label="Cerrar" className="rounded-lg p-1.5 text-steel hover:bg-ash">
+              <p className="font-display text-sm font-bold text-navy">
+                {labelize(damages[activePopover].zone)}
+              </p>
+              <button
+                onClick={() => setActivePopover(null)}
+                aria-label="Cerrar"
+                className="rounded-lg p-1.5 text-steel hover:bg-ash"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
             <p className="text-sm text-steel">
-              {labelize(damages[activePopover].kind)} · {labelize(damages[activePopover].severity)}
+              {labelize(damages[activePopover].kind)} ·{" "}
+              {labelize(damages[activePopover].severity)}
             </p>
             {damages[activePopover].description && (
-              <p className="mt-2 text-sm text-navy">{damages[activePopover].description}</p>
+              <p className="mt-2 text-sm text-navy">
+                {damages[activePopover].description}
+              </p>
             )}
             {damages[activePopover].photo_url && (
               // eslint-disable-next-line @next/next/no-img-element

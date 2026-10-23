@@ -4,42 +4,629 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { apiFetch, ApiError } from "@/lib/api/client";
-import { getVehicleWarrantyByVin, getWorkshopWarrantiesByVin } from "@/lib/api/vehicleWarranties";
+import {
+  getVehicleWarrantyByVin,
+  getWorkshopWarrantiesByVin,
+} from "@/lib/api/vehicleWarranties";
 import { NumberInput } from "@/components/ui/NumberInput";
+import WarrantyCoverage from "@/components/service-orders/WarrantyCoverage";
+import { assessClaimCoverage } from "@/lib/claimCoverage";
 import NewWarrantyClaim from "@/components/service-orders/NewWarrantyClaim";
 import VehicleRecommendations from "./VehicleRecommendations";
 import { formatMoney, formatCount } from "@/lib/format";
 import type { Vehicle } from "@/types/client";
-import type { VehicleWarranty, WorkshopWarranty } from "@/types/vehicleWarranty";
-interface History { items: { id:string;code:string;created_at:string;type:string;services:string[];mileage:number | null;total:number;status:string }[];total:number;page:number;size:number }
-const localDate=(value:string)=>new Date(`${value}T12:00:00`).toLocaleDateString("es-VE");
-export default function VehicleDetailModal({ open,onClose,vehicle,filialId,clientName }: {open:boolean;onClose:()=>void;vehicle:Vehicle;filialId:string;clientName?:string}) {
- const { canEdit }=useModuleAccess("asesor-servicios");const { canEdit: canCreateOrder }=useModuleAccess("asesor-servicios");
- const [factory,setFactory]=useState<VehicleWarranty | null>(null);const [warranties,setWarranties]=useState<WorkshopWarranty[]>([]);
- const [history,setHistory]=useState<History | null>(null);const [page,setPage]=useState(1);
- const [error,setError]=useState<string | null>(null);const [loading,setLoading]=useState(true);
- const [registering,setRegistering]=useState(false);const [claimOrder,setClaimOrder]=useState<string | null>(null);
- useEffect(()=> {if(!open) return;let active=true;setLoading(true);setError(null);
-  const promises=[apiFetch<History>(`/clients/vehicles/${vehicle.id}/service-history?page=${page}`),vehicle.vin ? getVehicleWarrantyByVin(filialId,vehicle.vin).catch(err=> {if(err instanceof ApiError && err.statusCode===404) return null;throw err;}) : Promise.resolve(null),vehicle.vin ? getWorkshopWarrantiesByVin(filialId,vehicle.vin) : Promise.resolve([])];
-  Promise.allSettled(promises).then(results=> {if(!active) return;const [h,f,w]=results;if(h.status==="fulfilled") setHistory(h.value as History);if(f.status==="fulfilled") setFactory(f.value as VehicleWarranty | null);if(w.status==="fulfilled") setWarranties(w.value as WorkshopWarranty[]);const failed=results.find(result=>result.status==="rejected");if(failed?.status==="rejected") setError(failed.reason instanceof Error ? failed.reason.message : "No se pudo cargar la ficha completa.");setLoading(false);});return ()=> {active=false;};
- },[open,vehicle.id,vehicle.vin,filialId,page]);
- if(!open) return null;
- const grouped=Array.from(new Map(warranties.map(w=>[`${w.service_order_task_id}:${w.duration_days}:${w.duration_km}:${w.expiration_mileage}`,w])).values());
- return <div className="fixed inset-0 z-40 flex items-center justify-center bg-navy/40 p-4"><section role="dialog" aria-modal="true" aria-labelledby="vehicle-profile-title" className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-2xl bg-ash p-5 shadow-xl sm:p-7"><div className="mb-5 flex justify-between"><button onClick={onClose} className="text-sm text-steel">‹ Vehículos</button><button aria-label="Cerrar ficha" onClick={onClose}><X className="h-5 w-5" /></button></div>
-  <header className="mb-5 rounded-2xl border border-navy/10 bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 id="vehicle-profile-title" className="font-display text-2xl font-bold text-navy">{vehicle.brand} {vehicle.model}</h2><p className="mt-2 font-mono text-xs text-steel">{vehicle.vin || "Sin VIN"}</p></div>{canCreateOrder && <Link href={`/dashboard/servicios/nueva?vehicle_id=${vehicle.id}`} className="rounded-full bg-blue px-5 py-3 text-sm font-semibold text-white">+ Nueva ODS</Link>}</div><div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">{[{label:"Cliente",value:clientName ?? "—"},{label:"Placa",value:vehicle.plate || "Sin placa"},{label:"Último km",value:`${formatCount(vehicle.current_mileage ?? vehicle.mileage ?? 0)} km`},{label:"ODS realizadas",value:history?.total ?? "—"}].map(item=><div key={item.label}><p className="font-mono text-xs uppercase text-steel">{item.label}</p><p className="mt-1 text-sm font-semibold">{item.value}</p></div>)}</div></header>
-  {error && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-  {loading ? <p className="p-8 text-center text-sm text-steel">Cargando ficha…</p> : <><div className="grid gap-5 lg:grid-cols-[1fr_1.6fr]"><section className="rounded-2xl border border-navy/10 bg-white p-5"><h3 className="mb-4 font-mono text-xs uppercase tracking-widest text-blue">Garantía de fábrica</h3>{factory ? <><div className="flex gap-2 text-xs"><span className={`rounded-full px-2 py-1 ${factory.status==="vigente" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-steel"}`}>{factory.status==="vigente" ? "Vigente" : "Vencida"}</span><span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-steel">{factory.source==="manual" ? "Registrada a mano" : "Venta del concesionario"}</span></div><p className="my-4 text-xl font-bold">{[factory.duration_months ? `${factory.duration_months} meses` : null,factory.duration_km ? `${formatCount(factory.duration_km)} km` : null].filter(Boolean).join(" o ")}</p><div className="grid grid-cols-2 gap-4 text-xs text-steel"><p>Inicio <b className="mt-1 block text-sm text-navy">{localDate(factory.starts_at)}</b></p><p>Vence <b className="mt-1 block text-sm text-navy">{[factory.expires_at ? localDate(factory.expires_at) : null,factory.duration_km ? `${formatCount(factory.duration_km)} km` : null].filter(Boolean).join(" o ")}</b></p></div><p className="mt-4 text-xs leading-relaxed text-steel">La cubre el fabricante. Para usarla, crea un reclamo y abre una ODS de garantía de fábrica cuando sea autorizado.</p>{factory.certificate_photo_url && <a href={factory.certificate_photo_url} target="_blank" rel="noreferrer" className="mt-3 block text-xs text-blue underline">Ver certificado</a>}</> : <><p className="mb-4 text-sm text-steel">{vehicle.vin ? "No tiene garantía de fábrica registrada." : "Registra el VIN para asociar una garantía de fábrica."}</p>{canEdit && vehicle.vin && <button onClick={()=>setRegistering(true)} className="rounded-full border border-blue px-4 py-2 text-sm font-semibold text-blue">Registrar garantía de fábrica</button>}</>}</section>
-   <section className="rounded-2xl border border-navy/10 bg-white p-5"><div className="mb-4 flex flex-wrap justify-between gap-2"><h3 className="font-mono text-xs uppercase tracking-widest text-blue">Garantías del taller</h3><p className="text-xs text-steel">Una por cada servicio de ODS cerradas</p></div>{grouped.map(w=> {const order=history?.items.find(o=>o.id===w.service_order_id);return <div key={w.id} className={`mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-navy/10 p-3 ${w.status === "vigente" ? "bg-white" : "bg-ash/70 text-steel"}`}><div><p className="text-sm font-semibold"><span className="font-mono text-blue">{w.tempario_code_snapshot}</span> {w.tempario_name_snapshot}<span className={`ml-2 rounded-full px-2 py-1 text-xs ${w.status==="vigente" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-steel"}`}>{w.status==="vigente" ? "Vigente" : "Vencida"}</span></p><p className="mt-2 text-xs text-steel">{order?.code ?? "ODS registrada"} · {w.warranty_policy_name_snapshot || "Estándar"} · {w.duration_days ?? "—"} días / {formatCount(w.duration_km ?? 0)} km · vence {w.expires_at ? localDate(w.expires_at) : "por kilometraje"}{w.expiration_mileage!==null ? ` o ${formatCount(w.expiration_mileage)} km` : ""}</p></div>{canCreateOrder && w.status==="vigente" && <button onClick={()=>setClaimOrder(w.id)} className="rounded-full border px-4 py-2 text-xs font-semibold">Abrir reclamo</button>}</div>;})}{!grouped.length && <p className="text-sm text-steel">No hay garantías de taller registradas.</p>}</section></div>
-   <section className="mt-5 overflow-x-auto rounded-2xl border border-navy/10 bg-white p-5"><div className="mb-4 flex justify-between gap-3"><h3 className="font-mono text-xs uppercase tracking-widest text-blue">Historial de servicio</h3><p className="text-xs text-steel">Todas las ODS de este VIN</p></div><table className="w-full text-left text-sm"><thead className="border-b text-xs uppercase text-steel"><tr>{["Fecha","ODS","Tipo","Servicios","Km","Total","Estado"].map(label=><th key={label} className="p-3">{label}</th>)}</tr></thead><tbody>{history?.items.map(order=><tr key={order.id} className="border-b border-navy/5"><td className="p-3">{new Date(order.created_at).toLocaleDateString("es-VE")}</td><td className="p-3"><Link href={`/dashboard/servicios/${order.id}`} className="font-mono text-blue underline">{order.code}</Link></td><td className="p-3">{order.type}</td><td className="p-3">{order.services.join(", ")}</td><td className="p-3">{order.mileage!==null ? formatCount(order.mileage) : "—"}</td><td className="p-3 font-semibold">${formatMoney(order.total)}</td><td className="p-3 text-xs"><span className={`whitespace-nowrap rounded-full px-2.5 py-1 font-semibold ${order.status === "completado" ? "bg-emerald-100 text-emerald-800" : order.status === "pendiente" ? "bg-amber-100 text-amber-800" : order.status === "en_progreso" ? "bg-blue-light text-blue" : "bg-slate-100 text-steel"}`}>{({orden_cerrada:"Cerrada",completado:"Completada",pendiente:"Pendiente",en_progreso:"En progreso",cancelado:"Cancelada"} as Record<string,string>)[order.status] ?? order.status.replaceAll("_"," ")}</span></td></tr>)}</tbody></table>{!history?.items.length && <p className="py-6 text-center text-sm text-steel">No hay ODS registradas para este vehículo.</p>}{history && history.total>history.size && <div className="mt-4 flex justify-end gap-3 text-sm"><button disabled={page<=1} onClick={()=>setPage(page-1)}>Anterior</button><span>Página {page}</span><button disabled={page*history.size>=history.total} onClick={()=>setPage(page+1)}>Siguiente</button></div>}<div className="mt-5 flex justify-between gap-3 border-t pt-4 text-sm"><b>Servicios pendientes recomendados</b><span className="text-steel">{vehicle.next_maintenance_tempario_name || "Ninguno por ahora"}</span></div></section>
-  <VehicleRecommendations vehicleId={vehicle.id} canCreate={canCreateOrder}/></>}
-  {registering && <FactoryWarrantyForm vehicle={vehicle} onClose={()=>setRegistering(false)} onSaved={record=> {setFactory(record);setRegistering(false);}} />}
-  {claimOrder && <NewWarrantyClaim filialId={filialId} initialVehicleId={vehicle.id} initialCoverage={`workshop:${claimOrder}`} onClose={()=>setClaimOrder(null)} onCreated={()=>setClaimOrder(null)}/>}
- </section></div>;
+import type {
+  VehicleWarranty,
+  WorkshopWarranty,
+} from "@/types/vehicleWarranty";
+interface History {
+  items: {
+    id: string;
+    code: string;
+    created_at: string;
+    type: string;
+    services: string[];
+    mileage: number | null;
+    total: number;
+    status: string;
+  }[];
+  total: number;
+  page: number;
+  size: number;
 }
-function FactoryWarrantyForm({vehicle,onClose,onSaved}:{vehicle:Vehicle;onClose:()=>void;onSaved:(warranty:VehicleWarranty)=>void}) {
- const [date,setDate]=useState(()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/Caracas"}));
- const [months,setMonths]=useState("");const [km,setKm]=useState("");const [note,setNote]=useState("");const [file,setFile]=useState<File | null>(null);
- const [busy,setBusy]=useState(false);const [error,setError]=useState<string | null>(null);
- async function submit() {if(busy) return;if(!(Number(months)>0 || Number(km)>0)) {setError("Define al menos meses o kilómetros de cobertura.");return;}setBusy(true);setError(null);try {const form=new FormData();form.set("starts_at",date);if(months) form.set("duration_months",months);if(km) form.set("duration_km",km);if(note.trim()) form.set("note",note.trim());if(file) form.set("certificate",file);onSaved(await apiFetch<VehicleWarranty>(`/clients/vehicles/${vehicle.id}/factory-warranty`,{method:"POST",body:form}));}catch(err){setError(err instanceof Error ? err.message : "No se pudo registrar la garantía.");}finally{setBusy(false);}}
- return <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/40 p-4"><section role="dialog" aria-modal="true" aria-labelledby="factory-title" className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"><header className="flex justify-between"><div><h3 id="factory-title" className="font-display text-xl font-bold">Registrar garantía de fábrica</h3><p className="mt-2 text-sm text-steel">Para vehículos que no vendió nuestro Concesionario.</p></div><button disabled={busy} onClick={onClose} aria-label="Cerrar registro"><X className="h-5 w-5" /></button></header><p className="my-5 rounded-xl bg-ash p-4 font-semibold">{vehicle.brand} {vehicle.model}<span className="mt-2 block font-mono text-xs text-steel">{vehicle.vin}</span></p><fieldset disabled={busy} className="space-y-4"><label className="block text-sm font-semibold">Fecha de inicio<input type="date" value={date} onChange={event=>setDate(event.target.value)} className="mt-2 w-full rounded-xl border px-3 py-2.5" /><span className="mt-2 block text-xs font-normal text-steel">Normalmente, la fecha original de venta del vehículo.</span></label><div className="grid grid-cols-2 gap-3"><label className="text-sm font-semibold">Meses de cobertura<NumberInput min={1} value={months} onValueChange={setMonths} className="mt-2 w-full rounded-xl border px-3 py-2.5" /></label><label className="text-sm font-semibold">Kilómetros de cobertura<NumberInput min={1} value={km} onValueChange={setKm} className="mt-2 w-full rounded-xl border px-3 py-2.5" /></label></div><p className="text-xs text-steel">Define al menos uno. Vence lo que ocurra primero.</p><label className="block text-sm font-semibold">Nota (opcional)<textarea maxLength={300} value={note} onChange={event=>setNote(event.target.value)} className="mt-2 w-full rounded-xl border p-3" /></label><label className="block text-sm font-semibold">Foto del certificado (opcional)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event=>setFile(event.target.files?.[0] ?? null)} className="mt-2 block w-full text-sm" /></label></fieldset>{error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}<footer className="mt-6 flex justify-end gap-3"><button disabled={busy} onClick={onClose} className="rounded-full border px-5 py-2.5 text-sm">Cancelar</button><button disabled={busy} onClick={()=>void submit()} className="rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white">{busy ? "Registrando…" : "Registrar garantía"}</button></footer></section></div>;
+const localDate = (value: string) =>
+  new Date(`${value}T12:00:00`).toLocaleDateString("es-VE");
+export default function VehicleDetailModal({
+  open,
+  onClose,
+  vehicle,
+  filialId,
+  clientName,
+}: {
+  open: boolean;
+  onClose: () => void;
+  vehicle: Vehicle;
+  filialId: string;
+  clientName?: string;
+}) {
+  const { canEdit } = useModuleAccess("asesor-servicios");
+  const { canEdit: canCreateOrder } = useModuleAccess("asesor-servicios");
+  const [factory, setFactory] = useState<VehicleWarranty | null>(null);
+  const [warranties, setWarranties] = useState<WorkshopWarranty[]>([]);
+  const [history, setHistory] = useState<History | null>(null);
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [registering, setRegistering] = useState(false);
+  const [claimOrder, setClaimOrder] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    setLoading(true);
+    setError(null);
+    const promises = [
+      apiFetch<History>(
+        `/clients/vehicles/${vehicle.id}/service-history?page=${page}`,
+      ),
+      vehicle.vin
+        ? getVehicleWarrantyByVin(filialId, vehicle.vin).catch((err) => {
+            if (err instanceof ApiError && err.statusCode === 404) return null;
+            throw err;
+          })
+        : Promise.resolve(null),
+      vehicle.vin
+        ? getWorkshopWarrantiesByVin(filialId, vehicle.vin)
+        : Promise.resolve([]),
+    ];
+    Promise.allSettled(promises).then((results) => {
+      if (!active) return;
+      const [h, f, w] = results;
+      if (h.status === "fulfilled") setHistory(h.value as History);
+      if (f.status === "fulfilled")
+        setFactory(f.value as VehicleWarranty | null);
+      if (w.status === "fulfilled")
+        setWarranties(w.value as WorkshopWarranty[]);
+      const failed = results.find((result) => result.status === "rejected");
+      if (failed?.status === "rejected")
+        setError(
+          failed.reason instanceof Error
+            ? failed.reason.message
+            : "No se pudo cargar la ficha completa.",
+        );
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [open, vehicle.id, vehicle.vin, filialId, page]);
+  if (!open) return null;
+  const grouped = Array.from(
+    new Map(
+      warranties.map((w) => [
+        `${w.service_order_task_id}:${w.duration_days}:${w.duration_km}:${w.expiration_mileage}`,
+        w,
+      ]),
+    ).values(),
+  );
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-navy/40 p-4">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="vehicle-profile-title"
+        className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-2xl bg-ash p-5 shadow-xl sm:p-7"
+      >
+        <div className="mb-5 flex justify-between">
+          <button onClick={onClose} className="text-sm text-steel">
+            ‹ Vehículos
+          </button>
+          <button aria-label="Cerrar ficha" onClick={onClose}>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <header className="mb-5 rounded-2xl border border-navy/10 bg-white p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2
+                id="vehicle-profile-title"
+                className="font-display text-2xl font-bold text-navy"
+              >
+                {vehicle.brand} {vehicle.model}
+              </h2>
+              <p className="mt-2 font-mono text-xs text-steel">
+                {vehicle.vin || "Sin VIN"}
+              </p>
+            </div>
+            {canCreateOrder && (
+              <Link
+                href={`/dashboard/servicios/nueva?vehicle_id=${vehicle.id}`}
+                className="rounded-full bg-blue px-5 py-3 text-sm font-semibold text-white"
+              >
+                + Nueva ODS
+              </Link>
+            )}
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[
+              { label: "Cliente", value: clientName ?? "—" },
+              { label: "Placa", value: vehicle.plate || "Sin placa" },
+              {
+                label: "Último km",
+                value: `${formatCount(vehicle.current_mileage ?? vehicle.mileage ?? 0)} km`,
+              },
+              { label: "ODS realizadas", value: history?.total ?? "—" },
+            ].map((item) => (
+              <div key={item.label}>
+                <p className="font-mono text-xs uppercase text-steel">
+                  {item.label}
+                </p>
+                <p className="mt-1 text-sm font-semibold">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </header>
+        {error && (
+          <p
+            role="alert"
+            className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700"
+          >
+            {error}
+          </p>
+        )}
+        {loading ? (
+          <p className="p-8 text-center text-sm text-steel">Cargando ficha…</p>
+        ) : (
+          <>
+            <div className="grid gap-5 lg:grid-cols-[1fr_1.6fr]">
+              <section className="rounded-2xl border border-navy/10 bg-white p-5">
+                <h3 className="mb-4 font-mono text-xs uppercase tracking-widest text-blue">
+                  Garantía de fábrica
+                </h3>
+                {factory ? (
+                  <>
+                    <div className="flex gap-2 text-xs">
+                      <span
+                        className={`rounded-full px-2 py-1 ${factory.status === "vigente" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-steel"}`}
+                      >
+                        {factory.status === "vigente" ? "Vigente" : "Vencida"}
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-steel">
+                        {factory.source === "manual"
+                          ? "Registrada a mano"
+                          : "Venta del concesionario"}
+                      </span>
+                    </div>
+                    <p className="my-4 text-xl font-bold">
+                      {[
+                        factory.duration_months
+                          ? `${factory.duration_months} meses`
+                          : null,
+                        factory.duration_km
+                          ? `${formatCount(factory.duration_km)} km`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" o ")}
+                    </p>
+                    <div className="grid grid-cols-2 gap-4 text-xs text-steel">
+                      <p>
+                        Inicio{" "}
+                        <b className="mt-1 block text-sm text-navy">
+                          {localDate(factory.starts_at)}
+                        </b>
+                      </p>
+                      <p>
+                        Vence{" "}
+                        <b className="mt-1 block text-sm text-navy">
+                          {[
+                            factory.expires_at
+                              ? localDate(factory.expires_at)
+                              : null,
+                            factory.duration_km
+                              ? `${formatCount(factory.duration_km)} km`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" o ")}
+                        </b>
+                      </p>
+                    </div>
+                    <div className="mt-4">
+                      <WarrantyCoverage
+                        assessment={assessClaimCoverage(
+                          { ...factory, kind: "factory" },
+                          vehicle.current_mileage ?? vehicle.mileage ?? null,
+                        )}
+                        note="Referencia con el último km registrado. El kilometraje real se confirma en el reclamo."
+                      />
+                    </div>
+                    <p className="mt-4 text-xs leading-relaxed text-steel">
+                      La cubre el fabricante. Para usarla, crea un reclamo y
+                      abre una ODS de garantía de fábrica cuando sea autorizado.
+                    </p>
+                    {factory.certificate_photo_url && (
+                      <a
+                        href={factory.certificate_photo_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 block text-xs text-blue underline"
+                      >
+                        Ver certificado
+                      </a>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="mb-4 text-sm text-steel">
+                      {vehicle.vin
+                        ? "No tiene garantía de fábrica registrada."
+                        : "Registra el VIN para asociar una garantía de fábrica."}
+                    </p>
+                    {canEdit && vehicle.vin && (
+                      <button
+                        onClick={() => setRegistering(true)}
+                        className="rounded-full border border-blue px-4 py-2 text-sm font-semibold text-blue"
+                      >
+                        Registrar garantía de fábrica
+                      </button>
+                    )}
+                  </>
+                )}
+              </section>
+              <section className="rounded-2xl border border-navy/10 bg-white p-5">
+                <div className="mb-4 flex flex-wrap justify-between gap-2">
+                  <h3 className="font-mono text-xs uppercase tracking-widest text-blue">
+                    Garantías del taller
+                  </h3>
+                  <p className="text-xs text-steel">
+                    Una por cada servicio de ODS cerradas
+                  </p>
+                </div>
+                {grouped.map((w) => {
+                  const order = history?.items.find(
+                    (o) => o.id === w.service_order_id,
+                  );
+                  return (
+                    <div
+                      key={w.id}
+                      className={`mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-navy/10 p-3 ${w.status === "vigente" ? "bg-white" : "bg-ash/70 text-steel"}`}
+                    >
+                      <div>
+                        <p className="text-sm font-semibold">
+                          <span className="font-mono text-blue">
+                            {w.tempario_code_snapshot}
+                          </span>{" "}
+                          {w.tempario_name_snapshot}
+                          <span
+                            className={`ml-2 rounded-full px-2 py-1 text-xs ${w.status === "vigente" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-steel"}`}
+                          >
+                            {w.status === "vigente" ? "Vigente" : "Vencida"}
+                          </span>
+                        </p>
+                        <p className="mt-2 text-xs text-steel">
+                          {order?.code ?? "ODS registrada"} ·{" "}
+                          {w.warranty_policy_name_snapshot || "Estándar"} ·{" "}
+                          {w.duration_days ?? "—"} días /{" "}
+                          {formatCount(w.duration_km ?? 0)} km · vence{" "}
+                          {w.expires_at
+                            ? localDate(w.expires_at)
+                            : "por kilometraje"}
+                          {w.expiration_mileage !== null
+                            ? ` o ${formatCount(w.expiration_mileage)} km`
+                            : ""}
+                        </p>
+                      </div>
+                      {canCreateOrder && w.status === "vigente" && (
+                        <button
+                          onClick={() => setClaimOrder(w.id)}
+                          className="rounded-full border px-4 py-2 text-xs font-semibold"
+                        >
+                          Abrir reclamo
+                        </button>
+                      )}
+                      <div className="w-full">
+                        <WarrantyCoverage
+                          assessment={assessClaimCoverage(
+                            { ...w, kind: "workshop" },
+                            vehicle.current_mileage ?? vehicle.mileage ?? null,
+                          )}
+                          note="Referencia con el último km registrado. La lectura real se confirma al registrar el reclamo."
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                {!grouped.length && (
+                  <p className="text-sm text-steel">
+                    No hay garantías de taller registradas.
+                  </p>
+                )}
+              </section>
+            </div>
+            <section className="mt-5 overflow-x-auto rounded-2xl border border-navy/10 bg-white p-5">
+              <div className="mb-4 flex justify-between gap-3">
+                <h3 className="font-mono text-xs uppercase tracking-widest text-blue">
+                  Historial de servicio
+                </h3>
+                <p className="text-xs text-steel">Todas las ODS de este VIN</p>
+              </div>
+              <table className="w-full text-left text-sm">
+                <thead className="border-b text-xs uppercase text-steel">
+                  <tr>
+                    {[
+                      "Fecha",
+                      "ODS",
+                      "Tipo",
+                      "Servicios",
+                      "Km",
+                      "Total",
+                      "Estado",
+                    ].map((label) => (
+                      <th key={label} className="p-3">
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {history?.items.map((order) => (
+                    <tr key={order.id} className="border-b border-navy/5">
+                      <td className="p-3">
+                        {new Date(order.created_at).toLocaleDateString("es-VE")}
+                      </td>
+                      <td className="p-3">
+                        <Link
+                          href={`/dashboard/servicios/${order.id}`}
+                          className="font-mono text-blue underline"
+                        >
+                          {order.code}
+                        </Link>
+                      </td>
+                      <td className="p-3">{order.type}</td>
+                      <td className="p-3">{order.services.join(", ")}</td>
+                      <td className="p-3">
+                        {order.mileage !== null
+                          ? formatCount(order.mileage)
+                          : "—"}
+                      </td>
+                      <td className="p-3 font-semibold">
+                        ${formatMoney(order.total)}
+                      </td>
+                      <td className="p-3 text-xs">
+                        <span
+                          className={`whitespace-nowrap rounded-full px-2.5 py-1 font-semibold ${order.status === "completado" ? "bg-emerald-100 text-emerald-800" : order.status === "pendiente" ? "bg-amber-100 text-amber-800" : order.status === "en_progreso" ? "bg-blue-light text-blue" : "bg-slate-100 text-steel"}`}
+                        >
+                          {(
+                            {
+                              orden_cerrada: "Cerrada",
+                              completado: "Completada",
+                              pendiente: "Pendiente",
+                              en_progreso: "En progreso",
+                              cancelado: "Cancelada",
+                            } as Record<string, string>
+                          )[order.status] ?? order.status.replaceAll("_", " ")}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!history?.items.length && (
+                <p className="py-6 text-center text-sm text-steel">
+                  No hay ODS registradas para este vehículo.
+                </p>
+              )}
+              {history && history.total > history.size && (
+                <div className="mt-4 flex justify-end gap-3 text-sm">
+                  <button
+                    disabled={page <= 1}
+                    onClick={() => setPage(page - 1)}
+                  >
+                    Anterior
+                  </button>
+                  <span>Página {page}</span>
+                  <button
+                    disabled={page * history.size >= history.total}
+                    onClick={() => setPage(page + 1)}
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              )}
+              <div className="mt-5 flex justify-between gap-3 border-t pt-4 text-sm">
+                <b>Servicios pendientes recomendados</b>
+                <span className="text-steel">
+                  {vehicle.next_maintenance_tempario_name ||
+                    "Ninguno por ahora"}
+                </span>
+              </div>
+            </section>
+            <VehicleRecommendations
+              vehicleId={vehicle.id}
+              canCreate={canCreateOrder}
+            />
+          </>
+        )}
+        {registering && (
+          <FactoryWarrantyForm
+            vehicle={vehicle}
+            onClose={() => setRegistering(false)}
+            onSaved={(record) => {
+              setFactory(record);
+              setRegistering(false);
+            }}
+          />
+        )}
+        {claimOrder && (
+          <NewWarrantyClaim
+            filialId={filialId}
+            initialVehicleId={vehicle.id}
+            initialCoverage={`workshop:${claimOrder}`}
+            onClose={() => setClaimOrder(null)}
+            onCreated={() => setClaimOrder(null)}
+          />
+        )}
+      </section>
+    </div>
+  );
+}
+function FactoryWarrantyForm({
+  vehicle,
+  onClose,
+  onSaved,
+}: {
+  vehicle: Vehicle;
+  onClose: () => void;
+  onSaved: (warranty: VehicleWarranty) => void;
+}) {
+  const [date, setDate] = useState(() =>
+    new Date().toLocaleDateString("en-CA", { timeZone: "America/Caracas" }),
+  );
+  const [months, setMonths] = useState("");
+  const [km, setKm] = useState("");
+  const [note, setNote] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function submit() {
+    if (busy) return;
+    if (!(Number(months) > 0 || Number(km) > 0)) {
+      setError("Define al menos meses o kilómetros de cobertura.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.set("starts_at", date);
+      if (months) form.set("duration_months", months);
+      if (km) form.set("duration_km", km);
+      if (note.trim()) form.set("note", note.trim());
+      if (file) form.set("certificate", file);
+      onSaved(
+        await apiFetch<VehicleWarranty>(
+          `/clients/vehicles/${vehicle.id}/factory-warranty`,
+          { method: "POST", body: form },
+        ),
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo registrar la garantía.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/40 p-4">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="factory-title"
+        className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+      >
+        <header className="flex justify-between">
+          <div>
+            <h3 id="factory-title" className="font-display text-xl font-bold">
+              Registrar garantía de fábrica
+            </h3>
+            <p className="mt-2 text-sm text-steel">
+              Para vehículos que no vendió nuestro Concesionario.
+            </p>
+          </div>
+          <button
+            disabled={busy}
+            onClick={onClose}
+            aria-label="Cerrar registro"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+        <p className="my-5 rounded-xl bg-ash p-4 font-semibold">
+          {vehicle.brand} {vehicle.model}
+          <span className="mt-2 block font-mono text-xs text-steel">
+            {vehicle.vin}
+          </span>
+        </p>
+        <fieldset disabled={busy} className="space-y-4">
+          <label className="block text-sm font-semibold">
+            Fecha de inicio
+            <input
+              type="date"
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+              className="mt-2 w-full rounded-xl border px-3 py-2.5"
+            />
+            <span className="mt-2 block text-xs font-normal text-steel">
+              Normalmente, la fecha original de venta del vehículo.
+            </span>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-sm font-semibold">
+              Meses de cobertura
+              <NumberInput
+                min={1}
+                value={months}
+                onValueChange={setMonths}
+                className="mt-2 w-full rounded-xl border px-3 py-2.5"
+              />
+            </label>
+            <label className="text-sm font-semibold">
+              Kilómetros de cobertura
+              <NumberInput
+                min={1}
+                value={km}
+                onValueChange={setKm}
+                className="mt-2 w-full rounded-xl border px-3 py-2.5"
+              />
+            </label>
+          </div>
+          <p className="text-xs text-steel">
+            Define al menos uno. Vence lo que ocurra primero.
+          </p>
+          <label className="block text-sm font-semibold">
+            Nota (opcional)
+            <textarea
+              maxLength={300}
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              className="mt-2 w-full rounded-xl border p-3"
+            />
+          </label>
+          <label className="block text-sm font-semibold">
+            Foto del certificado (opcional)
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              className="mt-2 block w-full text-sm"
+            />
+          </label>
+        </fieldset>
+        {error && (
+          <p role="alert" className="mt-4 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+        <footer className="mt-6 flex justify-end gap-3">
+          <button
+            disabled={busy}
+            onClick={onClose}
+            className="rounded-full border px-5 py-2.5 text-sm"
+          >
+            Cancelar
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => void submit()}
+            className="rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white"
+          >
+            {busy ? "Registrando…" : "Registrar garantía"}
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
 }

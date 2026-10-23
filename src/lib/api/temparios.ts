@@ -1,5 +1,9 @@
 import { apiFetch } from "./client";
-import type { CompatibleVehicle, LaborSettings, Tempario } from "@/types/tempario";
+import type {
+  CompatibleVehicle,
+  LaborSettings,
+  Tempario,
+} from "@/types/tempario";
 
 export interface TemparioPartInput {
   part_id?: string | null;
@@ -27,24 +31,43 @@ export interface CreateTemparioInput {
   parts?: TemparioPartInput[];
 }
 
-export type UpdateTemparioInput = Partial<Omit<CreateTemparioInput, "filial_id" | "category">>;
+export type UpdateTemparioInput = Partial<
+  Omit<CreateTemparioInput, "filial_id" | "category">
+>;
 
-export async function listTemparios(filialId: string, search?: string, includeInactive = false): Promise<Tempario[]> {
+export async function listTemparios(
+  filialId: string,
+  search?: string,
+  includeInactive = false,
+): Promise<Tempario[]> {
   const query = new URLSearchParams({ filial_id: filialId });
   if (search) query.set("search", search);
   if (includeInactive) query.set("include_inactive", "true");
   return apiFetch<Tempario[]>(`/temparios?${query.toString()}`);
 }
 
-export async function createTempario(input: CreateTemparioInput): Promise<Tempario> {
-  return apiFetch<Tempario>("/temparios", { method: "POST", body: JSON.stringify(input) });
+export async function createTempario(
+  input: CreateTemparioInput,
+): Promise<Tempario> {
+  return apiFetch<Tempario>("/temparios", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
-export async function updateTempario(id: string, input: UpdateTemparioInput): Promise<Tempario> {
-  return apiFetch<Tempario>(`/temparios/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+export async function updateTempario(
+  id: string,
+  input: UpdateTemparioInput,
+): Promise<Tempario> {
+  return apiFetch<Tempario>(`/temparios/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
-export async function getLaborSettings(filialId: string): Promise<LaborSettings> {
+export async function getLaborSettings(
+  filialId: string,
+): Promise<LaborSettings> {
   return apiFetch<LaborSettings>(`/labor-settings?filial_id=${filialId}`);
 }
 
@@ -56,6 +79,7 @@ export interface UpdateLaborSettingsInput {
   /** Omit to keep the value auto-synced from the BCV scraper; send it only for a manual override. */
   bcv_rate?: number;
   part_warranty_days: number;
+  vehicle_warranty_default_km?: number | null;
   vehicle_warranty_default_months: number;
   workshop_warranty_days: number;
   workshop_warranty_km: number;
@@ -68,22 +92,36 @@ export interface UpdateLaborSettingsInput {
 
 export async function updateLaborSettings(
   filialId: string,
-  input: UpdateLaborSettingsInput
+  input: UpdateLaborSettingsInput,
 ): Promise<LaborSettings> {
   return apiFetch<LaborSettings>(`/labor-settings?filial_id=${filialId}`, {
     method: "PATCH",
     body: JSON.stringify(input),
   });
 }
-export function patchSettings(filialId: string, input: Partial<UpdateLaborSettingsInput>): Promise<LaborSettings> {
- return apiFetch(`/settings?filial_id=${filialId}`, { method: "PATCH", body: JSON.stringify(input) });
+export function patchSettings(
+  filialId: string,
+  input: Partial<UpdateLaborSettingsInput>,
+): Promise<LaborSettings> {
+  return apiFetch(`/settings?filial_id=${filialId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 export function restoreBcv(filialId: string): Promise<LaborSettings> {
- return apiFetch(`/settings/bcv/restore?filial_id=${filialId}`, { method: "POST" });
+  return apiFetch(`/settings/bcv/restore?filial_id=${filialId}`, {
+    method: "POST",
+  });
 }
 export function duplicateTempario(id: string): Promise<Tempario> {
- return apiFetch(`/temparios/${id}/duplicate`, { method: "POST" });
+  return apiFetch(`/temparios/${id}/duplicate`, { method: "POST" });
 }
-export function setTemparioActive(id: string, is_active: boolean): Promise<Tempario> {
- return apiFetch(`/temparios/${id}`, { method: "PATCH", body: JSON.stringify({ is_active }) });
+export function setTemparioActive(
+  id: string,
+  is_active: boolean,
+): Promise<Tempario> {
+  return apiFetch(`/temparios/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ is_active }),
+  });
 }

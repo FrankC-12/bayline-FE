@@ -1,3 +1,5 @@
+import { parseNumberInput } from "./numberInput";
+
 /** Formats a numeric string with dots as thousands separators: "12345678" -> "12.345.678" */
 export function formatThousands(value: string | number): string {
   const digits = String(value).replace(/\D/g, "");
@@ -11,16 +13,16 @@ export function stripThousands(value: string): string {
 }
 
 /** Formats a stored document type + number for display: ("V", "12345678") -> "V-12.345.678" */
-export function formatDocumentId(documentType: string, documentNumber: string): string {
+export function formatDocumentId(
+  documentType: string,
+  documentNumber: string,
+): string {
   return `${documentType}-${formatThousands(documentNumber)}`;
 }
 
 /** Keeps a monetary value editable with up to two decimals, accepting comma or dot. */
 export function formatMoneyInput(value: string): string {
-  const normalized = value.replace(/,/g, ".").replace(/[^\d.]/g, "");
-  const [integer = "", ...decimalParts] = normalized.split(".");
-  const decimal = decimalParts.join("").slice(0, 2);
-  return decimalParts.length ? `${integer}.${decimal}` : integer;
+  return parseNumberInput(value, 2);
 }
 
 /** Formats a monetary amount with Venezuelan separators (dot for thousands,
@@ -60,7 +62,10 @@ export function formatVenezuelanPhone(raw: string): string {
  * computed the date in the first place. `new Date("YYYY-MM-DD")` parses as
  * UTC midnight, which a UTC-negative browser (like one in Venezuela) then
  * renders as the previous day; anchoring to noon UTC sidesteps that. */
-export function formatEntryDate(dateOnly: string, options?: Intl.DateTimeFormatOptions): string {
+export function formatEntryDate(
+  dateOnly: string,
+  options?: Intl.DateTimeFormatOptions,
+): string {
   return new Date(`${dateOnly}T12:00:00Z`).toLocaleDateString("es-VE", {
     ...options,
     timeZone: "America/Caracas",

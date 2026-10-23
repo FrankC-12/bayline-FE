@@ -41,9 +41,13 @@ export default function ScheduleOrderModal({
 }: ScheduleOrderModalProps) {
   const { clients } = useVehicleLookup(filialId);
   const { orderTypes } = useServiceOrderTypes(filialId);
-  const selectableOrderTypes = orderTypes.filter((t) => t.is_selectable && t.is_active);
+  const selectableOrderTypes = orderTypes.filter(
+    (t) => t.code === "regular" && t.is_active,
+  );
   const [search, setSearch] = useState("");
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
+    null,
+  );
   const [date, setDate] = useState(defaultDate);
   const [time, setTime] = useState("");
   const [bayId, setBayId] = useState("");
@@ -51,8 +55,6 @@ export default function ScheduleOrderModal({
   const [notes, setNotes] = useState("");
   const [customerReason, setCustomerReason] = useState("");
   const [advisorId, setAdvisorId] = useState("");
-  const [promisedDate, setPromisedDate] = useState("");
-  const [promisedTime, setPromisedTime] = useState("");
   const [orderTypeId, setOrderTypeId] = useState("");
   const [matchingClaims, setMatchingClaims] = useState<WarrantyClaim[]>([]);
   const [warrantyClaimId, setWarrantyClaimId] = useState("");
@@ -64,7 +66,10 @@ export default function ScheduleOrderModal({
 
   useEffect(() => {
     if (!orderTypeId && selectableOrderTypes.length > 0) {
-      setOrderTypeId(selectableOrderTypes.find((t) => t.code === "regular")?.id ?? selectableOrderTypes[0].id);
+      setOrderTypeId(
+        selectableOrderTypes.find((t) => t.code === "regular")?.id ??
+          selectableOrderTypes[0].id,
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectableOrderTypes]);
@@ -85,8 +90,6 @@ export default function ScheduleOrderModal({
     setNotes("");
     setCustomerReason("");
     setAdvisorId("");
-    setPromisedDate("");
-    setPromisedTime("");
     setOrderTypeId("");
     setWarrantyClaimId("");
     setError(null);
@@ -101,11 +104,18 @@ export default function ScheduleOrderModal({
     }
     let cancelled = false;
     setLoadingClaims(true);
-    listWarrantyClaims(filialId, { vehicleId: selectedVehicleId, status: "autorizado" })
+    listWarrantyClaims(filialId, {
+      vehicleId: selectedVehicleId,
+      status: "autorizado",
+    })
       .then((claims) => {
         if (cancelled) return;
         setMatchingClaims(
-          claims.filter((c) => c.claim_type === requiredClaimType && !c.resulting_service_order_id)
+          claims.filter(
+            (c) =>
+              c.claim_type === requiredClaimType &&
+              !c.resulting_service_order_id,
+          ),
         );
       })
       .finally(() => {
@@ -151,10 +161,6 @@ export default function ScheduleOrderModal({
       setError("Selecciona el asesor responsable.");
       return;
     }
-    if (!!promisedDate !== !!promisedTime) {
-      setError("Selecciona fecha y hora de entrega prometida, o deja ambos vacíos.");
-      return;
-    }
     if (requiredClaimType && !warrantyClaimId) {
       setError("Selecciona el reclamo asociado a esta orden.");
       return;
@@ -173,7 +179,6 @@ export default function ScheduleOrderModal({
         notes: notes || null,
         customer_reason: customerReason.trim(),
         advisor_user_id: advisorId,
-        promised_at: promisedDate && promisedTime ? calendarTimestamp(promisedDate, promisedTime) : null,
       });
       setSearch("");
       setSelectedVehicleId(null);
@@ -183,13 +188,13 @@ export default function ScheduleOrderModal({
       setNotes("");
       setCustomerReason("");
       setAdvisorId("");
-      setPromisedDate("");
-      setPromisedTime("");
       setOrderTypeId("");
       setWarrantyClaimId("");
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo agendar la orden.");
+      setError(
+        err instanceof Error ? err.message : "No se pudo agendar la orden.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -202,15 +207,23 @@ export default function ScheduleOrderModal({
       <div onClick={onClose} className="absolute inset-0 bg-navy/40" />
       <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-navy/10 px-6 py-4">
-          <h2 className="font-display text-lg font-bold text-navy">Agendar Orden de Servicio</h2>
-          <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy">
+          <h2 className="font-display text-lg font-bold text-navy">
+            Agendar Orden de Servicio
+          </h2>
+          <button
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="space-y-4 p-6">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Cliente / vehículo</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Cliente / vehículo
+            </label>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
               <input
@@ -245,7 +258,9 @@ export default function ScheduleOrderModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Fecha</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Fecha
+              </label>
               <input
                 type="date"
                 value={date}
@@ -254,29 +269,23 @@ export default function ScheduleOrderModal({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Hora</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Hora
+              </label>
               <HourSelect value={time} onChange={setTime} hours={hours} />
             </div>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Tipo de orden</label>
-            <select
-              value={orderTypeId}
-              onChange={(e) => setOrderTypeId(e.target.value)}
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-            >
-              {selectableOrderTypes.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <p className="rounded-xl bg-blue-light/40 p-3 text-sm text-navy">
+            Tipo de ODS: Regular. Las garantías y campañas se generan desde el
+            reclamo autorizado.
+          </p>
 
           {requiredClaimType && (
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Reclamo asociado</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Reclamo asociado
+              </label>
               <select
                 value={warrantyClaimId}
                 onChange={(e) => setWarrantyClaimId(e.target.value)}
@@ -294,19 +303,23 @@ export default function ScheduleOrderModal({
                 </option>
                 {matchingClaims.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.code} — {c.failure_cause || c.reported_symptom || "Sin descripción"}
+                    {c.code} —{" "}
+                    {c.failure_cause || c.reported_symptom || "Sin descripción"}
                   </option>
                 ))}
               </select>
               <p className="mt-1 text-[11px] text-steel">
-                Solo se listan reclamos autorizados de este vehículo, del tipo correspondiente y que
-                todavía no se hayan convertido en otra orden.
+                Solo se listan reclamos autorizados de este vehículo, del tipo
+                correspondiente y que todavía no se hayan convertido en otra
+                orden.
               </p>
             </div>
           )}
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Bahía (opcional)</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Bahía (opcional)
+            </label>
             <select
               value={bayId}
               onChange={(e) => setBayId(e.target.value)}
@@ -322,7 +335,9 @@ export default function ScheduleOrderModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Técnico asignado (opcional)</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Técnico asignado (opcional)
+            </label>
             <select
               value={technicianId}
               onChange={(e) => setTechnicianId(e.target.value)}
@@ -338,7 +353,9 @@ export default function ScheduleOrderModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Asesor responsable</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Asesor responsable
+            </label>
             <select
               value={advisorId}
               onChange={(e) => setAdvisorId(e.target.value)}
@@ -356,23 +373,6 @@ export default function ScheduleOrderModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Entrega prometida (opcional)</label>
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="date"
-                value={promisedDate}
-                onChange={(e) => setPromisedDate(e.target.value)}
-                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
-              />
-              <HourSelect value={promisedTime} onChange={setPromisedTime} hours={hours} />
-            </div>
-            <p className="mt-1 text-[11px] text-steel">
-              El kilometraje de ingreso se registrará al vincular la inspección preliminar, desde la
-              ficha de la orden, cuando el vehículo llegue.
-            </p>
-          </div>
-
-          <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">
               Motivo o síntoma reportado por el cliente
             </label>
@@ -386,7 +386,9 @@ export default function ScheduleOrderModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Notas</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Notas
+            </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -396,7 +398,11 @@ export default function ScheduleOrderModal({
             />
           </div>
 
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+          {error && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
         </div>
 
         <div className="flex justify-end gap-3 border-t border-navy/10 p-6">

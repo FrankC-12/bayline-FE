@@ -1,6 +1,13 @@
 import type { DiscountLabel } from "@/lib/partsPricing";
 import { apiFetch } from "./client";
-import type { ServiceOrder, ServiceOrderTask, Bay, OrderSummary, ServiceOrderPayer, TaskStatus } from "@/types/serviceOrder";
+import type {
+  ServiceOrder,
+  ServiceOrderTask,
+  Bay,
+  OrderSummary,
+  ServiceOrderPayer,
+  TaskStatus,
+} from "@/types/serviceOrder";
 
 export interface CreateServiceOrderInput {
   discount_label?: DiscountLabel;
@@ -50,9 +57,13 @@ export interface UpdateServiceOrderInput {
 export async function listServiceOrders(
   filialId: string,
   view: "active" | "history" | "all" = "active",
-  date?: string
+  date?: string,
 ): Promise<ServiceOrder[]> {
-  const query = new URLSearchParams({ filial_id: filialId, view, include_drafts: "true" });
+  const query = new URLSearchParams({
+    filial_id: filialId,
+    view,
+    include_drafts: "true",
+  });
   if (date) query.set("date", date);
   return apiFetch<ServiceOrder[]>(`/service-orders?${query.toString()}`);
 }
@@ -61,13 +72,18 @@ export async function getServiceOrder(id: string): Promise<ServiceOrder> {
   return apiFetch<ServiceOrder>(`/service-orders/${id}`);
 }
 
-export async function createServiceOrder(input: CreateServiceOrderInput): Promise<ServiceOrder> {
-  return apiFetch<ServiceOrder>("/service-orders", { method: "POST", body: JSON.stringify(input) });
+export async function createServiceOrder(
+  input: CreateServiceOrderInput,
+): Promise<ServiceOrder> {
+  return apiFetch<ServiceOrder>("/service-orders", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function updateServiceOrder(
   id: string,
-  input: UpdateServiceOrderInput
+  input: UpdateServiceOrderInput,
 ): Promise<ServiceOrder> {
   return apiFetch<ServiceOrder>(`/service-orders/${id}`, {
     method: "PATCH",
@@ -75,7 +91,10 @@ export async function updateServiceOrder(
   });
 }
 
-export async function cancelServiceOrder(id: string, reason: string): Promise<ServiceOrder> {
+export async function cancelServiceOrder(
+  id: string,
+  reason: string,
+): Promise<ServiceOrder> {
   return apiFetch<ServiceOrder>(`/service-orders/${id}/cancel`, {
     method: "POST",
     body: JSON.stringify({ reason }),
@@ -83,11 +102,17 @@ export async function cancelServiceOrder(id: string, reason: string): Promise<Se
 }
 
 export async function reopenServiceOrder(id: string): Promise<ServiceOrder> {
-  return apiFetch<ServiceOrder>(`/service-orders/${id}/reopen`, { method: "POST" });
+  return apiFetch<ServiceOrder>(`/service-orders/${id}/reopen`, {
+    method: "POST",
+  });
 }
 
-export async function forceCompleteServiceOrder(id: string): Promise<ServiceOrder> {
-  return apiFetch<ServiceOrder>(`/service-orders/${id}/force-complete`, { method: "POST" });
+export async function forceCompleteServiceOrder(
+  id: string,
+): Promise<ServiceOrder> {
+  return apiFetch<ServiceOrder>(`/service-orders/${id}/force-complete`, {
+    method: "POST",
+  });
 }
 
 export async function listBays(filialId: string): Promise<Bay[]> {
@@ -103,9 +128,12 @@ export async function createBay(filialId: string, name: string): Promise<Bay> {
 
 export async function updateBay(
   id: string,
-  input: { name?: string; is_active?: boolean }
+  input: { name?: string; is_active?: boolean },
 ): Promise<Bay> {
-  return apiFetch<Bay>(`/bays/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  return apiFetch<Bay>(`/bays/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function getOrderSummary(orderId: string): Promise<OrderSummary> {
@@ -115,38 +143,59 @@ export async function getOrderSummary(orderId: string): Promise<OrderSummary> {
 export async function addTask(
   orderId: string,
   temparioId: string,
-  payer: ServiceOrderPayer = "cliente"
+  payer: ServiceOrderPayer = "cliente",
+  expectedTotal?: number,
 ): Promise<OrderSummary> {
   return apiFetch<OrderSummary>(`/service-orders/${orderId}/tasks`, {
     method: "POST",
-    body: JSON.stringify({ tempario_id: temparioId, payer }),
+    body: JSON.stringify({
+      tempario_id: temparioId,
+      payer,
+      expected_total: expectedTotal,
+    }),
   });
 }
 
-export async function updateTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
+export async function updateTaskStatus(
+  taskId: string,
+  status: TaskStatus,
+): Promise<void> {
   await apiFetch(`/service-order-tasks/${taskId}`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
 }
 
-export async function startTaskTimer(taskId: string): Promise<ServiceOrderTask> {
-  return apiFetch<ServiceOrderTask>(`/service-order-tasks/${taskId}/timer/start`, { method: "POST" });
+export async function startTaskTimer(
+  taskId: string,
+): Promise<ServiceOrderTask> {
+  return apiFetch<ServiceOrderTask>(
+    `/service-order-tasks/${taskId}/timer/start`,
+    { method: "POST" },
+  );
 }
 
-export async function pauseTaskTimer(taskId: string): Promise<ServiceOrderTask> {
-  return apiFetch<ServiceOrderTask>(`/service-order-tasks/${taskId}/timer/pause`, { method: "POST" });
+export async function pauseTaskTimer(
+  taskId: string,
+): Promise<ServiceOrderTask> {
+  return apiFetch<ServiceOrderTask>(
+    `/service-order-tasks/${taskId}/timer/pause`,
+    { method: "POST" },
+  );
 }
 
 export async function updateTaskPayer(
   orderId: string,
   taskId: string,
-  payer: ServiceOrderPayer
+  payer: ServiceOrderPayer,
 ): Promise<OrderSummary> {
-  return apiFetch<OrderSummary>(`/service-orders/${orderId}/tasks/${taskId}/payer`, {
-    method: "PATCH",
-    body: JSON.stringify({ payer }),
-  });
+  return apiFetch<OrderSummary>(
+    `/service-orders/${orderId}/tasks/${taskId}/payer`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ payer }),
+    },
+  );
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
@@ -157,7 +206,7 @@ export async function addTransferLine(
   orderId: string,
   partId: string,
   quantity: number,
-  payer: ServiceOrderPayer = "cliente"
+  payer: ServiceOrderPayer = "cliente",
 ): Promise<OrderSummary> {
   return apiFetch<OrderSummary>(`/service-orders/${orderId}/transfers/lines`, {
     method: "POST",
@@ -168,64 +217,154 @@ export async function addTransferLine(
 export async function updateTransferLinePayer(
   orderId: string,
   lineId: string,
-  payer: ServiceOrderPayer
+  payer: ServiceOrderPayer,
 ): Promise<OrderSummary> {
-  return apiFetch<OrderSummary>(`/service-orders/${orderId}/transfers/lines/${lineId}/payer`, {
-    method: "PATCH",
-    body: JSON.stringify({ payer }),
-  });
+  return apiFetch<OrderSummary>(
+    `/service-orders/${orderId}/transfers/lines/${lineId}/payer`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ payer }),
+    },
+  );
 }
 
 export async function updateTransferLineQuantity(
   orderId: string,
   lineId: string,
-  quantity: number
+  quantity: number,
 ): Promise<OrderSummary> {
-  return apiFetch<OrderSummary>(`/service-orders/${orderId}/transfers/lines/${lineId}/quantity`, {
-    method: "PATCH",
-    body: JSON.stringify({ quantity }),
-  });
+  return apiFetch<OrderSummary>(
+    `/service-orders/${orderId}/transfers/lines/${lineId}/quantity`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ quantity }),
+    },
+  );
 }
 
-export async function removeTransferLine(orderId: string, lineId: string): Promise<OrderSummary> {
-  return apiFetch<OrderSummary>(`/service-orders/${orderId}/transfers/lines/${lineId}`, {
-    method: "DELETE",
-  });
+export async function removeTransferLine(
+  orderId: string,
+  lineId: string,
+): Promise<OrderSummary> {
+  return apiFetch<OrderSummary>(
+    `/service-orders/${orderId}/transfers/lines/${lineId}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 export async function markTransferOrdered(transferId: string): Promise<void> {
-  await apiFetch(`/service-order-transfers/${transferId}/mark-ordered`, { method: "POST" });
+  await apiFetch(`/service-order-transfers/${transferId}/mark-ordered`, {
+    method: "POST",
+  });
 }
 export interface WorkshopRequestPreview {
-  id: string; order_code: string; vehicle_label: string; warehouse_id: string; warehouse_name: string;
-  lines: { id: string; part_id: string; part_code: string; part_name: string; quantity: number; local_quantity: number; transfer_quantity: number; shortfall_quantity: number; allocations: { warehouse_id: string; warehouse_name: string; quantity: number }[] }[];
+  id: string;
+  order_code: string;
+  vehicle_label: string;
+  warehouse_id: string;
+  warehouse_name: string;
+  lines: {
+    id: string;
+    part_id: string;
+    part_code: string;
+    part_name: string;
+    quantity: number;
+    local_quantity: number;
+    transfer_quantity: number;
+    shortfall_quantity: number;
+    allocations: {
+      warehouse_id: string;
+      warehouse_name: string;
+      quantity: number;
+    }[];
+  }[];
 }
-export async function previewWorkshopRequest(id: string): Promise<WorkshopRequestPreview> {
+export async function previewWorkshopRequest(
+  id: string,
+): Promise<WorkshopRequestPreview> {
   return apiFetch(`/service-order-transfers/${id}/request-preview`);
 }
-export async function confirmWorkshopPickup(id: string, photo: File): Promise<void> {
-  const body = new FormData(); body.append("photo", photo);
-  await apiFetch(`/service-order-transfers/${id}/pickup`, { method: "POST", body });
+export async function confirmWorkshopPickup(
+  id: string,
+  photo: File,
+): Promise<void> {
+  const body = new FormData();
+  body.append("photo", photo);
+  await apiFetch(`/service-order-transfers/${id}/pickup`, {
+    method: "POST",
+    body,
+  });
 }
 
 export interface ServiceOrderPageItem extends ServiceOrder {
-  client_name: string; vehicle_label: string; vehicle_plate: string | null; technician_name: string | null;
+  client_name: string;
+  vehicle_label: string;
+  vehicle_plate: string | null;
+  technician_name: string | null;
 }
-export async function listServiceOrderPage(filialId: string, page: number, pageSize: number, filters: {
-  view: "active" | "history" | "all"; search?: string; status?: string; date_from?: string; date_to?: string;
-}) {
-  const query = new URLSearchParams({filial_id: filialId, page: String(page), page_size: String(pageSize)});
-  Object.entries(filters).forEach(([key, value]) => { if (value) query.set(key, value); });
-  return apiFetch<import("@/types/pagination").Page<ServiceOrderPageItem>>(`/service-orders/page?${query}`);
+export async function listServiceOrderPage(
+  filialId: string,
+  page: number,
+  pageSize: number,
+  filters: {
+    view: "active" | "history" | "all";
+    search?: string;
+    status?: string;
+    date_from?: string;
+    date_to?: string;
+  },
+) {
+  const query = new URLSearchParams({
+    filial_id: filialId,
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) query.set(key, value);
+  });
+  return apiFetch<import("@/types/pagination").Page<ServiceOrderPageItem>>(
+    `/service-orders/page?${query}`,
+  );
 }
 
 export function deleteServiceOrderTransfer(id: string): Promise<void> {
   return apiFetch<void>(`/service-order-transfers/${id}`, { method: "DELETE" });
 }
 
-
-export interface DraftFields { vehicle_id: string | null; technician_user_id: string | null; bay_id: string | null; customer_reason: string; scheduled_at: string | null }
-export function createOrderDraft(input: {filial_id:string;vehicle_id?:string|null;bay_id?:string|null;scheduled_at?:string|null;upsell_id?:string|null}):Promise<ServiceOrder> {return apiFetch("/service-order-drafts",{method:"POST",body:JSON.stringify(input)});}
-export function saveOrderDraft(id:string,input:Partial<DraftFields>&{expected_revision?:number}):Promise<ServiceOrder> {return apiFetch(`/service-order-drafts/${id}`,{method:"PATCH",body:JSON.stringify(input),keepalive:true});}
-export function submitOrderDraft(id:string):Promise<ServiceOrder> {return apiFetch(`/service-order-drafts/${id}/submit`,{method:"POST"});}
-export function discardOrderDraft(id:string):Promise<void> {return apiFetch(`/service-order-drafts/${id}`,{method:"DELETE"});}
+export interface DraftFields {
+  vehicle_id: string | null;
+  technician_user_id: string | null;
+  bay_id: string | null;
+  customer_reason: string;
+  scheduled_at: string | null;
+}
+export function createOrderDraft(input: {
+  filial_id: string;
+  vehicle_id?: string | null;
+  bay_id?: string | null;
+  scheduled_at?: string | null;
+  upsell_id?: string | null;
+}): Promise<ServiceOrder> {
+  return apiFetch("/service-order-drafts", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+export function saveOrderDraft(
+  id: string,
+  input: Partial<DraftFields> & { expected_revision?: number },
+): Promise<ServiceOrder> {
+  return apiFetch(`/service-order-drafts/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+    keepalive: true,
+  });
+}
+export function submitOrderDraft(id: string): Promise<ServiceOrder> {
+  return apiFetch(`/service-order-drafts/${id}/submit`, { method: "POST" });
+}
+export function discardOrderDraft(id: string): Promise<void> {
+  return apiFetch(`/service-order-drafts/${id}`, { method: "DELETE" });
+}

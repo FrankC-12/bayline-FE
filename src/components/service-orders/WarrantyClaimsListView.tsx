@@ -1,6 +1,8 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import WarrantyCoverage from "./WarrantyCoverage";
+import EvidenceGallery from "@/components/inspections/EvidenceGallery";
 import Modal from "@/components/common/Modal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
@@ -19,10 +21,10 @@ import type {
 import ClaimSupplierAction from "./ClaimSupplierAction";
 import NewWarrantyClaim from "./NewWarrantyClaim";
 const labels = {
-  solicitado: "Por aprobar",
-  autorizado: "Autorizado",
+  solicitado: "Esperando aprobación",
+  autorizado: "Aprobado",
   rechazado: "Rechazado",
-  convertido_a_ods: "Convertido a ODS",
+  convertido_a_ods: "Aprobado · ODS creada",
 };
 const types = {
   comeback: "Comeback",
@@ -69,8 +71,16 @@ export default function WarrantyClaimsListView() {
     [busy, setBusy] = useState(false),
     [reason, setReason] = useState(""),
     [failure, setFailure] = useState<ReworkFailureCategory>("no_determinada");
+  const [confirmed, setConfirmed] = useState(false);
+  const generation = useRef(0);
+  const invalidate = useCallback(() => {
+    generation.current += 1;
+  }, []);
   const load = useCallback(async () => {
+    const version = ++generation.current;
     if (!filialId) {
+      setClaims([]);
+      setOverview(null);
       setLoading(false);
       return;
     }
@@ -79,23 +89,34 @@ export default function WarrantyClaimsListView() {
         listWarrantyClaims(filialId),
         getClaimsOverview(filialId),
       ]);
+      if (version !== generation.current) return;
       setClaims(rows);
       setOverview(stats);
       setError("");
     } catch (e) {
+      if (version !== generation.current) return;
       setError(
         e instanceof Error ? e.message : "No se pudieron cargar los reclamos.",
       );
     } finally {
-      setLoading(false);
+      if (version === generation.current) setLoading(false);
     }
   }, [filialId]);
   useEffect(() => {
     void load();
-  }, [load]);
+    const interval = setInterval(() => void load(), 15000);
+    return () => {
+      clearInterval(interval);
+      invalidate();
+    };
+  }, [load, invalidate]);
   const matches = (c: WarrantyClaim, key: string) =>
     key === "all" ||
-    (key === "brand" && c.brand_status === "en_marca") ||
+    (key === "approved" &&
+      (c.status === "convertido_a_ods" ||
+        (c.status === "autorizado" && c.brand_status !== "en_marca"))) ||
+    (key === "solicitado" &&
+      (c.status === "solicitado" || c.brand_status === "en_marca")) ||
     c.status === key;
   const rows = claims.filter(
     (c) =>
@@ -118,8 +139,9 @@ export default function WarrantyClaimsListView() {
           decision,
           rejection_reason: reason.trim() || undefined,
           failure_category: failure,
+          failure_confirmed: confirmed,
         },
-        claim.brand_status === "en_marca",
+        false,
       );
       setClaims((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
       setReason("");
@@ -141,7 +163,8 @@ export default function WarrantyClaimsListView() {
             Reclamos
           </h1>
           <p className="mt-2 text-sm text-steel">
-            Garantías del taller, de fábrica y campañas.
+            Garantías del taller, de fábrica y campañas. El trámite con la marca
+            se hace por teléfono.
           </p>
         </div>
         {canEdit && (
@@ -186,9 +209,8 @@ export default function WarrantyClaimsListView() {
         <div className="flex flex-wrap rounded-full bg-slate-100 p-1">
           {[
             ["all", "Todos"],
-            ["solicitado", "Por aprobar"],
-            ["brand", "En la marca"],
-            ["convertido_a_ods", "Convertidos a ODS"],
+            ["solicitado", "Esperando aprobación"],
+            ["approved", "Aprobados"],
             ["rechazado", "Rechazados"],
           ].map(([key, label]) => (
             <button
@@ -223,7 +245,7 @@ export default function WarrantyClaimsListView() {
               {[
                 "Reclamo",
                 "Vehículo · cliente",
-                "Garantía reclamada",
+                "Queja · sobre",
                 "Tipo",
                 "Estado",
               ].map((h) => (
@@ -238,6 +260,7 @@ export default function WarrantyClaimsListView() {
               <tr
                 key={c.id}
                 onClick={() => {
+                  setConfirmed(false);
                   setSelected(c.id);
                   setReason("");
                   setError("");
@@ -248,6 +271,7 @@ export default function WarrantyClaimsListView() {
                 <td className="px-4 py-5">
                   <button
                     onClick={() => {
+                      setConfirmed(false);
                       setSelected(c.id);
                       setReason("");
                       setError("");
@@ -264,6 +288,7 @@ export default function WarrantyClaimsListView() {
                 <td className="px-4 py-5">
                   <button
                     onClick={() => {
+                      setConfirmed(false);
                       setSelected(c.id);
                       setReason("");
                       setError("");
@@ -280,9 +305,12 @@ export default function WarrantyClaimsListView() {
                   </button>
                 </td>
                 <td className="max-w-xs px-4 py-5">
-                  <p className="font-medium">{coverageDescription(c)}</p>
-                  <p className="mt-1 break-words text-xs text-steel">
+                  <p className="font-medium">
                     {c.reported_symptom ?? c.failure_cause}
+                  </p>
+                  <p className="mt-1 break-words text-xs text-steel">
+                    {coverageDescription(c)}
+                    {c.service_order_code ? ` · ${c.service_order_code}` : ""}
                   </p>
                 </td>
                 <td className="px-4 py-5 text-xs">{types[c.claim_type]}</td>
@@ -291,7 +319,7 @@ export default function WarrantyClaimsListView() {
                     className={`rounded-full px-2 py-1 text-[11px] font-semibold ${c.status === "solicitado" ? "bg-amber-100 text-amber-800" : c.status === "convertido_a_ods" ? "bg-emerald-100 text-emerald-800" : c.brand_status === "en_marca" ? "bg-blue-light text-blue" : "bg-slate-100 text-steel"}`}
                   >
                     {c.brand_status === "en_marca"
-                      ? "En la marca"
+                      ? "Esperando aprobación"
                       : labels[c.status]}
                   </span>
                 </td>
@@ -324,6 +352,7 @@ export default function WarrantyClaimsListView() {
       )}
       <Modal
         open={!!claim}
+        placement="right"
         onClose={() => {
           if (!busy) setSelected(null);
         }}
@@ -336,6 +365,25 @@ export default function WarrantyClaimsListView() {
       >
         {claim && (
           <div className="space-y-5 p-6">
+            <section className="rounded-xl bg-blue-light/30 p-4">
+              <h3 className="font-semibold text-navy">
+                Lo que reporta el cliente
+              </h3>
+              <p className="mt-2 whitespace-pre-wrap break-words text-sm">
+                {claim.reported_symptom ?? claim.failure_cause}
+              </p>
+              <p className="mt-3 text-xs text-steel">
+                Sobre: {coverageDescription(claim)} · Entrega original:{" "}
+                {claim.source_order_closed_at
+                  ? formatEntryDateTime(claim.source_order_closed_at)
+                  : "Sin fecha registrada"}{" "}
+                · Técnico: {claim.source_technician_name ?? "Sin registrar"}
+              </p>
+            </section>
+            <WarrantyCoverage
+              assessment={claim.warranty_assessment}
+              note="Verificado con el kilometraje y la fecha del reclamo. La relación de la falla con el trabajo la confirma el jefe de taller."
+            />
             <div className="grid gap-4 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-2">
               <p>
                 <span className="block text-xs text-steel">Vehículo</span>
@@ -374,35 +422,30 @@ export default function WarrantyClaimsListView() {
                 vehículo.
               </p>
             )}
-            <section>
-              <h3 className="font-semibold text-navy">
-                Lo que reporta el cliente
-              </h3>
-              <p className="mt-2 whitespace-pre-wrap break-words text-sm text-steel">
-                {claim.reported_symptom ?? claim.failure_cause}
-              </p>
-              {claim.note && (
-                <p className="mt-2 text-sm text-steel">{claim.note}</p>
-              )}
-            </section>
+            {claim.note && (
+              <section>
+                <h3 className="font-semibold text-navy">Nota del asesor</h3>
+                <p className="mt-2 whitespace-pre-wrap text-sm text-steel">
+                  {claim.note}
+                </p>
+              </section>
+            )}
             <section>
               <h3 className="font-semibold text-navy">Fotos y documentos</h3>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {[...claim.photo_urls, ...claim.document_urls].map((url, i) => (
-                  <a
-                    key={url}
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-lg border border-navy/10 px-3 py-2 text-sm text-blue underline"
-                  >
-                    {i < claim.photo_urls.length ? "Foto" : "Documento"} {i + 1}
-                  </a>
-                ))}
-                {!claim.photo_urls.length && !claim.document_urls.length && (
-                  <p className="text-sm text-steel">Sin anexos.</p>
+              <EvidenceGallery
+                files={
+                  claim.odometer_photo_url
+                    ? [{ url: claim.odometer_photo_url }]
+                    : []
+                }
+                title="Foto del tablero"
+              />
+              <EvidenceGallery
+                files={[...claim.photo_urls, ...claim.document_urls].map(
+                  (url) => ({ url }),
                 )}
-              </div>
+                title="Evidencias del reclamo"
+              />
             </section>
             <section>
               <h3 className="font-semibold text-navy">Seguimiento</h3>
@@ -433,7 +476,8 @@ export default function WarrantyClaimsListView() {
                 )}
                 {claim.converted_at && (
                   <li>
-                    Convertido a ODS por {name(claim.converted_by_user_id)} ·{" "}
+                    Borrador de ODS creado por{" "}
+                    {name(claim.converted_by_user_id)} ·{" "}
                     {formatEntryDateTime(claim.converted_at)}
                   </li>
                 )}
@@ -471,13 +515,25 @@ export default function WarrantyClaimsListView() {
             )}
             {canAuthorize &&
               (claim.status === "solicitado" ||
-                claim.brand_status === "en_marca") && (
+                claim.brand_status === "en_marca" ||
+                (claim.status === "autorizado" &&
+                  !claim.resulting_service_order_id)) && (
                 <section className="space-y-3 border-t border-navy/10 pt-5">
                   <h3 className="font-semibold text-navy">
-                    {claim.brand_status === "en_marca"
-                      ? "Registrar respuesta de la marca"
-                      : "Decisión del jefe de taller / gerente"}
+                    Decisión del jefe de taller / gerente
                   </h3>
+                  {claim.claim_type === "comeback" && (
+                    <label className="flex items-start gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                      <input
+                        type="checkbox"
+                        checked={confirmed}
+                        onChange={(event) => setConfirmed(event.target.checked)}
+                        className="mt-1"
+                      />
+                      Confirmo que revisé el vehículo y las fotos, y que la
+                      falla está relacionada con este trabajo.
+                    </label>
+                  )}
                   {claim.claim_type === "comeback" && (
                     <select
                       aria-label="Causa de la falla"
@@ -503,17 +559,17 @@ export default function WarrantyClaimsListView() {
                   />
                   <div className="flex flex-wrap gap-3">
                     <button
-                      disabled={busy}
+                      disabled={
+                        busy || (claim.claim_type === "comeback" && !confirmed)
+                      }
                       onClick={() => void act("aprobado")}
                       className="rounded-full bg-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
                     >
                       {busy
                         ? "Guardando…"
-                        : claim.brand_status === "en_marca"
-                          ? "Marca autorizó · crear ODS"
-                          : claim.claim_type === "comeback"
-                            ? "Autorizar y crear ODS"
-                            : "Aprobar y enviar a la marca"}
+                        : claim.claim_type === "comeback"
+                          ? "Autorizar y crear borrador"
+                          : "Aprobar y crear borrador"}
                     </button>
                     <button
                       disabled={busy || !reason.trim()}

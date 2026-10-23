@@ -1,6 +1,6 @@
 "use client";
 
-import { formatMoney , formatCount} from "@/lib/format";
+import { formatMoney, formatCount } from "@/lib/format";
 import { NumberInput } from "@/components/ui/NumberInput";
 
 import { useEffect, useState } from "react";
@@ -10,14 +10,22 @@ import { useParts } from "@/hooks/useParts";
 import { useToast } from "@/contexts/ToastContext";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import RequestPartsModal from "./RequestPartsModal";
-import type { ServiceOrderTransfer, ServiceOrderPayer, TransferLine } from "@/types/serviceOrder";
+import type {
+  ServiceOrderTransfer,
+  ServiceOrderPayer,
+  TransferLine,
+} from "@/types/serviceOrder";
 import type { Part } from "@/types/parts";
 
 interface TransfersCardProps {
   filialId: string;
   readOnly?: boolean;
   transfers: ServiceOrderTransfer[];
-  onAddLine: (partId: string, quantity: number, payer: ServiceOrderPayer) => Promise<void>;
+  onAddLine: (
+    partId: string,
+    quantity: number,
+    payer: ServiceOrderPayer,
+  ) => Promise<void>;
   onChangeQuantity: (lineId: string, quantity: number) => Promise<void>;
   onRemoveLine: (lineId: string) => Promise<void>;
   onDeleteTransfer: (transferId: string) => Promise<void>;
@@ -69,9 +77,11 @@ function TransferLineRow({
 
   return (
     <tr>
-      <td className="py-1.5 text-navy">
-        {part?.name ?? "—"}
-        <span className="mt-1 block font-mono text-xs text-blue">{part?.code}</span>
+      <td className="min-w-32 break-words py-2 pr-3 text-navy">
+        {part?.name ?? "Repuesto"}
+        <span className="mt-1 block font-mono text-xs text-blue">
+          {part?.code}
+        </span>
       </td>
       <td className="py-1.5 text-navy">
         {canEdit ? (
@@ -88,13 +98,13 @@ function TransferLineRow({
             className="w-16 rounded-lg border border-navy/15 px-2 py-1 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 disabled:opacity-60"
           />
         ) : (
-          line.quantity
+          formatCount(line.quantity)
         )}
       </td>
-      <td className="py-1.5 text-right text-navy">
+      <td className="whitespace-nowrap py-2 pl-3 text-right text-navy">
         {line.unit_price == null ? "—" : `$${formatMoney(line.unit_price, 2)}`}
       </td>
-      <td className="py-1.5 text-right font-medium text-navy">
+      <td className="whitespace-nowrap py-2 pl-3 text-right font-medium text-navy">
         {line.subtotal == null ? "—" : `$${formatMoney(line.subtotal, 2)}`}
       </td>
       {canEdit && (
@@ -126,12 +136,15 @@ export default function TransfersCard({
 }: TransfersCardProps) {
   const { parts } = useParts(filialId);
   const { canEdit: canDelete } = useModuleAccess("asesor-servicios");
-  const partById = (id: string): Part | undefined => parts.find((p) => p.id === id);
+  const partById = (id: string): Part | undefined =>
+    parts.find((p) => p.id === id);
 
   const [search, setSearch] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [adding, setAdding] = useState(false);
-  const [confirmingTransferId, setConfirmingTransferId] = useState<string | null>(null);
+  const [confirmingTransferId, setConfirmingTransferId] = useState<
+    string | null
+  >(null);
   const [dispatching, setDispatching] = useState(false);
   const toast = useToast();
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -144,8 +157,12 @@ export default function TransfersCard({
       setDeletingId(null);
       toast.success("ODT eliminada; reservas liberadas.");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo eliminar la ODT.");
-    } finally { setDeleteBusy(false); }
+      toast.error(
+        err instanceof Error ? err.message : "No se pudo eliminar la ODT.",
+      );
+    } finally {
+      setDeleteBusy(false);
+    }
   }
 
   async function handleConfirmMarkOrdered() {
@@ -154,7 +171,9 @@ export default function TransfersCard({
     try {
       await onMarkOrdered(confirmingTransferId);
       setConfirmingTransferId(null);
-      toast.success("Repuestos enviados a almacén — la ODT quedó marcada como Pedido.");
+      toast.success(
+        "Repuestos enviados a almacén — la ODT quedó marcada como Pedido.",
+      );
     } finally {
       setDispatching(false);
     }
@@ -165,7 +184,7 @@ export default function TransfersCard({
         .filter(
           (p) =>
             p.code.toLowerCase().includes(search.toLowerCase()) ||
-            p.name.toLowerCase().includes(search.toLowerCase())
+            p.name.toLowerCase().includes(search.toLowerCase()),
         )
         .slice(0, 6)
     : [];
@@ -185,12 +204,29 @@ export default function TransfersCard({
   const pendingCount = transfers.filter((t) => t.status === "pendiente").length;
 
   return (
-    <div className="rounded-2xl border border-navy/10 bg-white p-4">
-      <ConfirmDialog open={!!deletingId} title="Eliminar ODT" description="Se eliminarán sus repuestos, reservas y traslados pendientes. Los traslados ya recibidos se conservarán en el historial. Esta acción no se puede deshacer." confirmLabel="Eliminar ODT" confirming={deleteBusy} onConfirm={() => void removeTransfer()} onCancel={() => { if (!deleteBusy) setDeletingId(null); }} />
-      <h3 className="mb-1 font-display text-sm font-bold text-navy">Repuestos</h3>
-      <p className="mb-3 text-[11px] text-steel">{transfers.length} {transfers.length === 1 ? "orden de transferencia" : "órdenes de transferencia"}</p>
+    <div className="min-w-0 rounded-2xl border border-navy/10 bg-white p-4">
+      <ConfirmDialog
+        open={!!deletingId}
+        title="Eliminar ODT"
+        description="Se eliminarán sus repuestos, reservas y traslados pendientes. Los traslados ya recibidos se conservarán en el historial. Esta acción no se puede deshacer."
+        confirmLabel="Eliminar ODT"
+        confirming={deleteBusy}
+        onConfirm={() => void removeTransfer()}
+        onCancel={() => {
+          if (!deleteBusy) setDeletingId(null);
+        }}
+      />
+      <h3 className="mb-1 font-display text-sm font-bold text-navy">
+        Repuestos
+      </h3>
+      <p className="mb-3 text-[11px] text-steel">
+        {transfers.length}{" "}
+        {transfers.length === 1
+          ? "orden de transferencia"
+          : "órdenes de transferencia"}
+      </p>
       <div className="mb-5 flex items-end gap-2">
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
           <input
             aria-label="Buscar repuesto"
@@ -206,7 +242,7 @@ export default function TransfersCard({
                 <button
                   key={p.id}
                   type="button"
-                    disabled={readOnly || adding}
+                  disabled={readOnly || adding}
                   onClick={() => handleAdd(p.id)}
                   className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-ash"
                 >
@@ -215,7 +251,11 @@ export default function TransfersCard({
                     <span className="text-navy">{p.name}</span>
                   </span>
                   <span className="text-xs text-steel">
-                    ${(p.reference_price == null ? undefined : formatMoney(p.reference_price, 2)) ?? "Sin costo"} · stock {formatCount(p.stock_total)}
+                    $
+                    {(p.reference_price == null
+                      ? undefined
+                      : formatMoney(p.reference_price, 2)) ?? "Sin costo"}{" "}
+                    · stock {formatCount(p.stock_total)}
                   </span>
                 </button>
               ))}
@@ -230,7 +270,6 @@ export default function TransfersCard({
           onValueChange={(value) => setQuantity(value)}
           className="w-16 rounded-xl border border-navy/15 px-2 py-2.5 text-center text-sm outline-none focus:border-blue"
         />
-
       </div>
 
       {transfers.length === 0 ? (
@@ -240,36 +279,76 @@ export default function TransfersCard({
       ) : (
         <div className="space-y-4">
           {transfers.map((transfer) => {
-            const canEditLines = !readOnly && !transfer.closed_at && transfer.status === "pendiente";
+            const canEditLines =
+              !readOnly &&
+              !transfer.closed_at &&
+              transfer.status === "pendiente";
             return (
-              <div key={transfer.id} className="rounded-xl border border-navy/10 p-3">
+              <div
+                key={transfer.id}
+                className="rounded-xl border border-navy/10 p-3"
+              >
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <Package className="h-4 w-4 text-blue" />
-                    <span className="font-mono text-sm font-semibold text-navy">{transfer.code}</span>
-                    {canDelete && !readOnly && !transfer.closed_at && transfer.status === "pendiente" && !transfer.stock_deducted && <details className="relative"><summary aria-label={`Más acciones de ${transfer.code}`} className="cursor-pointer list-none rounded-full border border-navy/15 px-2 py-0.5 text-steel">•••</summary><button type="button" onClick={() => setDeletingId(transfer.id)} className="absolute right-0 z-10 mt-1 whitespace-nowrap rounded-lg border border-navy/10 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">Eliminar ODT</button></details>}
+                    <span className="font-mono text-sm font-semibold text-navy">
+                      {transfer.code}
+                    </span>
+                    {canDelete &&
+                      !readOnly &&
+                      !transfer.closed_at &&
+                      transfer.status === "pendiente" &&
+                      !transfer.stock_deducted && (
+                        <details className="relative">
+                          <summary
+                            aria-label={`Más acciones de ${transfer.code}`}
+                            className="cursor-pointer list-none rounded-full border border-navy/15 px-2 py-0.5 text-steel"
+                          >
+                            •••
+                          </summary>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingId(transfer.id)}
+                            className="absolute right-0 z-10 mt-1 whitespace-nowrap rounded-lg border border-navy/10 bg-white px-3 py-2 text-xs text-red-700 shadow-lg"
+                          >
+                            Eliminar ODT
+                          </button>
+                        </details>
+                      )}
                     <span
                       className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-widest ${
-                        transfer.closed_at ? "bg-slate-100 text-steel" : transfer.status === "completado"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : transfer.status === "pedido"
-                            ? "bg-blue-light text-blue"
-                            : "bg-amber-100 text-amber-700"
+                        transfer.closed_at
+                          ? "bg-slate-100 text-steel"
+                          : transfer.status === "completado"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : transfer.status === "pedido"
+                              ? "bg-blue-light text-blue"
+                              : "bg-amber-100 text-amber-700"
                       }`}
                     >
-                      {transfer.closed_at ? "Cerrada" : transfer.status === "completado" ? (transfer.picked_up_at ? "Recibida" : "Por retirar") : transfer.status === "pedido" ? "Pedido" : "Pendiente"}
+                      {transfer.closed_at
+                        ? "Cerrada"
+                        : transfer.status === "completado"
+                          ? transfer.picked_up_at
+                            ? "Recibida"
+                            : "Por retirar"
+                          : transfer.status === "pedido"
+                            ? "Pedido"
+                            : "Pendiente"}
                     </span>
                   </div>
-                  {!transfer.closed_at && transfer.status === "pendiente" && transfer.lines.length > 0 && (
-                    <button
-                      type="button"
-                      disabled={readOnly || adding}
-                      onClick={() => setConfirmingTransferId(transfer.id)}
-                      className="rounded-full bg-blue px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-navy"
-                    >
-                      Solicitar repuestos
-                    </button>
-                  )}
+                  {!transfer.closed_at &&
+                    transfer.status === "pendiente" &&
+                    transfer.lines.length > 0 && (
+                      <button
+                        type="button"
+                        disabled={readOnly || adding}
+                        onClick={() => setConfirmingTransferId(transfer.id)}
+                        className="rounded-full bg-blue px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-navy"
+                      >
+                        Solicitar repuestos
+                      </button>
+                    )}
                 </div>
 
                 {transfer.lines.length === 0 ? (
@@ -277,12 +356,19 @@ export default function TransfersCard({
                     Sin repuestos — se quitaron todos de esta ODT.
                   </p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[360px] text-left text-xs">
+                  <div className="max-w-full overflow-x-auto">
+                    <table className="w-full min-w-[400px] text-left text-xs">
+                      <caption className="sr-only">
+                        {transfer.code} · Repuestos, cantidades y precios
+                      </caption>
                       <thead>
                         <tr className="text-steel">
-                          <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">Repuesto</th>
-                          <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">Cant.</th>
+                          <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">
+                            Repuesto
+                          </th>
+                          <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">
+                            Cant.
+                          </th>
                           <th className="pb-1.5 text-right font-mono text-[10px] uppercase tracking-widest">
                             Precio u.
                           </th>
@@ -308,7 +394,10 @@ export default function TransfersCard({
                   </div>
                 )}
                 <div className="mt-2 flex justify-end text-sm font-semibold text-navy">
-                  Subtotal: {transfer.subtotal == null ? "—" : `$${formatMoney(transfer.subtotal, 2)}`}
+                  Subtotal:{" "}
+                  {transfer.subtotal == null
+                    ? "—"
+                    : `$${formatMoney(transfer.subtotal, 2)}`}
                 </div>
               </div>
             );
@@ -318,7 +407,8 @@ export default function TransfersCard({
 
       {!readOnly && pendingCount === 0 && transfers.length > 0 && (
         <p className="mt-3 text-xs text-steel">
-          Todas las ODT de esta orden ya fueron pedidas. Al agregar otro repuesto se abre una nueva.
+          Todas las ODT de esta orden ya fueron pedidas. Al agregar otro
+          repuesto se abre una nueva.
         </p>
       )}
 

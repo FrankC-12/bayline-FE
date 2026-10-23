@@ -1,5 +1,10 @@
 import { apiFetch } from "./client";
-import type { ReworkFailureCategory, WarrantyClaim, WarrantyClaimContext, WarrantyClaimType } from "@/types/warrantyClaim";
+import type {
+  ReworkFailureCategory,
+  WarrantyClaim,
+  WarrantyClaimContext,
+  WarrantyClaimType,
+} from "@/types/warrantyClaim";
 
 export interface CreateWarrantyClaimInput {
   claim_type: WarrantyClaimType;
@@ -31,34 +36,39 @@ export async function getWarrantyClaimContext(
   vehicleId: string,
   serviceOrderId?: string | null,
   temparioId?: string | null,
-  partId?: string | null
+  partId?: string | null,
 ): Promise<WarrantyClaimContext> {
   const query = new URLSearchParams({ vehicle_id: vehicleId });
   if (serviceOrderId) query.set("service_order_id", serviceOrderId);
   if (temparioId) query.set("tempario_id", temparioId);
   if (partId) query.set("part_id", partId);
-  return apiFetch<WarrantyClaimContext>(`/warranty-claims/context?${query.toString()}`);
+  return apiFetch<WarrantyClaimContext>(
+    `/warranty-claims/context?${query.toString()}`,
+  );
 }
 
 export async function listWarrantyClaims(
   filialId: string,
-  filters?: { status?: string; vehicleId?: string; serviceOrderId?: string }
+  filters?: { status?: string; vehicleId?: string; serviceOrderId?: string },
 ): Promise<WarrantyClaim[]> {
   const query = new URLSearchParams({ filial_id: filialId });
   if (filters?.status) query.set("status", filters.status);
   if (filters?.vehicleId) query.set("vehicle_id", filters.vehicleId);
-  if (filters?.serviceOrderId) query.set("service_order_id", filters.serviceOrderId);
+  if (filters?.serviceOrderId)
+    query.set("service_order_id", filters.serviceOrderId);
   return apiFetch<WarrantyClaim[]>(`/warranty-claims?${query.toString()}`);
 }
 
-export async function getWarrantyClaim(claimId: string): Promise<WarrantyClaim> {
+export async function getWarrantyClaim(
+  claimId: string,
+): Promise<WarrantyClaim> {
   return apiFetch<WarrantyClaim>(`/warranty-claims/${claimId}`);
 }
 
 export async function createWarrantyClaim(
   input: CreateWarrantyClaimInput,
   photos: File[],
-  documents: File[]
+  documents: File[],
 ): Promise<WarrantyClaim> {
   const form = new FormData();
   for (const [key, value] of Object.entries(input)) {
@@ -66,12 +76,15 @@ export async function createWarrantyClaim(
   }
   for (const photo of photos) form.append("photos", photo);
   for (const document of documents) form.append("documents", document);
-  return apiFetch<WarrantyClaim>("/warranty-claims", { method: "POST", body: form });
+  return apiFetch<WarrantyClaim>("/warranty-claims", {
+    method: "POST",
+    body: form,
+  });
 }
 
 export async function authorizeWarrantyClaim(
   claimId: string,
-  input: AuthorizeWarrantyClaimInput
+  input: AuthorizeWarrantyClaimInput,
 ): Promise<WarrantyClaim> {
   return apiFetch<WarrantyClaim>(`/warranty-claims/${claimId}/authorize`, {
     method: "POST",
@@ -81,15 +94,42 @@ export async function authorizeWarrantyClaim(
 
 export async function convertWarrantyClaimToOrder(
   claimId: string,
-  input: ConvertWarrantyClaimInput = {}
+  input: ConvertWarrantyClaimInput = {},
 ): Promise<WarrantyClaim> {
-  return apiFetch<WarrantyClaim>(`/warranty-claims/${claimId}/convert-to-order`, {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  return apiFetch<WarrantyClaim>(
+    `/warranty-claims/${claimId}/convert-to-order`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
 }
 
-export interface ClaimsOverview { pending: number; monthly_cost: number; monthly_reworks: number; monthly_closed: number; comeback_rate: number }
-export const getClaimsOverview=(filialId:string)=>apiFetch<ClaimsOverview>(`/warranty-claims/overview?filial_id=${filialId}`);
-export const createClaimFromWarranty=(form:FormData)=>apiFetch<WarrantyClaim>("/warranty-claims/from-warranty",{method:"POST",body:form});
-export const reviewClaim=(id:string,input:{decision:"aprobado"|"rechazado";rejection_reason?:string;failure_category?:ReworkFailureCategory},brand=false)=>apiFetch<WarrantyClaim>(`/warranty-claims/${id}/${brand?"brand-response":"review"}`,{method:"POST",body:JSON.stringify(input)});
+export interface ClaimsOverview {
+  pending: number;
+  monthly_cost: number;
+  monthly_reworks: number;
+  monthly_closed: number;
+  comeback_rate: number;
+}
+export const getClaimsOverview = (filialId: string) =>
+  apiFetch<ClaimsOverview>(`/warranty-claims/overview?filial_id=${filialId}`);
+export const createClaimFromWarranty = (form: FormData) =>
+  apiFetch<WarrantyClaim>("/warranty-claims/from-warranty", {
+    method: "POST",
+    body: form,
+  });
+export const reviewClaim = (
+  id: string,
+  input: {
+    decision: "aprobado" | "rechazado";
+    rejection_reason?: string;
+    failure_category?: ReworkFailureCategory;
+    failure_confirmed?: boolean;
+  },
+  brand = false,
+) =>
+  apiFetch<WarrantyClaim>(
+    `/warranty-claims/${id}/${brand ? "brand-response" : "review"}`,
+    { method: "POST", body: JSON.stringify(input) },
+  );

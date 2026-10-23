@@ -10,8 +10,12 @@ import { AlertTriangle, ChevronLeft, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParts } from "@/hooks/useParts";
 import { downloadBlob } from "@/lib/download";
-import { getPartSale, updatePartSaleStatus, getPartSalePdf } from "@/lib/api/parts";
-import { formatMoney , formatCount} from "@/lib/format";
+import {
+  getPartSale,
+  updatePartSaleStatus,
+  getPartSalePdf,
+} from "@/lib/api/parts";
+import { formatMoney, formatCount } from "@/lib/format";
 import type { PartSale } from "@/types/parts";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -32,7 +36,9 @@ interface PartSaleDetailViewProps {
   saleId: string;
 }
 
-export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) {
+export default function PartSaleDetailView({
+  saleId,
+}: PartSaleDetailViewProps) {
   const router = useRouter();
   const { canEdit: canCollect } = useModuleAccess("finanzas-cobrar");
   const [collecting, setCollecting] = useState(false);
@@ -44,7 +50,9 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
   const [sale, setSale] = useState<PartSale | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dispatchDrafts, setDispatchDrafts] = useState<Record<string, string>>({});
+  const [dispatchDrafts, setDispatchDrafts] = useState<Record<string, string>>(
+    {},
+  );
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -56,11 +64,16 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
       setSale(data);
       setDispatchDrafts(
         Object.fromEntries(
-          data.lines.map((l) => [l.id, String(l.dispatched_quantity ?? l.quantity)])
-        )
+          data.lines.map((l) => [
+            l.id,
+            String(l.dispatched_quantity ?? l.quantity),
+          ]),
+        ),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo cargar la venta.");
+      setError(
+        err instanceof Error ? err.message : "No se pudo cargar la venta.",
+      );
     } finally {
       setLoading(false);
     }
@@ -84,13 +97,16 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
         "pedido",
         sale.lines.map((line) => ({
           line_id: line.id,
-          dispatched_quantity: Number(dispatchDrafts[line.id] ?? line.quantity) || 0,
-        }))
+          dispatched_quantity:
+            Number(dispatchDrafts[line.id] ?? line.quantity) || 0,
+        })),
       );
       await load();
     } catch (err) {
       setActionError(
-        err instanceof Error ? err.message : "No se pudo marcar la venta como despachando."
+        err instanceof Error
+          ? err.message
+          : "No se pudo marcar la venta como despachando.",
       );
     } finally {
       setSubmitting(false);
@@ -105,7 +121,9 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
       await updatePartSaleStatus(sale.id, status);
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "No se pudo actualizar la venta.");
+      setActionError(
+        err instanceof Error ? err.message : "No se pudo actualizar la venta.",
+      );
       throw err;
     } finally {
       setSubmitting(false);
@@ -113,15 +131,23 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
   }
 
   if (loading) {
-    return <div className="p-12 text-center text-sm text-steel">Cargando venta...</div>;
+    return (
+      <div className="p-12 text-center text-sm text-steel">
+        Cargando venta...
+      </div>
+    );
   }
 
   if (error || !sale) {
     return (
       <div className="text-center">
         <AlertTriangle className="mx-auto h-10 w-10 text-amber-500" />
-        <h1 className="mt-4 font-display text-xl font-bold text-navy">No se pudo cargar la venta</h1>
-        <p className="mt-2 text-sm text-steel">{error ?? "La venta no existe o fue eliminada."}</p>
+        <h1 className="mt-4 font-display text-xl font-bold text-navy">
+          No se pudo cargar la venta
+        </h1>
+        <p className="mt-2 text-sm text-steel">
+          {error ?? "La venta no existe o fue eliminada."}
+        </p>
         <button
           onClick={() => router.push("/dashboard/repuestos/ventas")}
           className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-steel hover:text-navy"
@@ -133,7 +159,9 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
     );
   }
 
-  const canCancel = sale.amount_collected <= 0 && (sale.status === "pendiente" || sale.status === "pedido");
+  const canCancel =
+    sale.amount_collected <= 0 &&
+    (sale.status === "pendiente" || sale.status === "pedido");
 
   return (
     <div>
@@ -147,7 +175,9 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
 
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl font-bold text-navy">{sale.code}</h1>
+          <h1 className="font-display text-3xl font-bold text-navy">
+            {sale.code}
+          </h1>
           <p className="mt-1 text-sm text-steel">
             {sale.client_name}
             {sale.warehouse_name && ` · Almacén: ${sale.warehouse_name}`}
@@ -160,6 +190,43 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
         </span>
       </div>
 
+      {sale.status !== "cancelado" && (
+        <section className="mb-5 rounded-2xl border border-navy/10 bg-white p-5">
+          <ol aria-label="Flujo de venta" className="grid gap-3 sm:grid-cols-3">
+            {[
+              { id: "pendiente", label: "Pedido creado" },
+              { id: "pedido", label: "Despacho del almacén" },
+              { id: "completado", label: "Confirmado en mostrador" },
+            ].map((step, index) => {
+              const current = ["pendiente", "pedido", "completado"].indexOf(
+                sale.status,
+              );
+              return (
+                <li
+                  key={step.id}
+                  aria-current={sale.status === step.id ? "step" : undefined}
+                  className={`rounded-xl border p-3 text-sm ${index === current ? "border-blue bg-blue-light font-semibold text-blue" : index < current ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-navy/10 text-steel"}`}
+                >
+                  <span className="mb-1 block font-mono text-xs">
+                    {index + 1}
+                  </span>
+                  {step.label}
+                </li>
+              );
+            })}
+          </ol>
+          <p className="mt-4 text-sm text-steel">
+            <strong className="text-navy">Siguiente paso: </strong>
+            {sale.status === "pendiente"
+              ? "verifica las cantidades y comienza el despacho."
+              : sale.status === "pedido"
+                ? "confirma la recepción de los repuestos en el mostrador."
+                : sale.pending_amount > 0
+                  ? "registra el cobro o consulta el saldo pendiente."
+                  : "venta confirmada y cobrada; puedes consultar su factura."}
+          </p>
+        </section>
+      )}
       <div className="rounded-2xl border border-navy/10 bg-white p-6">
         <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">
           Líneas de repuesto
@@ -167,9 +234,15 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-navy/10 text-steel">
-              <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">Repuesto</th>
-              <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">Cant. vendida</th>
-              <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">Cant. despachada</th>
+              <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">
+                Repuesto
+              </th>
+              <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">
+                Cant. vendida
+              </th>
+              <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">
+                Cant. despachada
+              </th>
               <th className="pb-2 text-right font-mono text-[10px] uppercase tracking-widest">
                 Subtotal
               </th>
@@ -182,28 +255,42 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
                 dispatchDrafts[line.id] !== undefined &&
                 Number(dispatchDrafts[line.id]) !== line.quantity;
               const confirmedMismatch =
-                line.dispatched_quantity != null && line.dispatched_quantity !== line.quantity;
+                line.dispatched_quantity != null &&
+                line.dispatched_quantity !== line.quantity;
               return (
                 <tr key={line.id}>
                   <td className="py-2">
-                    <span className="font-mono text-blue">{partCode(line.part_id)}</span>{" "}
+                    <span className="font-mono text-blue">
+                      {partCode(line.part_id)}
+                    </span>{" "}
                     <span className="text-navy">{partName(line.part_id)}</span>
                   </td>
-                  <td className="py-2 text-navy">{formatCount(line.quantity)}</td>
+                  <td className="py-2 text-navy">
+                    {formatCount(line.quantity)}
+                  </td>
                   <td className="py-2">
                     {sale.status === "pendiente" ? (
                       <NumberInput
                         min="0"
                         value={dispatchDrafts[line.id] ?? ""}
                         onValueChange={(value) =>
-                          setDispatchDrafts((prev) => ({ ...prev, [line.id]: value }))
+                          setDispatchDrafts((prev) => ({
+                            ...prev,
+                            [line.id]: value,
+                          }))
                         }
                         className={`w-24 rounded-lg border px-2 py-1.5 text-sm outline-none focus:border-blue ${
                           draftMismatch ? "border-amber-400" : "border-navy/15"
                         }`}
                       />
                     ) : line.dispatched_quantity != null ? (
-                      <span className={confirmedMismatch ? "font-semibold text-red-600" : "text-navy"}>
+                      <span
+                        className={
+                          confirmedMismatch
+                            ? "font-semibold text-red-600"
+                            : "text-navy"
+                        }
+                      >
                         {formatCount(line.dispatched_quantity)}
                       </span>
                     ) : (
@@ -220,10 +307,27 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
         </table>
         <div className="mt-4 space-y-1 border-t border-navy/10 pt-4 text-right text-sm">
           <p className="text-steel">Subtotal: ${formatMoney(sale.total)}</p>
-          <p className="text-steel">IVA ({formatCount(sale.iva_percentage)}%): ${formatMoney(sale.iva_amount)}</p>
-          <p className="text-steel">IGTF ({formatCount(sale.igtf_percentage)}%): ${formatMoney(sale.igtf_amount)}</p>
-          <p className="text-steel">Cobrado: ${formatMoney(sale.amount_collected)} · Pendiente: ${formatMoney(sale.pending_amount)}</p>
-          <p className="font-semibold text-navy">{sale.status === "cancelado" ? "Cancelado" : sale.pending_amount <= 0 ? "Pagado" : sale.amount_collected > 0 ? "Abono registrado" : "Pendiente de pago"}</p>
+          <p className="text-steel">
+            IVA ({formatCount(sale.iva_percentage)}%): $
+            {formatMoney(sale.iva_amount)}
+          </p>
+          <p className="text-steel">
+            IGTF ({formatCount(sale.igtf_percentage)}%): $
+            {formatMoney(sale.igtf_amount)}
+          </p>
+          <p className="text-steel">
+            Cobrado: ${formatMoney(sale.amount_collected)} · Pendiente: $
+            {formatMoney(sale.pending_amount)}
+          </p>
+          <p className="font-semibold text-navy">
+            {sale.status === "cancelado"
+              ? "Cancelado"
+              : sale.pending_amount <= 0
+                ? "Pagado"
+                : sale.amount_collected > 0
+                  ? "Abono registrado"
+                  : "Pendiente de pago"}
+          </p>
           <p className="font-display text-lg font-bold text-navy">
             Total: ${formatMoney(sale.total_with_taxes)}
           </p>
@@ -232,58 +336,176 @@ export default function PartSaleDetailView({ saleId }: PartSaleDetailViewProps) 
 
       {sale.status === "pendiente" && (
         <p className="mt-4 text-xs text-steel">
-          Confirma cuánto se despachó realmente de cada línea. Si no coincide con lo vendido, la
-          venta no podrá marcarse como &quot;Pedido&quot; hasta resolver la diferencia.
+          Confirma cuánto se despachó realmente de cada línea. Si no coincide
+          con lo vendido, la venta no podrá marcarse como &quot;Pedido&quot;
+          hasta resolver la diferencia.
         </p>
       )}
 
-      {sale.status === "completado" && sale.lines.some((l) => l.warranties.length > 0) && (
-        <div className="mt-6 rounded-2xl border border-navy/10 bg-white p-6">
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">
-            Garantía de pieza (no cubre instalación)
-          </p>
-          <div className="space-y-3">
-            {sale.lines
-              .filter((line) => line.warranties.length > 0)
-              .map((line) => {
-                const expiresAt = line.warranties[0].expires_at;
-                const active = line.warranties.every((w) => w.is_active);
-                return (
-                  <div
-                    key={line.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-ash px-4 py-3 text-sm"
-                  >
-                    <div>
-                      <span className="font-medium text-navy">{partName(line.part_id)}</span>{" "}
-                      <span className="text-steel">
-                        · lote(s){" "}
-                        {line.warranties.map((w) => w.lot_code).join(", ")}
+      {sale.status === "completado" &&
+        sale.lines.some((l) => l.warranties.length > 0) && (
+          <div className="mt-6 rounded-2xl border border-navy/10 bg-white p-6">
+            <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+              Garantía de pieza (no cubre instalación)
+            </p>
+            <div className="space-y-3">
+              {sale.lines
+                .filter((line) => line.warranties.length > 0)
+                .map((line) => {
+                  const expiresAt = line.warranties[0].expires_at;
+                  const active = line.warranties.every((w) => w.is_active);
+                  return (
+                    <div
+                      key={line.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-ash px-4 py-3 text-sm"
+                    >
+                      <div>
+                        <span className="font-medium text-navy">
+                          {partName(line.part_id)}
+                        </span>{" "}
+                        <span className="text-steel">
+                          · lote(s){" "}
+                          {line.warranties.map((w) => w.lot_code).join(", ")}
+                        </span>
+                      </div>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          active
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {active ? "Vigente" : "Vencida"} hasta{" "}
+                        {new Date(expiresAt).toLocaleDateString("es-VE")}
                       </span>
                     </div>
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {active ? "Vigente" : "Vencida"} hasta{" "}
-                      {new Date(expiresAt).toLocaleDateString("es-VE")}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
+      {actionError && (
+        <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+          {actionError}
+        </p>
+      )}
+
+      {collecting && (
+        <PartPaymentModal
+          saleId={sale.id}
+          code={sale.code}
+          onClose={() => {
+            setCollecting(false);
+            setConfirming(false);
+          }}
+          onCollected={async () => {
+            if (confirming) await advance("completado");
+            else await load();
+          }}
+          onUnpaid={
+            confirming
+              ? async () => {
+                  await advance("completado");
+                }
+              : undefined
+          }
+        />
+      )}
+      {confirming && !collecting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/40 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Confirmar en Mostrador"
+            className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6"
+          >
+            <h2 className="font-display text-xl font-bold text-navy">
+              ¿El cliente pagó?
+            </h2>
+            <p className="text-sm text-steel">
+              Pendiente: ${formatMoney(sale.pending_amount)}. La entrega y el
+              cobro se registran por separado.
+            </p>
+            {canCollect && sale.pending_amount > 0 && (
+              <button
+                disabled={submitting}
+                onClick={() => setCollecting(true)}
+                className="w-full rounded-full bg-blue p-3 font-semibold text-white"
+              >
+                Sí · Registrar cobro
+              </button>
+            )}
+            <button
+              disabled={submitting}
+              onClick={() => {
+                void advance("completado")
+                  .then(() => setConfirming(false))
+                  .catch(() => {});
+              }}
+              className="w-full p-3 font-semibold text-blue"
+            >
+              {sale.pending_amount <= 0
+                ? "Ya pagado · Confirmar entrega"
+                : "Confirmar entrega sin cobro"}
+            </button>
+            {!canCollect && sale.pending_amount > 0 && (
+              <p className="text-xs text-steel">
+                Un usuario con permiso de cobro debe registrar el pago. La venta
+                queda en Cuentas por Cobrar.
+              </p>
+            )}
+            <button
+              disabled={submitting}
+              onClick={() => setConfirming(false)}
+              className="w-full p-2 text-steel"
+            >
+              Volver
+            </button>
+            {actionError && (
+              <p role="alert" className="text-sm text-red-600">
+                {actionError}
+              </p>
+            )}
           </div>
         </div>
       )}
-
-      {actionError && (
-        <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{actionError}</p>
-      )}
-
-      {collecting && <PartPaymentModal saleId={sale.id} code={sale.code} onClose={() => {setCollecting(false); setConfirming(false);}} onCollected={async () => { if (confirming) await advance("completado"); else await load(); }} onUnpaid={confirming ? async () => {await advance("completado");} : undefined} />}
-      {confirming && !collecting && <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/40 p-4"><div role="dialog" aria-modal="true" aria-label="Confirmar en Mostrador" className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6"><h2 className="font-display text-xl font-bold text-navy">¿El cliente pagó?</h2><p className="text-sm text-steel">Pendiente: ${formatMoney(sale.pending_amount)}. La entrega y el cobro se registran por separado.</p>{canCollect && sale.pending_amount > 0 && <button disabled={submitting} onClick={() => setCollecting(true)} className="w-full rounded-full bg-blue p-3 font-semibold text-white">Sí · Registrar cobro</button>}<button disabled={submitting} onClick={() => {void advance("completado").then(() => setConfirming(false)).catch(() => {});}} className="w-full p-3 font-semibold text-blue">{sale.pending_amount <= 0 ? "Ya pagado · Confirmar entrega" : "Confirmar entrega sin cobro"}</button>{!canCollect && sale.pending_amount > 0 && <p className="text-xs text-steel">Un usuario con permiso de cobro debe registrar el pago. La venta queda en Cuentas por Cobrar.</p>}<button disabled={submitting} onClick={() => setConfirming(false)} className="w-full p-2 text-steel">Volver</button>{actionError && <p role="alert" className="text-sm text-red-600">{actionError}</p>}</div></div>}
       <div className="mt-6 flex items-center gap-3">
-        {sale.status === "completado" && <button disabled={submitting} onClick={() => {setSubmitting(true); setActionError(null); void getPartSalePdf(sale.id).then((blob) => downloadBlob(blob, `${sale.code}.pdf`)).catch((err: unknown) => setActionError(err instanceof Error ? err.message : "No se pudo descargar la factura.")).finally(() => setSubmitting(false));}} className="rounded-full border border-blue px-6 py-2.5 text-sm font-semibold text-blue">Descargar factura PDF</button>}
-        {canCollect && sale.status !== "cancelado" && sale.pending_amount > 0 && <button onClick={() => {setConfirming(false); setCollecting(true);}} className="rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white">Registrar cobro</button>}
+        {sale.status === "completado" && (
+          <button
+            disabled={submitting}
+            onClick={() => {
+              setSubmitting(true);
+              setActionError(null);
+              void getPartSalePdf(sale.id)
+                .then((blob) => downloadBlob(blob, `${sale.code}.pdf`))
+                .catch((err: unknown) =>
+                  setActionError(
+                    err instanceof Error
+                      ? err.message
+                      : "No se pudo descargar la factura.",
+                  ),
+                )
+                .finally(() => setSubmitting(false));
+            }}
+            className="rounded-full border border-blue px-6 py-2.5 text-sm font-semibold text-blue"
+          >
+            Descargar factura PDF
+          </button>
+        )}
+        {canCollect &&
+          sale.status !== "cancelado" &&
+          sale.pending_amount > 0 && (
+            <button
+              onClick={() => {
+                setConfirming(false);
+                setCollecting(true);
+              }}
+              className="rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white"
+            >
+              Registrar cobro
+            </button>
+          )}
         {sale.status === "pendiente" && (
           <button
             onClick={markAsPedido}

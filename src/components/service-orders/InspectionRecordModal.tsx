@@ -1,6 +1,7 @@
 "use client";
 import Modal from "@/components/common/Modal";
-import Image from "next/image";
+import EvidenceGallery from "@/components/inspections/EvidenceGallery";
+import { InspectionFields, inspectionPhotos } from "./InspectionReadout";
 import InspectionReadout from "./InspectionReadout";
 import VehicleDamageMap from "@/components/inspections/VehicleDamageMap";
 import { formatEntryDateTime } from "@/lib/format";
@@ -13,6 +14,9 @@ export default function InspectionRecordModal({
   detailed,
   inspector,
   technician,
+  loading = false,
+  error,
+  onRetry,
 }: {
   kind: "preliminary" | "detailed" | null;
   onClose: () => void;
@@ -20,6 +24,9 @@ export default function InspectionRecordModal({
   detailed: DetailedInspection | null;
   inspector: string;
   technician: string;
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }) {
   return (
     <Modal
@@ -34,6 +41,22 @@ export default function InspectionRecordModal({
       size="xl"
     >
       <div className="space-y-5 p-5 sm:p-7">
+        {loading && (
+          <p role="status" className="text-sm text-steel">
+            Actualizando registro…
+          </p>
+        )}
+        {error && (
+          <div
+            role="alert"
+            className="rounded-xl bg-red-50 p-3 text-sm text-red-800"
+          >
+            {error}{" "}
+            <button type="button" onClick={onRetry} className="ml-2 underline">
+              Reintentar
+            </button>
+          </div>
+        )}
         {kind === "preliminary" && preliminary ? (
           <>
             <dl className="grid gap-4 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-2">
@@ -95,43 +118,52 @@ export default function InspectionRecordModal({
                     {d.description || "Sin descripción adicional."}
                   </p>
                   {d.photo_url && (
-                    <a
-                      href={d.photo_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 inline-block text-blue underline"
-                    >
-                      Ver foto del daño
-                    </a>
+                    <div className="mt-3">
+                      <EvidenceGallery
+                        files={[{ url: d.photo_url }]}
+                        title="Foto del daño"
+                      />
+                    </div>
                   )}
                 </div>
               ))}
             </section>
             <section>
-              <h3 className="font-semibold text-navy">
-                Fotos de la inspección · {preliminary.photo_urls.length}
+              <h3 className="mb-3 font-semibold text-navy">
+                Interior del vehículo
               </h3>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {preliminary.photo_urls.map((url, i) => (
-                  <a
-                    key={url}
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="overflow-hidden rounded-xl border border-navy/10"
-                  >
-                    <Image
-                      src={url}
-                      unoptimized
-                      width={640}
-                      height={360}
-                      alt={`Inspección preliminar, foto ${i + 1}`}
-                      className="h-48 w-full object-contain bg-slate-50"
-                    />
-                  </a>
-                ))}
-              </div>
+              {preliminary.interior &&
+              Object.keys(preliminary.interior).length ? (
+                <InspectionFields data={preliminary.interior} />
+              ) : (
+                <p className="text-sm text-steel">
+                  Sin datos de interior registrados desde la app.
+                </p>
+              )}
             </section>
+            {preliminary.fluids &&
+              Object.keys(preliminary.fluids).length > 0 && (
+                <section>
+                  <h3 className="mb-3 font-semibold text-navy">
+                    Fluidos y niveles de recepción
+                  </h3>
+                  <InspectionFields data={preliminary.fluids} />
+                </section>
+              )}
+            {preliminary.mileage_correction_reason && (
+              <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+                Corrección de kilometraje:{" "}
+                {preliminary.mileage_correction_reason}
+              </p>
+            )}
+            <EvidenceGallery
+              files={[
+                ...(preliminary.photo_urls ?? []).map((url) => ({ url })),
+                ...inspectionPhotos(preliminary.fluids),
+                ...inspectionPhotos(preliminary.interior),
+              ]}
+              title="Fotos de la inspección"
+            />
           </>
         ) : kind === "detailed" && detailed ? (
           <>

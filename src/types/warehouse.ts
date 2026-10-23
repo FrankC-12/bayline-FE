@@ -15,6 +15,7 @@ export interface StockInReason {
 }
 
 export interface PartLot {
+  fifo_status?: "en_uso" | "en_espera_fifo" | "reservado" | "agotado" | null;
   id: string;
   code: string;
   warehouse_id: string;
@@ -43,7 +44,17 @@ export interface LotOutboundMovement {
 }
 
 export interface PartLotDetail extends PartLot {
-  origin?: { type: string; description: string; purchase_request_id?: string; purchase_code?: string; invoice_number?: string | null; reconciled?: boolean; origin_lot_id?: string; origin_lot_code?: string; transfer_id?: string };
+  origin?: {
+    type: string;
+    description: string;
+    purchase_request_id?: string;
+    purchase_code?: string;
+    invoice_number?: string | null;
+    reconciled?: boolean;
+    origin_lot_id?: string;
+    origin_lot_code?: string;
+    transfer_id?: string;
+  };
   part_code: string;
   part_name: string;
   warehouse_name: string;
@@ -68,8 +79,8 @@ export interface ServiceOrderPartRequestLine {
 }
 
 export interface ServiceOrderPartRequest {
-  closed_at?:string|null;
-  closed_by_user_id?:string|null;
+  closed_at?: string | null;
+  closed_by_user_id?: string | null;
   id: string;
   code: string;
   service_order_id: string;
@@ -109,9 +120,16 @@ export interface PartSaleRequest {
   lines: PartSaleRequestLine[];
 }
 
-export type MovementType = "entrada" | "salida" | "transferencia_salida" | "transferencia_entrada" | "devolucion";
-export type MovementReason = "consumo_ods" | "ajuste_inventario" | "devolucion_proveedor" | "otro";
-export type TransferStatus = "pedido" | "en_proceso" | "completada" | "cancelada";
+export type MovementType =
+  | "entrada"
+  | "salida"
+  | "transferencia_salida"
+  | "transferencia_entrada"
+  | "devolucion";
+export type MovementReason =
+  "consumo_ods" | "ajuste_inventario" | "devolucion_proveedor" | "otro";
+export type TransferStatus =
+  "pedido" | "en_proceso" | "completada" | "cancelada";
 
 export interface StockMovement {
   id: string;

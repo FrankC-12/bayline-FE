@@ -1,5 +1,11 @@
 import { apiFetch, apiFetchBlob } from "./client";
-import type { Part, PartCategory, PartMeasure, PartReturn, PartSale } from "@/types/parts";
+import type {
+  Part,
+  PartCategory,
+  PartMeasure,
+  PartReturn,
+  PartSale,
+} from "@/types/parts";
 
 export interface CreatePartInput {
   filial_id: string;
@@ -38,35 +44,56 @@ export interface UpdatePartInput {
 export async function listParts(
   filialId: string,
   search?: string,
-  includeInactive = false
+  includeInactive = false,
 ): Promise<Part[]> {
-  const query = new URLSearchParams({ filial_id: filialId, include_inactive: String(includeInactive) });
+  const query = new URLSearchParams({
+    filial_id: filialId,
+    include_inactive: String(includeInactive),
+  });
   if (search) query.set("search", search);
   return apiFetch<Part[]>(`/parts?${query.toString()}`);
 }
 
 export async function createPart(input: CreatePartInput): Promise<Part> {
-  return apiFetch<Part>("/parts", { method: "POST", body: JSON.stringify(input) });
+  return apiFetch<Part>("/parts", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
-export async function updatePart(id: string, input: UpdatePartInput): Promise<Part> {
-  return apiFetch<Part>(`/parts/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+export async function updatePart(
+  id: string,
+  input: UpdatePartInput,
+): Promise<Part> {
+  return apiFetch<Part>(`/parts/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
-export async function setPartActive(id: string, isActive: boolean): Promise<Part> {
+export async function setPartActive(
+  id: string,
+  isActive: boolean,
+): Promise<Part> {
   const action = isActive ? "activate" : "deactivate";
   return apiFetch<Part>(`/parts/${id}/${action}`, { method: "POST" });
 }
 
 export async function listPartCategories(
   filialId: string,
-  includeInactive = false
+  includeInactive = false,
 ): Promise<PartCategory[]> {
-  const query = new URLSearchParams({ filial_id: filialId, include_inactive: String(includeInactive) });
+  const query = new URLSearchParams({
+    filial_id: filialId,
+    include_inactive: String(includeInactive),
+  });
   return apiFetch<PartCategory[]>(`/part-categories?${query.toString()}`);
 }
 
-export async function createPartCategory(filialId: string, name: string): Promise<PartCategory> {
+export async function createPartCategory(
+  filialId: string,
+  name: string,
+): Promise<PartCategory> {
   return apiFetch<PartCategory>(`/part-categories?filial_id=${filialId}`, {
     method: "POST",
     body: JSON.stringify({ name }),
@@ -76,34 +103,46 @@ export async function createPartCategory(filialId: string, name: string): Promis
 export async function renamePartCategory(
   filialId: string,
   categoryId: string,
-  name: string
+  name: string,
 ): Promise<PartCategory> {
-  return apiFetch<PartCategory>(`/part-categories/${categoryId}?filial_id=${filialId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ name }),
-  });
+  return apiFetch<PartCategory>(
+    `/part-categories/${categoryId}?filial_id=${filialId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    },
+  );
 }
 
 export async function setPartCategoryActive(
   filialId: string,
   categoryId: string,
-  isActive: boolean
+  isActive: boolean,
 ): Promise<PartCategory> {
   const action = isActive ? "activate" : "deactivate";
-  return apiFetch<PartCategory>(`/part-categories/${categoryId}/${action}?filial_id=${filialId}`, {
-    method: "POST",
-  });
+  return apiFetch<PartCategory>(
+    `/part-categories/${categoryId}/${action}?filial_id=${filialId}`,
+    {
+      method: "POST",
+    },
+  );
 }
 
 export async function listPartMeasures(
   filialId: string,
-  includeInactive = false
+  includeInactive = false,
 ): Promise<PartMeasure[]> {
-  const query = new URLSearchParams({ filial_id: filialId, include_inactive: String(includeInactive) });
+  const query = new URLSearchParams({
+    filial_id: filialId,
+    include_inactive: String(includeInactive),
+  });
   return apiFetch<PartMeasure[]>(`/part-measures?${query.toString()}`);
 }
 
-export async function createPartMeasure(filialId: string, name: string): Promise<PartMeasure> {
+export async function createPartMeasure(
+  filialId: string,
+  name: string,
+): Promise<PartMeasure> {
   return apiFetch<PartMeasure>(`/part-measures?filial_id=${filialId}`, {
     method: "POST",
     body: JSON.stringify({ name }),
@@ -113,23 +152,29 @@ export async function createPartMeasure(filialId: string, name: string): Promise
 export async function renamePartMeasure(
   filialId: string,
   measureId: string,
-  name: string
+  name: string,
 ): Promise<PartMeasure> {
-  return apiFetch<PartMeasure>(`/part-measures/${measureId}?filial_id=${filialId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ name }),
-  });
+  return apiFetch<PartMeasure>(
+    `/part-measures/${measureId}?filial_id=${filialId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    },
+  );
 }
 
 export async function setPartMeasureActive(
   filialId: string,
   measureId: string,
-  isActive: boolean
+  isActive: boolean,
 ): Promise<PartMeasure> {
   const action = isActive ? "activate" : "deactivate";
-  return apiFetch<PartMeasure>(`/part-measures/${measureId}/${action}?filial_id=${filialId}`, {
-    method: "POST",
-  });
+  return apiFetch<PartMeasure>(
+    `/part-measures/${measureId}/${action}?filial_id=${filialId}`,
+    {
+      method: "POST",
+    },
+  );
 }
 
 export interface BulkPartItem {
@@ -144,7 +189,10 @@ export interface BulkPartResult {
   skipped: string[];
 }
 
-export async function bulkCreateParts(filialId: string, items: BulkPartItem[]): Promise<BulkPartResult> {
+export async function bulkCreateParts(
+  filialId: string,
+  items: BulkPartItem[],
+): Promise<BulkPartResult> {
   return apiFetch<BulkPartResult>("/parts/bulk", {
     method: "POST",
     body: JSON.stringify({ filial_id: filialId, items }),
@@ -152,6 +200,7 @@ export async function bulkCreateParts(filialId: string, items: BulkPartItem[]): 
 }
 
 export interface CreatePartSaleInput {
+  quote_hash?: string;
   filial_id: string;
   warehouse_id: string;
   client_name: string;
@@ -160,7 +209,10 @@ export interface CreatePartSaleInput {
   lines: { part_id: string; quantity: number }[];
 }
 
-export async function listPartSales(filialId: string, search?: string): Promise<PartSale[]> {
+export async function listPartSales(
+  filialId: string,
+  search?: string,
+): Promise<PartSale[]> {
   const query = new URLSearchParams({ filial_id: filialId });
   if (search) query.set("search", search);
   return apiFetch<PartSale[]>(`/part-sales?${query.toString()}`);
@@ -170,8 +222,13 @@ export async function getPartSale(id: string): Promise<PartSale> {
   return apiFetch<PartSale>(`/part-sales/${id}`);
 }
 
-export async function createPartSale(input: CreatePartSaleInput): Promise<PartSale> {
-  return apiFetch<PartSale>("/part-sales", { method: "POST", body: JSON.stringify(input) });
+export async function createPartSale(
+  input: CreatePartSaleInput,
+): Promise<PartSale> {
+  return apiFetch<PartSale>("/part-sales", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export interface DispatchLineInput {
@@ -182,7 +239,7 @@ export interface DispatchLineInput {
 export async function updatePartSaleStatus(
   id: string,
   status: string,
-  dispatchedLines?: DispatchLineInput[]
+  dispatchedLines?: DispatchLineInput[],
 ): Promise<PartSale> {
   return apiFetch<PartSale>(`/part-sales/${id}`, {
     method: "PATCH",
@@ -209,7 +266,9 @@ export async function listPartReturns(filialId: string): Promise<PartReturn[]> {
   return apiFetch<PartReturn[]>(`/part-returns?filial_id=${filialId}`);
 }
 
-export async function createPartReturn(input: CreatePartReturnInput): Promise<PartReturn> {
+export async function createPartReturn(
+  input: CreatePartReturnInput,
+): Promise<PartReturn> {
   const { photos, ...fields } = input;
   const form = new FormData();
   for (const [key, value] of Object.entries(fields)) {
@@ -220,47 +279,80 @@ export async function createPartReturn(input: CreatePartReturnInput): Promise<Pa
 }
 
 export interface PartSaleQuote {
+  quote_hash: string;
   total: number;
   iva_percentage: number;
   iva_amount: number;
   igtf_percentage: number;
   igtf_amount: number;
   total_with_taxes: number;
-  lines: { part_id: string; warehouse_id: string; quantity: number; unit_price: number;
-    unit_cost: number; line_total: number;
-    allocations: { lot_id: string; quantity: number; unit_cost: number }[] }[];
+  lines: {
+    part_id: string;
+    warehouse_id: string;
+    quantity: number;
+    unit_price: number;
+    unit_cost: number;
+    line_total: number;
+    allocations: { lot_id: string; quantity: number; unit_cost: number }[];
+  }[];
 }
 
-export async function quotePartSale(input: Omit<CreatePartSaleInput, "client_name" | "client_document">) {
+export async function quotePartSale(
+  input: Omit<CreatePartSaleInput, "client_name" | "client_document">,
+) {
   return apiFetch<PartSaleQuote>("/part-sales/quote", {
-    method: "POST", body: JSON.stringify(input),
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 
 export interface PartPaymentInput {
   request_id?: string;
-  payment_method: "usd" | "bs" | "mixed"; usd_base: string;
-  paid_usd: string; paid_bs: string; usd_account_id: string | null;
-  bs_account_id: string | null; payment_reference: string;
+  payment_method: "usd" | "bs" | "mixed";
+  usd_base: string;
+  paid_usd: string;
+  paid_bs: string;
+  usd_account_id: string | null;
+  bs_account_id: string | null;
+  payment_reference: string;
 }
 export interface PartBillingContext {
-  pending_amount: number; bcv_rate: number | null; bcv_date: string | null;
+  pending_amount: number;
+  bcv_rate: number | null;
+  bcv_date: string | null;
   accounts: { id: string; name: string; currency: "usd" | "bs" }[];
 }
 export interface PartPaymentQuote {
-  pending_before: number; due_usd: number; due_bs: number;
-  igtf_amount: number; total_usd: number; bcv_rate: number | null;
+  pending_before: number;
+  due_usd: number;
+  due_bs: number;
+  igtf_amount: number;
+  total_usd: number;
+  bcv_rate: number | null;
 }
-export const getPartBilling = (id: string) => apiFetch<PartBillingContext>(`/part-sales/${id}/billing`);
-export const quotePartPayment = (id: string, input: Pick<PartPaymentInput, "payment_method" | "usd_base">) =>
-  apiFetch<PartPaymentQuote>(`/part-sales/${id}/billing/quote`, { method: "POST", body: JSON.stringify(input) });
+export const getPartBilling = (id: string) =>
+  apiFetch<PartBillingContext>(`/part-sales/${id}/billing`);
+export const quotePartPayment = (
+  id: string,
+  input: Pick<PartPaymentInput, "payment_method" | "usd_base">,
+) =>
+  apiFetch<PartPaymentQuote>(`/part-sales/${id}/billing/quote`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 export const collectPartPayment = (id: string, input: PartPaymentInput) =>
-  apiFetch<PartSale>(`/part-sales/${id}/payments`, { method: "POST", body: JSON.stringify(input) });
+  apiFetch<PartSale>(`/part-sales/${id}/payments`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 
-export const getPartSalePdf = (id: string) => apiFetchBlob(`/part-sales/${id}/invoice/pdf`);
+export const getPartSalePdf = (id: string) =>
+  apiFetchBlob(`/part-sales/${id}/invoice/pdf`);
 
 export async function uploadPartImage(id: string, image: File): Promise<Part> {
- const body=new FormData();body.append("image",image);
- return apiFetch<Part>(`/parts/${id}/image`,{method:"POST",body});
+  const body = new FormData();
+  body.append("image", image);
+  return apiFetch<Part>(`/parts/${id}/image`, { method: "POST", body });
 }
-export const removePartImage=(id:string)=>apiFetch<Part>(`/parts/${id}/image`,{method:"DELETE"});
+export const removePartImage = (id: string) =>
+  apiFetch<Part>(`/parts/${id}/image`, { method: "DELETE" });
