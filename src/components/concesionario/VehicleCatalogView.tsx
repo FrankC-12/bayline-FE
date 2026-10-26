@@ -23,6 +23,7 @@ import { LOCATION_OPTIONS } from "@/lib/vehicle-catalog-dealership";
 export default function VehicleCatalogView() {
   const { currentUser } = useAuth();
   const { canEdit } = useModuleAccess("concesionario");
+  const { canEdit: canManageCatalog } = useModuleAccess("administracion");
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
@@ -105,6 +106,8 @@ export default function VehicleCatalogView() {
         </div>
         <button
           onClick={() => setAddOpen(true)}
+          disabled={!canManageCatalog}
+          title={canManageCatalog ? "Agregar vehículo" : "Administración registra las unidades y sus precios"}
           className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
         >
           <Plus className="h-4 w-4" />

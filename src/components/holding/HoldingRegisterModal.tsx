@@ -27,7 +27,7 @@ const choices: Record<string, string[]> = {
   inventario: ["stock_transfer", "stock_transfer_action", "vehicle_delivery"],
   actividad: ["risk_policy"],
   comercial: ["target", "opportunity"],
-  tesoreria: ["cash_count", "funds_transfer", "tax", "tax_payment"],
+  tesoreria: ["funds_transfer", "tax", "tax_payment"],
   contabilidad: ["journal", "tax"],
 };
 const inputClass =

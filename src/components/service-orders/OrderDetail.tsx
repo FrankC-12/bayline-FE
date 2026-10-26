@@ -199,7 +199,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
   const hasPendingWork =
     pendingTaskNames.length > 0 || pendingTransferCodes.length > 0;
   const canForceComplete =
-    !readOnly &&
+    canReopen && !readOnly &&
     (order.status === "pendiente" || order.status === "en_progreso") &&
     hasPendingWork;
   const pendingWorkMessage = [

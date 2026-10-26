@@ -8,6 +8,7 @@ import type {
 } from "@/types/parts";
 
 export interface CreatePartInput {
+  list_price?: number;
   filial_id: string;
   code: string;
   manufacturer_part_number?: string | null;
@@ -23,6 +24,7 @@ export interface CreatePartInput {
 }
 
 export interface UpdatePartInput {
+  list_price?: number;
   code?: string;
   manufacturer_part_number?: string | null;
   name?: string;

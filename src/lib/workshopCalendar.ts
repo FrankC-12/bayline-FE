@@ -22,6 +22,14 @@ export const WORKSHOP_STAGES: Record<string, { label: string; style: string }> =
       label: "En progreso",
       style: "border-blue bg-blue-light text-blue",
     },
+    por_facturar: {
+      label: "Pendiente de facturar",
+      style: "border-emerald-400 bg-emerald-50 text-emerald-800",
+    },
+    por_entregar: {
+      label: "Pendiente de entrega",
+      style: "border-emerald-400 bg-emerald-50 text-emerald-800",
+    },
     por_cobrar: {
       label: "Por cobrar",
       style: "border-emerald-400 bg-emerald-50 text-emerald-800",
@@ -45,7 +53,7 @@ export function orderStage(order: ServiceOrder) {
       : {
           pendiente: "en_revision",
           en_progreso: "en_trabajo",
-          completado: "por_cobrar",
+          completado: order.invoiced_at ? "por_cobrar" : "por_facturar",
           orden_cerrada: "cerrada",
           cancelado: "cancelada",
         }[order.status])
@@ -57,8 +65,10 @@ export function calendarBlocks(
   today: string,
 ) {
   return orders.flatMap((order) => {
+    if (!order.scheduled_at && !order.vehicle_received_at) return [];
     const stamp =
       order.scheduled_at ||
+      order.vehicle_received_at ||
       order.cancelled_at ||
       order.closed_at ||
       order.submitted_at ||

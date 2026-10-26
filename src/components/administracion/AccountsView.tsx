@@ -8,6 +8,8 @@ import { Plus, X, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccounts } from "@/hooks/useAccounts";
 import { formatMoney } from "@/lib/format";
+import CashCountModal from "./CashCountModal";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import ErrorState from "@/components/common/ErrorState";
 
 const TYPE_LABELS: Record<string, string> = { corriente: "Corriente", ahorro: "Ahorro", caja: "Caja" };
@@ -16,6 +18,8 @@ export default function AccountsView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
   const { accounts, loading, error, addAccount, editAccount, refresh } = useAccounts(filialId);
+  const [cashCountOpen, setCashCountOpen] = useState(false);
+  const {canEdit} = useModuleAccess("administracion");
   const [createOpen, setCreateOpen] = useState(false);
 
   return (
@@ -30,7 +34,9 @@ export default function AccountsView() {
           Nueva Cuenta
         </button>
       </div>
-      <p className="mb-6 text-sm text-steel">Cuentas bancarias y de efectivo del negocio</p>
+      <p className="mb-4 text-sm text-steel">Cuentas bancarias y de efectivo del negocio</p>
+      {canEdit && <button type="button" onClick={() => setCashCountOpen(true)} className="mb-6 rounded-full border border-blue/25 bg-white px-5 py-2.5 text-sm font-semibold text-blue">Arqueo de caja</button>}
+      {filialId && <CashCountModal open={cashCountOpen} onClose={() => setCashCountOpen(false)} filialId={filialId} accounts={accounts} />}
 
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (

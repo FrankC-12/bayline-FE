@@ -15,6 +15,7 @@ import { classifyListError, type ListErrorInfo } from "@/lib/api/listError";
 import ErrorState from "@/components/common/ErrorState";
 import { localToday, renderCell } from "@/lib/holdingControlFormat";
 import HoldingRegisterModal from "./HoldingRegisterModal";
+import { WORKSHOP_STAGES } from "@/lib/workshopCalendar";
 
 export const SECTIONS: Record<Section, { title: string; description: string }> =
   {
@@ -49,18 +50,66 @@ export const SECTIONS: Record<Section, { title: string; description: string }> =
     },
   };
 const phases = [
-  { key: "recepcion", label: "Recepción" },
-  { key: "taller", label: "En taller" },
-  { key: "repuestos", label: "Repuestos" },
-  { key: "control_calidad", label: "Control de calidad" },
-  { key: "entrega", label: "Entrega" },
-];
-export default function HoldingControlView({ section }: { section: Section }) {
+  "agendada",
+  "en_revision",
+  "esperando_repuestos",
+  "en_trabajo",
+  "por_facturar",
+  "por_cobrar",
+  "por_entregar",
+].map((key) => ({ key, label: WORKSHOP_STAGES[key].label }));
+export default function HoldingControlView({
+  section,
+  summary = false,
+}: {
+  section: Section;
+  summary?: boolean;
+}) {
   const { currentUser } = useAuth();
   const holdingId = currentUser?.holdingId;
-  const [from, setFrom] = useState(localToday);
+  const [from, setFrom] = useState(() => `${localToday().slice(0, 7)}-01`);
   const [to, setTo] = useState(localToday);
   const [filial, setFilial] = useState("");
+  const [filtersReady, setFiltersReady] = useState(false);
+  useEffect(() => {
+    setFiltersReady(false);
+    const defaults = {
+      from: `${localToday().slice(0, 7)}-01`,
+      to: localToday(),
+      filial: "",
+    };
+    let saved = defaults;
+    try {
+      const value = JSON.parse(
+        sessionStorage.getItem(`holding-filters:${holdingId}`) ?? "null",
+      );
+      if (
+        value &&
+        /^\d{4}-\d{2}-\d{2}$/.test(value.from) &&
+        /^\d{4}-\d{2}-\d{2}$/.test(value.to) &&
+        value.from <= value.to &&
+        typeof value.filial === "string"
+      )
+        saved = value;
+    } catch {
+      /* An unavailable browser store must not prevent reports. */
+    }
+    setFrom(saved.from);
+    setTo(saved.to);
+    setFilial(saved.filial);
+    setFiltersReady(true);
+  }, [holdingId]);
+  useEffect(() => {
+    if (!filtersReady || !holdingId) return;
+    try {
+      sessionStorage.setItem(
+        `holding-filters:${holdingId}`,
+        JSON.stringify({ from, to, filial }),
+      );
+    } catch {
+      /* Optional persistence. */
+    }
+  }, [filtersReady, holdingId, from, to, filial]);
   const [search, setSearch] = useState("");
   const [state, setState] = useState<{
     scope: string;
@@ -82,7 +131,13 @@ export default function HoldingControlView({ section }: { section: Section }) {
     : [];
   const load = useCallback(
     async (background = false) => {
-      if (!holdingId || (background && busy.current)) return;
+      if (
+        !holdingId ||
+        !filtersReady ||
+        from > to ||
+        (background && busy.current)
+      )
+        return;
       const revision = ++sequence.current;
       busy.current = true;
       if (!background) setRefreshing(true);
@@ -110,7 +165,7 @@ export default function HoldingControlView({ section }: { section: Section }) {
         }
       }
     },
-    [holdingId, section, from, to, filial, scope],
+    [holdingId, section, from, to, filial, scope, filtersReady],
   );
   useEffect(() => {
     void load();
@@ -138,7 +193,13 @@ export default function HoldingControlView({ section }: { section: Section }) {
               .includes(search.toLowerCase()),
         ),
     );
-  const definition = SECTIONS[section];
+  const definition = summary
+    ? {
+        title: "Resumen de la red",
+        description:
+          "Ventas, costos y márgenes del mismo período y concesionarios que los módulos de control.",
+      }
+    : SECTIONS[section];
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">

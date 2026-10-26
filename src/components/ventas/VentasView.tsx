@@ -57,7 +57,7 @@ export default function VentasView() {
 
   const filteredPartSales = useMemo(() => {
     return partSales.filter((s) => {
-      if (!inRange(s.created_at)) return false;
+      if (!inRange(s.completed_at ?? s.created_at)) return false;
       if (search) {
         const term = search.toLowerCase();
         const repuestos = s.lines.map((l) => partName(l.part_id)).join(", ").toLowerCase();
@@ -165,7 +165,7 @@ export default function VentasView() {
                   const paid = s.status !== "cancelado" && s.pending_amount <= 0;
                   return (
                     <tr key={s.id} className="transition hover:bg-ash/60">
-                      <td className="px-6 py-4 text-steel">{new Date(s.created_at).toLocaleDateString("es-VE")}</td>
+                      <td className="px-6 py-4 text-steel">{new Date(s.completed_at ?? s.created_at).toLocaleDateString("es-VE")}</td>
                       <td className="px-6 py-4 font-semibold text-navy">{s.client_name}</td>
                       <td className="px-6 py-4 text-navy">{s.lines.map((l) => partName(l.part_id)).join(", ")}</td>
                       <td className="px-6 py-4 font-semibold text-navy">${formatMoney(s.total_with_taxes)}</td>

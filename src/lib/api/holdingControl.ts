@@ -11,7 +11,7 @@ export type Row = Record<string, unknown>;
 export interface Column {
   key: string;
   label: string;
-  format: "money" | "number" | "date" | "datetime" | "text" | "status";
+  format: "money" | "number" | "percent" | "date" | "datetime" | "text" | "status";
 }
 export interface ControlReport {
   section: Section;

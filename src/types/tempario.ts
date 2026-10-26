@@ -15,6 +15,8 @@ export interface CompatibleVehicle {
 }
 
 export interface TemparioPart {
+  unit_price?: number | null;
+  line_total?: number | null;
   id: string;
   part_id: string | null;
   name: string;

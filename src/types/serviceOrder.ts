@@ -9,6 +9,8 @@ export type ServiceOrderStatus =
   | "cancelado";
 
 export interface ServiceOrder {
+  vehicle_received_at?: string | null;
+  vehicle_received_by_user_id?: string | null;
   is_draft?: boolean;
   draft_revision?: number;
   estimated_hours?: number;

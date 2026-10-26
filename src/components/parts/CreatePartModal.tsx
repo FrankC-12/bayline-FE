@@ -31,6 +31,7 @@ interface PartForm {
   yearTo: string;
   unit: string;
   minStock: string;
+  listPrice: string;
 }
 
 function emptyForm(initialName = ""): PartForm {
@@ -45,6 +46,7 @@ function emptyForm(initialName = ""): PartForm {
     yearTo: "",
     unit: "",
     minStock: "10",
+    listPrice: "",
   };
 }
 
@@ -108,6 +110,8 @@ export default function CreatePartModal({
         yearTo: editingPart.year_to != null ? String(editingPart.year_to) : "",
         unit: editingPart.unit,
         minStock: String(editingPart.min_stock),
+        listPrice:
+          editingPart.list_price != null ? String(editingPart.list_price) : "",
       });
     } else {
       setEditingIsActive(true);
@@ -141,6 +145,14 @@ export default function CreatePartModal({
       return;
     }
 
+    if (
+      !form.listPrice.trim() ||
+      !Number.isFinite(Number(form.listPrice.replace(",", "."))) ||
+      Number(form.listPrice.replace(",", ".")) < 0
+    ) {
+      setError("Indica un PVP de lista válido.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -152,6 +164,10 @@ export default function CreatePartModal({
           category_id: form.categoryId,
           unit: form.unit.trim(),
           min_stock: Number(form.minStock) || 0,
+          list_price:
+            form.listPrice !== ""
+              ? Number(form.listPrice.replace(",", "."))
+              : undefined,
           manufacturer_part_number:
             form.manufacturerPartNumber.trim() || undefined,
           vehicle_brand_id: form.vehicleBrandId || undefined,
@@ -176,7 +192,8 @@ export default function CreatePartModal({
           year_from: form.yearFrom ? Number(form.yearFrom) : null,
           year_to: form.yearTo ? Number(form.yearTo) : null,
           unit: form.unit.trim(),
-          min_stock: Number(form.minStock) || 10,
+          min_stock: Number(form.minStock) || 0,
+          list_price: Number(form.listPrice.replace(",", ".")),
         };
         saved = await onCreate(payload);
       }
@@ -284,6 +301,24 @@ export default function CreatePartModal({
           />
         </div>
 
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-navy">
+            PVP de lista (USD, sin IVA)
+          </label>
+          <NumberInput
+            required
+            inputMode="decimal"
+            min={0}
+            value={form.listPrice}
+            onValueChange={(value) => updateField("listPrice", value)}
+            className={inputClass}
+            placeholder="12,70"
+          />
+          <p className="mt-1 text-xs text-steel">
+            Precio por código. El costo de los lotes se usa para calcular el
+            margen.
+          </p>
+        </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-navy">
             Categoría

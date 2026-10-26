@@ -2,12 +2,28 @@ import { apiFetch } from "./client";
 import type { Filial } from "@/types/filial";
 
 export interface CreateFilialInput {
+  legal_name?: string;
+  rif?: string;
+  fiscal_address?: string;
+  business_type?: "concesionario" | "taller" | "mixto";
+  represented_brands?: string;
+  special_taxpayer?: boolean;
+  invoice_series?: string;
+
   holding_id: string;
   name: string;
   slug: string;
 }
 
 export interface UpdateFilialInput {
+  legal_name?: string;
+  rif?: string;
+  fiscal_address?: string;
+  business_type?: "concesionario" | "taller" | "mixto";
+  represented_brands?: string;
+  special_taxpayer?: boolean;
+  invoice_series?: string;
+
   name?: string;
   slug?: string;
 }

@@ -39,6 +39,8 @@ export default function UpsellsView() {
     let live = true;
     Promise.all(
       upsells.map(async (u) => {
+        if (u.status === "aprobado" || u.status === "rechazado")
+          return [u.id, u.approved_amount ?? u.amount] as const;
         try {
           const q = await quoteUpsell(u.id);
           return [u.id, q.has_work && q.total > 0 ? q.total : null] as const;

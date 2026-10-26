@@ -11,5 +11,10 @@ test("holding money keeps currencies separate and uses Venezuelan separators", (
 test("holding stock lifecycle is displayed in Spanish", () => {
   assert.equal(renderCell("requested", "status"), "Solicitada");
   assert.equal(renderCell("received", "status"), "Recibida");
-  assert.equal(renderCell("control_calidad", "status"), "Control de calidad");
+  assert.equal(renderCell("control_calidad", "status"), "Pendiente de facturar");
+});
+
+test("negative margins retain their sign and show two decimal places without rescaling", () => {
+  assert.equal(renderCell(-513.031, "percent"), "-513,03 %");
+  assert.equal(renderCell(0, "percent"), "0,00 %");
 });

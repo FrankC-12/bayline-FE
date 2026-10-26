@@ -85,7 +85,7 @@ export default function CalendarView() {
   );
   const unscheduled = orders.filter(
     (o) =>
-      (o.is_draft && !o.scheduled_at) ||
+      (!o.scheduled_at && !o.vehicle_received_at && !["orden_cerrada", "cancelado"].includes(o.status)) ||
       (o.scheduled_at && calendarDate(o.scheduled_at) === day && !o.bay_id),
   );
   const label = (id: string | null) => {

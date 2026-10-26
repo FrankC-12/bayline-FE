@@ -253,7 +253,7 @@ export default function TemparioListView() {
                             Cantidad
                           </th>
                           <th scope="col" className="px-3 py-3 text-right">
-                            Precio unitario
+                            PVP
                           </th>
                           <th scope="col" className="py-3 pl-3 text-right">
                             Total
@@ -268,10 +268,10 @@ export default function TemparioListView() {
                               {formatCount(p.quantity)}
                             </td>
                             <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
-                              ${formatMoney(p.unit_cost)}
+                              ${formatMoney(p.unit_price ?? p.unit_cost)}
                             </td>
                             <td className="whitespace-nowrap py-3 pl-3 text-right font-semibold tabular-nums">
-                              ${formatMoney(p.subtotal)}
+                              ${formatMoney(p.line_total ?? p.subtotal)}
                             </td>
                           </tr>
                         ))}

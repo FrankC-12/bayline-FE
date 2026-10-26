@@ -137,7 +137,7 @@ export default function ComprasProveedoresView() {
                       <td className="px-6 py-4 text-steel">{new Date(r.created_at).toLocaleDateString("es-VE")}</td>
                       <td className="px-6 py-4">
                         <span className={`rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${REQUEST_STATUS_STYLES[r.status]}`}>
-                          {r.paid_at ? "Pagada" : r.invoice_number ? "Conciliada" : REQUEST_STATUS_LABELS[r.status]}
+                          {r.paid_at ? "Pagada" : r.invoice_number ? "Conciliada" : r.status === "conciliada" ? "Recibida · falta factura" : REQUEST_STATUS_LABELS[r.status]}
                         </span>
                       </td>
                       <td className="px-6 py-4 font-semibold text-navy">

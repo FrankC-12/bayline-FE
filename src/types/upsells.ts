@@ -34,6 +34,7 @@ export interface Upsell {
   tasks: UpsellTask[];
   parts: UpsellPart[];
   amount: number;
+  approved_amount?: number | null;
   approved_by_user_id: string | null;
   approval_channel: UpsellApprovalChannel | null;
   applied_to_service_order_id: string | null;

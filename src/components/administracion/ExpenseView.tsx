@@ -305,6 +305,9 @@ function CreateExpenseModal({
       setError("Escribe el nombre de la contraparte.");
       return;
     }
+    if (category === "compras_proveedores" && selectedPurchaseRequestIds.length === 0) {
+      setError("Selecciona la cuenta por pagar que cancela el egreso para evitar pagos duplicados."); return;
+    }
     if (attachmentRequired && !attachment) {
       setError(`Los movimientos de $${formatMoney(threshold)} o más requieren un soporte adjunto.`);
       return;

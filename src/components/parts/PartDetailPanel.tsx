@@ -242,7 +242,7 @@ export default function PartDetailPanel({
 
           <div className="grid grid-cols-2 gap-4">
             <Field
-              label="Precio de referencia"
+              label="PVP de lista"
               value={
                 part.reference_price === null
                   ? "Sin costo registrado"
@@ -260,9 +260,9 @@ export default function PartDetailPanel({
           </div>
 
           <p className="text-xs text-steel">
-            El stock, el precio de referencia y la ubicación en almacén se
-            calculan automáticamente desde los lotes de almacén y no se editan
-            aquí.
+            {part.list_price == null && <span className="mb-2 block font-semibold text-amber-800">PVP pendiente de configurar.</span>}
+            El PVP de lista se configura al editar el repuesto. El stock, el costo
+            y la ubicación provienen de los lotes; el despacho conserva el precio cotizado.
           </p>
         </div>
       )}
