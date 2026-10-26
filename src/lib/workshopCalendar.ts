@@ -19,7 +19,7 @@ export const WORKSHOP_STAGES: Record<string, { label: string; style: string }> =
       style: "border-orange-400 bg-orange-50 text-orange-800",
     },
     en_trabajo: {
-      label: "En trabajo",
+      label: "En progreso",
       style: "border-blue bg-blue-light text-blue",
     },
     por_cobrar: {

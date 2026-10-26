@@ -40,7 +40,7 @@ import type { WarrantyClaimType } from "@/types/warrantyClaim";
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: "Pendiente",
-  en_progreso: "En trabajo",
+  en_progreso: "En progreso",
   completado: "Completado",
   orden_cerrada: "Orden cerrada",
   cancelado: "Cancelado",
