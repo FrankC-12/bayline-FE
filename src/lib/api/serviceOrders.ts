@@ -56,13 +56,13 @@ export interface UpdateServiceOrderInput {
 
 export async function listServiceOrders(
   filialId: string,
-  view: "active" | "history" | "all" = "active",
+  view: "active" | "drafts" | "history" | "all" = "active",
   date?: string,
 ): Promise<ServiceOrder[]> {
   const query = new URLSearchParams({
     filial_id: filialId,
     view,
-    include_drafts: "true",
+    include_drafts: view === "all" ? "true" : "false",
   });
   if (date) query.set("date", date);
   return apiFetch<ServiceOrder[]>(`/service-orders?${query.toString()}`);
@@ -309,7 +309,7 @@ export async function listServiceOrderPage(
   page: number,
   pageSize: number,
   filters: {
-    view: "active" | "history" | "all";
+    view: "active" | "drafts" | "history" | "all";
     search?: string;
     status?: string;
     date_from?: string;

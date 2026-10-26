@@ -362,7 +362,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
     }
   }
 
-  if (order.is_draft)
+  if (order.is_draft && order.status !== "cancelado")
     return (
       <DraftOrderEditor
         key={order.id}
@@ -643,7 +643,7 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
                     disabled={saving}
                     className="rounded-full border border-navy/15 px-5 py-2 text-sm font-semibold text-navy transition hover:border-blue hover:text-blue disabled:opacity-60"
                   >
-                    Reabrir orden
+                    {order.is_draft ? "Recuperar borrador" : "Reabrir orden"}
                   </button>
                 )}
               </div>

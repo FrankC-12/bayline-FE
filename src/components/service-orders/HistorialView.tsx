@@ -7,7 +7,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePagedList } from "@/hooks/usePagedList";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import Pagination from "@/components/common/Pagination";
-import { listServiceOrderPage, type ServiceOrderPageItem } from "@/lib/api/serviceOrders";
+import {
+  listServiceOrderPage,
+  type ServiceOrderPageItem,
+} from "@/lib/api/serviceOrders";
+import OrderTabs from "./OrderTabs";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 
@@ -34,19 +38,47 @@ export default function HistorialView() {
   const [to, setTo] = useState("");
 
   const settledSearch = useDebouncedValue(search.trim());
-  const scope = JSON.stringify([currentUser?.userId, filialId, settledSearch, tab, from, to]);
-  const list = usePagedList<ServiceOrderPageItem>((page, size) => filialId
-    ? listServiceOrderPage(filialId, page, size, {view: "history", search: settledSearch,
-      status: tab === "todos" ? undefined : tab, date_from: from, date_to: to})
-    : Promise.resolve({items: [], total: 0, page: 1, page_size: size, total_pages: 1}), scope, 15000);
-  const {items: filtered, loading, error, refresh} = list;
+  const scope = JSON.stringify([
+    currentUser?.userId,
+    filialId,
+    settledSearch,
+    tab,
+    from,
+    to,
+  ]);
+  const list = usePagedList<ServiceOrderPageItem>(
+    (page, size) =>
+      filialId
+        ? listServiceOrderPage(filialId, page, size, {
+            view: "history",
+            search: settledSearch,
+            status: tab === "todos" ? undefined : tab,
+            date_from: from,
+            date_to: to,
+          })
+        : Promise.resolve({
+            items: [],
+            total: 0,
+            page: 1,
+            page_size: size,
+            total_pages: 1,
+          }),
+    scope,
+    15000,
+  );
+  const { items: filtered, loading, error, refresh } = list;
   const isFiltered = !!(search || tab !== "todos" || from || to);
 
   return (
     <div>
-      <h1 className="font-display text-3xl font-bold text-navy">Historial de Órdenes de Servicio</h1>
+      <h1 className="font-display text-3xl font-bold text-navy">
+        Historial de Órdenes de Servicio
+      </h1>
       <p className="mt-1 text-sm text-steel">Órdenes cerradas o canceladas</p>
 
+      <div className="mt-6">
+        <OrderTabs />
+      </div>
       <div className="relative mt-6">
         <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
         <input
@@ -68,7 +100,11 @@ export default function HistorialView() {
                 tab === t ? "bg-navy text-white" : "text-steel hover:text-navy"
               }`}
             >
-              {t === "todos" ? "Todos" : t === "orden_cerrada" ? "Orden Cerrada" : "Cancelado"}
+              {t === "todos"
+                ? "Todos"
+                : t === "orden_cerrada"
+                  ? "Orden Cerrada"
+                  : "Cancelado"}
             </button>
           ))}
         </div>
@@ -94,13 +130,19 @@ export default function HistorialView() {
 
       <div className="mt-6 overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (
-          <div className="p-12 text-center text-sm text-steel">Cargando historial...</div>
+          <div className="p-12 text-center text-sm text-steel">
+            Cargando historial...
+          </div>
         ) : error ? (
           <ErrorState error={error} onRetry={refresh} compact />
         ) : filtered.length === 0 ? (
           <EmptyState
             compact
-            title={isFiltered ? "Sin resultados para este filtro." : "No hay órdenes en el historial."}
+            title={
+              isFiltered
+                ? "Sin resultados para este filtro."
+                : "No hay órdenes en el historial."
+            }
           />
         ) : (
           <table className="w-full text-left text-sm">
@@ -135,19 +177,25 @@ export default function HistorialView() {
                     className="cursor-pointer transition hover:bg-ash/60"
                   >
                     <td className="px-6 py-4">
-                      <span className="font-mono font-semibold text-blue">{o.code}</span>
+                      <span className="font-mono font-semibold text-blue">
+                        {o.code}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-steel">
-                      {new Date(o.created_at).toLocaleDateString("es-VE", {timeZone: "America/Caracas"})}
+                      {new Date(o.created_at).toLocaleDateString("es-VE", {
+                        timeZone: "America/Caracas",
+                      })}
                     </td>
                     <td className="px-6 py-4">
-                      <p className="font-medium text-navy">
-                        {o.vehicle_label}
+                      <p className="font-medium text-navy">{o.vehicle_label}</p>
+                      <p className="font-mono text-xs text-steel">
+                        {o.vehicle_plate}
                       </p>
-                      <p className="font-mono text-xs text-steel">{o.vehicle_plate}</p>
                     </td>
                     <td className="px-6 py-4 text-steel">{o.client_name}</td>
-                    <td className="px-6 py-4 text-steel">{o.technician_name ?? "—"}</td>
+                    <td className="px-6 py-4 text-steel">
+                      {o.technician_name ?? "—"}
+                    </td>
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${STATUS_STYLES[o.status]}`}

@@ -140,7 +140,7 @@ export default function DraftOrderEditor({
     try {
       await chain.current.catch(() => undefined);
       await discardOrderDraft(order.id);
-      router.replace("/dashboard/servicios");
+      router.replace("/dashboard/servicios/borradores");
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo descartar.");
       setBusy(false);
@@ -151,7 +151,10 @@ export default function DraftOrderEditor({
     summary?.tasks.filter((t) => t.status !== "cancelada").length ?? 0;
   return (
     <div className="space-y-4">
-      <Link href="/dashboard/servicios" className="text-sm text-steel">
+      <Link
+        href="/dashboard/servicios/borradores"
+        className="text-sm text-steel"
+      >
         ‹ Órdenes de servicio
       </Link>
       <section className="rounded-2xl border border-navy/10 bg-white p-5 sm:p-6">
