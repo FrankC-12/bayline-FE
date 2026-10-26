@@ -370,7 +370,7 @@ export default function TransfersCard({
                             Cant.
                           </th>
                           <th className="pb-1.5 text-right font-mono text-[10px] uppercase tracking-widest">
-                            Precio u.
+                            PVP
                           </th>
                           <th className="pb-1.5 text-right font-mono text-[10px] uppercase tracking-widest">
                             Total

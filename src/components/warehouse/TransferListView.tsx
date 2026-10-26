@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, ArrowRight } from "lucide-react";
 import { useWarehouseScope } from "@/contexts/WarehouseContext";
@@ -104,7 +104,7 @@ export default function TransfersListView() {
   const [tab, setTab] = useState<"despachos" | "transferencias" | "mostrador">(
     "despachos",
   );
-  const [stage, setStage] = useState<Stage>("pendiente");
+  const [stage, setStage] = useState<Stage | "activos">("activos");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -112,22 +112,22 @@ export default function TransfersListView() {
   const [configuring, setConfiguring] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [followedId, setFollowedId] = useState<string | null>(null);
   const [flowNotice, setFlowNotice] = useState<string | null>(null);
   const [checkedLines, setCheckedLines] = useState<string[]>([]);
   useEffect(() => {
-    setCheckedLines([]);
-  }, [selectedId]);
-  useEffect(() => {
     setSelectedId(null);
+    setFollowedId(null);
     setFlowNotice(null);
-  }, [activeWarehouseId]);
+  }, [activeWarehouseId, filialId]);
+  const viewScope = useRef("");
+  viewScope.current = `${filialId}:${activeWarehouseId}`;
   async function advance(id: string, operation: "start" | "complete") {
-    setSelectedId(id);
+    const scopeAtStart = viewScope.current;
     setFlowNotice(null);
     const updated = await (operation === "start" ? start(id) : complete(id));
-    if (!updated) return;
-    setStage(updated.stage);
-    setTab("despachos");
+    if (!updated || viewScope.current !== scopeAtStart) return;
+    setFollowedId(id);
     setFlowNotice(
       `${updated.code}: ${operation === "start" ? "preparación iniciada. Verifica cada repuesto antes de despachar." : "despacho completado. Esperando el retiro del técnico con foto."}`,
     );
@@ -169,17 +169,19 @@ export default function TransfersListView() {
     [requests, activeWarehouseId],
   );
   const selected = requests.find((request) => request.id === selectedId);
-  const selectedStage = selected?.stage;
+  const selectedLinesVersion = selected?.lines
+    .map((line) => `${line.id}:${line.quantity}`)
+    .join("|");
   useEffect(() => {
-    if (selectedStage) setStage(selectedStage);
-  }, [selectedStage]);
+    setCheckedLines([]);
+  }, [selectedId, selectedLinesVersion]);
+
   function closeDetails() {
     const id = selectedId;
     setSelectedId(null);
     if (id)
       requestAnimationFrame(() => {
         const row = document.getElementById(`dispatch-${id}`);
-        row?.scrollIntoView({ block: "center", behavior: "smooth" });
         row
           ?.querySelector<HTMLButtonElement>("button")
           ?.focus({ preventScroll: true });
@@ -239,7 +241,10 @@ export default function TransfersListView() {
   const term = search.trim().toLowerCase();
   const visible = scoped.filter(
     (request) =>
-      request.stage === stage &&
+      (request.id === followedId ||
+        (stage === "activos"
+          ? request.stage !== "completado"
+          : request.stage === stage)) &&
       `${request.code} ${request.service_order_code} ${request.vehicle_label} ${request.advisor_name ?? ""} ${request.lines.map((line) => `${line.part_code} ${line.part_name}`).join(" ")}`
         .toLowerCase()
         .includes(term),
@@ -384,24 +389,38 @@ export default function TransfersListView() {
           </div>
         ))}
       </div>
-      {flowNotice && (
+      {flowNotice && !selected && (
         <div
           role="status"
           aria-live="polite"
-          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"
+          className="fixed bottom-5 right-5 z-40 flex max-w-lg flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 shadow-lg"
         >
-          <span>{flowNotice}</span>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedId(null);
-              setStage("pendiente");
-              setFlowNotice(null);
-            }}
-            className="font-semibold underline"
-          >
-            Volver a pendientes
-          </button>
+          <div>
+            <span>{flowNotice}</span>
+            <p className="mt-1 text-xs">
+              La solicitud se mantiene visible aunque cambie de etapa. Tú
+              decides cuándo cambiar de filtro.
+            </p>
+          </div>
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => setSelectedId(followedId)}
+              className="font-semibold underline"
+            >
+              Ver solicitud
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFollowedId(null);
+                setFlowNotice(null);
+              }}
+              className="font-semibold underline"
+            >
+              Entendido
+            </button>
+          </div>
         </div>
       )}
       {localError && (
@@ -450,11 +469,30 @@ export default function TransfersListView() {
           </div>
           {tab === "despachos" && (
             <div className="flex flex-wrap rounded-full bg-ash p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setStage("activos");
+                  setFollowedId(null);
+                  setFlowNotice(null);
+                }}
+                className={`rounded-full px-3 py-2 text-xs font-semibold ${stage === "activos" ? "bg-white text-navy shadow-sm" : "text-steel"}`}
+              >
+                Activos ·{" "}
+                {formatCount(
+                  scoped.filter((request) => request.stage !== "completado")
+                    .length,
+                )}
+              </button>
               {STAGES.map((value) => (
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setStage(value)}
+                  onClick={() => {
+                    setStage(value);
+                    setFollowedId(null);
+                    setFlowNotice(null);
+                  }}
                   className={`rounded-full px-3 py-2 text-xs font-semibold ${stage === value ? "bg-white text-navy shadow-sm" : "text-steel"}`}
                 >
                   {LABELS[value]} · {formatCount(counts[value])}
@@ -483,13 +521,20 @@ export default function TransfersListView() {
             )}
             {!loading && !error && visible.length === 0 && (
               <p className="p-10 text-center text-sm text-steel">
-                No hay despachos {LABELS[stage].toLowerCase()} en este almacén.
-                Las solicitudes aparecen al enviarlas desde una ODS.
+                No hay despachos{" "}
+                {stage === "activos" ? "en curso" : LABELS[stage].toLowerCase()}{" "}
+                en este almacén. Las solicitudes aparecen al enviarlas desde una
+                ODS.
               </p>
             )}
             {visible.length > 0 && (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[880px] text-left text-sm">
+                <table className="w-full min-w-[1100px] table-fixed text-left text-sm">
+                  <colgroup>
+                    {[16, 14, 18, 20, 14, 18].map((width, index) => (
+                      <col key={index} style={{ width: `${width}%` }} />
+                    ))}
+                  </colgroup>
                   <thead className="bg-ash/50 font-mono text-[10px] uppercase tracking-widest text-steel">
                     <tr>
                       {[
@@ -522,7 +567,7 @@ export default function TransfersListView() {
                         <tr
                           key={request.id}
                           id={`dispatch-${request.id}`}
-                          className="border-t border-navy/10 hover:bg-ash/30"
+                          className={`border-t border-navy/10 transition-colors ${request.id === followedId ? "bg-blue-light/30" : "hover:bg-ash/30"}`}
                         >
                           <td className="px-5 py-5">
                             <p className="font-mono text-[10px] tracking-widest text-steel">
@@ -550,6 +595,11 @@ export default function TransfersListView() {
                               </p>
                               <p className="mt-1 text-xs text-steel">
                                 {request.code}
+                              </p>
+                              <p className="mt-2 min-h-4 text-xs font-semibold text-blue">
+                                {request.id === followedId
+                                  ? `Actualizada · ${LABELS[request.stage]}`
+                                  : " "}
                               </p>
                             </button>
                           </td>
@@ -607,16 +657,18 @@ export default function TransfersListView() {
                                 onClick={() =>
                                   void advance(request.id, "start")
                                 }
-                                className="whitespace-nowrap rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                                className="w-44 whitespace-nowrap rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white"
                               >
-                                Iniciar preparación
+                                {pendingId === request.id
+                                  ? "Guardando…"
+                                  : "Iniciar preparación"}
                               </button>
                             ) : canEdit && request.stage === "en_progreso" ? (
                               <button
                                 type="button"
                                 disabled={!!pendingId}
                                 onClick={() => setSelectedId(request.id)}
-                                className="whitespace-nowrap rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                                className="w-44 whitespace-nowrap rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white"
                               >
                                 Completar despacho
                               </button>
@@ -624,7 +676,7 @@ export default function TransfersListView() {
                               <button
                                 type="button"
                                 onClick={() => setSelectedId(request.id)}
-                                className="whitespace-nowrap rounded-full border border-navy/15 px-4 py-2 text-xs font-semibold"
+                                className="w-44 whitespace-nowrap rounded-full border border-navy/15 px-4 py-2 text-xs font-semibold"
                               >
                                 Ver detalle
                               </button>
@@ -783,16 +835,47 @@ export default function TransfersListView() {
           closeDisabled={!!pendingId}
           onClose={closeDetails}
           size="lg"
+          stableHeight
+          footer={
+            <div className="flex min-h-12 items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={!!pendingId}
+                onClick={closeDetails}
+                className="rounded-full border border-navy/15 px-5 py-3 text-sm font-semibold"
+              >
+                Cerrar detalle
+              </button>
+              {canEdit && selected.stage === "pendiente" && (
+                <button
+                  disabled={!!pendingId}
+                  onClick={() => void advance(selected.id, "start")}
+                  className="rounded-full bg-blue px-5 py-3 text-sm font-semibold text-white"
+                >
+                  Iniciar preparación
+                </button>
+              )}
+              {canEdit && selected.stage === "en_progreso" && (
+                <button
+                  disabled={
+                    !!pendingId ||
+                    selected.lines.some(
+                      (line) =>
+                        line.transfer_quantity > 0 ||
+                        line.shortfall_quantity > 0 ||
+                        !checkedLines.includes(line.id),
+                    )
+                  }
+                  onClick={() => void advance(selected.id, "complete")}
+                  className="rounded-full bg-blue px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {pendingId ? "Despachando…" : "Confirmar despacho verificado"}
+                </button>
+              )}
+            </div>
+          }
         >
           <div className="p-5 sm:p-6">
-            {flowNotice && (
-              <p
-                role="status"
-                className="mb-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900"
-              >
-                {flowNotice}
-              </p>
-            )}
             <ol
               aria-label="Etapas del despacho"
               className="my-5 grid grid-cols-2 gap-2 sm:grid-cols-4"
@@ -808,16 +891,21 @@ export default function TransfersListView() {
                 </li>
               ))}
             </ol>
-            <p className="rounded-xl bg-slate-50 p-3 text-xs text-steel">
-              {selected.closed_at
-                ? "Solicitud cerrada con la entrega del vehículo. Este cierre administrativo no confirma un despacho físico; consulta las evidencias registradas."
-                : selected.stage === "pendiente"
-                  ? "Siguiente paso: inicia la preparación para reservar tu lugar en el flujo."
-                  : selected.stage === "en_progreso"
-                    ? "Verifica las cantidades y marca cada repuesto preparado. Después confirma el despacho."
-                    : selected.stage === "por_retirar"
-                      ? "El despacho ya está listo. El técnico confirma el retiro con evidencia desde la app."
-                      : "Retiro registrado. El proceso del almacén ha finalizado."}
+            <p
+              role="status"
+              className="min-h-16 rounded-xl bg-slate-50 p-3 text-xs text-steel"
+            >
+              {flowNotice && followedId === selected.id
+                ? flowNotice
+                : selected.closed_at
+                  ? "Solicitud cerrada con la entrega del vehículo. Este cierre administrativo no confirma un despacho físico; consulta las evidencias registradas."
+                  : selected.stage === "pendiente"
+                    ? "Siguiente paso: inicia la preparación para reservar tu lugar en el flujo."
+                    : selected.stage === "en_progreso"
+                      ? "Verifica las cantidades y marca cada repuesto preparado. Después confirma el despacho."
+                      : selected.stage === "por_retirar"
+                        ? "El despacho ya está listo. El técnico confirma el retiro con evidencia desde la app."
+                        : "Retiro registrado. El proceso del almacén ha finalizado."}
             </p>
             <dl className="my-4 grid grid-cols-2 gap-3 text-xs">
               {[
@@ -847,11 +935,23 @@ export default function TransfersListView() {
                   <p className="text-sm font-semibold">
                     {formatCount(line.quantity)} × {line.part_name}
                   </p>
-                  {selected.stage === "en_progreso" && !selected.closed_at && (
+                  {
                     <label className="mt-2 inline-flex items-center gap-2 text-sm">
                       <input
                         type="checkbox"
-                        checked={checkedLines.includes(line.id)}
+                        disabled={
+                          !!pendingId ||
+                          !canEdit ||
+                          !!selected.closed_at ||
+                          selected.stage !== "en_progreso"
+                        }
+                        checked={
+                          checkedLines.includes(line.id) ||
+                          (!selected.closed_at &&
+                            ["por_retirar", "completado"].includes(
+                              selected.stage,
+                            ))
+                        }
                         onChange={(event) =>
                           setCheckedLines((previous) =>
                             event.target.checked
@@ -862,7 +962,7 @@ export default function TransfersListView() {
                       />
                       Cantidad y repuesto verificados
                     </label>
-                  )}
+                  }
                   <p className="mt-1 text-xs text-steel">
                     {line.part_code} ·{" "}
                     {line.warehouses
@@ -909,34 +1009,6 @@ export default function TransfersListView() {
                 {actionError.message}
               </p>
             )}
-            <div className="mt-4 flex justify-end gap-2">
-              {canEdit && selected.stage === "pendiente" && (
-                <button
-                  disabled={!!pendingId}
-                  onClick={() => void advance(selected.id, "start")}
-                  className="rounded-full bg-blue px-5 py-3 text-sm font-semibold text-white"
-                >
-                  Iniciar preparación
-                </button>
-              )}
-              {canEdit && selected.stage === "en_progreso" && (
-                <button
-                  disabled={
-                    !!pendingId ||
-                    selected.lines.some(
-                      (line) =>
-                        line.transfer_quantity > 0 ||
-                        line.shortfall_quantity > 0 ||
-                        !checkedLines.includes(line.id),
-                    )
-                  }
-                  onClick={() => void advance(selected.id, "complete")}
-                  className="rounded-full bg-blue px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  {pendingId ? "Despachando…" : "Confirmar despacho verificado"}
-                </button>
-              )}
-            </div>
           </div>
         </Modal>
       )}

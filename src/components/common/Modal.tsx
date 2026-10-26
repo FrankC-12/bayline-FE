@@ -5,6 +5,7 @@ const modalStack: HTMLElement[] = [];
 let initialOverflow = "";
 const WIDTHS = { md: "max-w-xl", lg: "max-w-3xl", xl: "max-w-4xl" };
 interface ModalProps {
+  stableHeight?: boolean;
   placement?: "center" | "right";
   size?: keyof typeof WIDTHS;
   open: boolean;
@@ -19,6 +20,7 @@ interface ModalProps {
 /** Shared dialog with fixed header/actions and scrollable content. */
 export default function Modal({
   placement = "center",
+  stableHeight = false,
   open,
   onClose,
   title,
@@ -104,7 +106,7 @@ export default function Modal({
       const index = modalStack.indexOf(currentPanel);
       if (index >= 0) modalStack.splice(index, 1);
       if (!modalStack.length) document.body.style.overflow = initialOverflow;
-      if (wasTop && previousFocus?.isConnected) previousFocus.focus();
+      if (wasTop && previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
   }, [open]);
   if (!open) return null;
@@ -127,7 +129,7 @@ export default function Modal({
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
-        className={`flex w-full ${WIDTHS[size]} flex-col overflow-hidden border border-navy/10 bg-white shadow-2xl outline-none ${placement === "right" ? "h-dvh" : "max-h-[92dvh] rounded-2xl"}`}
+        className={`flex w-full ${WIDTHS[size]} flex-col overflow-hidden border border-navy/10 bg-white shadow-2xl outline-none ${placement === "right" ? "h-dvh" : `${stableHeight ? "h-[92dvh]" : ""} max-h-[92dvh] rounded-2xl`}`}
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-navy/10 px-5 py-5 sm:px-7">
           <div className="min-w-0">
@@ -153,7 +155,9 @@ export default function Modal({
             <X aria-hidden="true" className="h-5 w-5" />
           </button>
         </header>
-        <div className="min-h-0 overflow-y-auto overscroll-contain">
+        <div
+          className={`min-h-0 overflow-y-auto overscroll-contain ${stableHeight ? "flex-1" : ""}`}
+        >
           {children}
         </div>
         {footer && (

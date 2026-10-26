@@ -33,12 +33,17 @@ export default function LoginForm() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail || !password) {
-      setError("Completa tu correo y contraseña.");
+      setError("Completa tu usuario o correo y contraseña.");
       return;
     }
 
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
-      setError("Ingresa un correo electrónico válido (ej: nombre@empresa.com).");
+    if (
+      normalizedEmail !== "motrixadmin" &&
+      !EMAIL_REGEX.test(normalizedEmail)
+    ) {
+      setError(
+        "Ingresa un correo electrónico válido (ej: nombre@empresa.com).",
+      );
       return;
     }
 
@@ -56,7 +61,9 @@ export default function LoginForm() {
           setError(err.message);
         }
       } else {
-        setError("No pudimos iniciar sesión. Verifica tu conexión e intenta de nuevo.");
+        setError(
+          "No pudimos iniciar sesión. Verifica tu conexión e intenta de nuevo.",
+        );
       }
     } finally {
       setLoading(false);
@@ -77,37 +84,48 @@ export default function LoginForm() {
         <span className="font-mono text-xs uppercase tracking-[0.2em] text-blue">
           Acceso a la plataforma
         </span>
-        <h2 className="mt-3 font-display text-3xl font-bold text-navy">Iniciar sesión</h2>
+        <h2 className="mt-3 font-display text-3xl font-bold text-navy">
+          Iniciar sesión
+        </h2>
         <p className="mt-2 text-sm text-steel">
           Ingresa con tu cuenta para ver los módulos de tu holding.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           <div>
-            <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-navy">
-              Correo electrónico
+            <label
+              htmlFor="email"
+              className="mb-1.5 block text-sm font-medium text-navy"
+            >
+              Usuario o correo electrónico
             </label>
             <input
               id="email"
-              type="email"
-              autoComplete="email"
+              type="text"
+              autoComplete="username"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
               required
               value={email}
               onChange={(e) => setEmail(e.target.value.toLowerCase())}
-              placeholder="nombre@empresa.com"
+              placeholder="Usuario o nombre@empresa.com"
               className="w-full rounded-xl border border-navy/15 bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-blue focus:ring-2 focus:ring-blue/20"
             />
           </div>
 
           <div>
             <div className="mb-1.5 flex items-center justify-between">
-              <label htmlFor="password" className="block text-sm font-medium text-navy">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-navy"
+              >
                 Contraseña
               </label>
-              <Link href="/recuperar-password" className="text-xs font-medium text-blue hover:text-navy">
+              <Link
+                href="/recuperar-password"
+                className="text-xs font-medium text-blue hover:text-navy"
+              >
                 ¿Olvidaste tu contraseña?
               </Link>
             </div>
@@ -126,9 +144,15 @@ export default function LoginForm() {
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-steel hover:text-navy"
-                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                aria-label={
+                  showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                }
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>
@@ -144,7 +168,9 @@ export default function LoginForm() {
           </label>
 
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+              {error}
+            </p>
           )}
 
           <button

@@ -12,7 +12,12 @@ import {
 import { useAutoRefresh } from "./useAutoRefresh";
 import { classifyListError, type ListErrorInfo } from "@/lib/api/listError";
 
-type LoadScope = { active: boolean; revision: number; foreground: boolean; loaded: boolean };
+type LoadScope = {
+  active: boolean;
+  revision: number;
+  foreground: boolean;
+  loaded: boolean;
+};
 type ListState<T> = {
   scope: LoadScope;
   data: T[];
@@ -27,6 +32,7 @@ export function useListLoader<T>(
   fetcher: () => Promise<T[]>,
   deps: DependencyList,
   refreshIntervalMs = 0,
+  reconcile?: (previous: T[], incoming: T[]) => T[],
 ) {
   // The caller defines which values identify the list, as with useCallback.
   const scope = useMemo<LoadScope>(
@@ -60,7 +66,14 @@ export function useListLoader<T>(
         const data = await fetchList();
         if (scope.active && scope.revision === revision) {
           scope.loaded = true;
-        setState({ scope, data, loading: false, error: null });
+          setState((previous) => ({
+            scope,
+            data: reconcile
+              ? reconcile(previous.scope === scope ? previous.data : [], data)
+              : data,
+            loading: false,
+            error: null,
+          }));
         }
       } catch (err) {
         if (scope.active && scope.revision === revision && !background) {
@@ -75,7 +88,7 @@ export function useListLoader<T>(
         if (scope.revision === revision) scope.foreground = false;
       }
     },
-    [scope, fetchList],
+    [scope, fetchList, reconcile],
   );
 
   useEffect(() => {

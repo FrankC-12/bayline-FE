@@ -334,7 +334,7 @@ export default function DraftOrderEditor({
                       <tr>
                         <th className="py-2 pr-2">Repuesto</th>
                         <th className="py-2 px-2 text-right">Cant.</th>
-                        <th className="py-2 px-2 text-right">Precio u.</th>
+                        <th className="py-2 px-2 text-right">PVP</th>
                         <th className="py-2 pl-2 text-right">Total</th>
                       </tr>
                     </thead>

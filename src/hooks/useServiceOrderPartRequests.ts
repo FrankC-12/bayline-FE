@@ -7,6 +7,7 @@ import {
   listServiceOrderRequests,
 } from "@/lib/api/warehouse";
 import { classifyListError, type ListErrorInfo } from "@/lib/api/listError";
+import { reconcileDispatchQueue } from "@/lib/dispatchQueue";
 import { useListLoader } from "./useListLoader";
 import type { ServiceOrderPartRequest } from "@/types/warehouse";
 export function useServiceOrderPartRequests(filialId: string | null) {
@@ -20,6 +21,7 @@ export function useServiceOrderPartRequests(filialId: string | null) {
     () => (filialId ? listServiceOrderRequests(filialId) : Promise.resolve([])),
     [filialId],
     filialId ? 15000 : 0,
+    reconcileDispatchQueue,
   );
   const scope = useRef(filialId);
   scope.current = filialId;
@@ -62,7 +64,7 @@ export function useServiceOrderPartRequests(filialId: string | null) {
         committed = true;
         const fresh = await listServiceOrderRequests(filialId);
         if (scope.current !== filialId) return null;
-        setData(fresh);
+        setData((previous) => reconcileDispatchQueue(previous, fresh));
         return fresh.find((request) => request.id === id) ?? null;
       } catch (err) {
         if (scope.current === filialId)

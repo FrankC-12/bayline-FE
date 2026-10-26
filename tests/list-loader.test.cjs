@@ -133,6 +133,10 @@ function harness(summaryApi, warehouseApi) {
         if (name === "./useListLoader") return mod.exports;
         if (name === "@/lib/api/listError")
           return { classifyListError: (error) => ({ message: error.message }) };
+        if (name === "@/lib/dispatchQueue")
+          return require("./helpers/load-ts.cjs").loadTS(
+            "src/lib/dispatchQueue.ts",
+          );
         if (name === "@/lib/api/warehouse") return warehouseApi;
         throw new Error(name);
       },
@@ -421,5 +425,52 @@ test("late warehouse action cannot replace another filial's requests", async () 
   gate.resolve();
   assert.equal(await mutation, null);
   assert.equal(h.render("B").requests[0].id, "B");
+  h.unmount();
+});
+
+test("warehouse refresh preserves queue position and publishes server-confirmed stages", async () => {
+  let rows = [
+    { id: "a", stage: "pendiente" },
+    { id: "b", stage: "pendiente" },
+  ];
+  const h = harness(null, {
+    listServiceOrderRequests: async () => rows,
+    startServiceOrderRequest: async () => {
+      rows = [
+        { id: "b", stage: "pendiente" },
+        { id: "a", stage: "en_progreso" },
+      ];
+    },
+  });
+  h.render("A");
+  await flush();
+  await h.render("A").start("a");
+  assert.deepEqual(
+    h.render("A").requests.map((x) => [x.id, x.stage]),
+    [
+      ["a", "en_progreso"],
+      ["b", "pendiente"],
+    ],
+  );
+  rows = [
+    { id: "c", stage: "pendiente" },
+    { id: "b", stage: "por_retirar" },
+    { id: "a", stage: "completado" },
+  ];
+  await h.quiet();
+  assert.deepEqual(
+    h.render("A").requests.map((x) => x.id),
+    ["a", "b", "c"],
+  );
+  assert.equal(h.render("A").requests[0].stage, "completado");
+  rows = [
+    { id: "c", stage: "pendiente" },
+    { id: "b", stage: "por_retirar" },
+  ];
+  await h.quiet();
+  assert.deepEqual(
+    h.render("A").requests.map((x) => x.id),
+    ["b", "c"],
+  );
   h.unmount();
 });
