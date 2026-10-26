@@ -3,17 +3,17 @@
 import { formatMoney, formatCount } from "@/lib/format";
 import { NumberInput } from "@/components/ui/NumberInput";
 
-import { useEffect, useState } from "react";
-import { Package, Search, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Package, Search } from "lucide-react";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useParts } from "@/hooks/useParts";
 import { useToast } from "@/contexts/ToastContext";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
+import TransferLineRow from "./TransferLineRow";
 import RequestPartsModal from "./RequestPartsModal";
 import type {
   ServiceOrderTransfer,
   ServiceOrderPayer,
-  TransferLine,
 } from "@/types/serviceOrder";
 import type { Part } from "@/types/parts";
 
@@ -30,98 +30,6 @@ interface TransfersCardProps {
   onRemoveLine: (lineId: string) => Promise<void>;
   onDeleteTransfer: (transferId: string) => Promise<void>;
   onMarkOrdered: (transferId: string) => Promise<void>;
-}
-
-function TransferLineRow({
-  line,
-  part,
-  canEdit,
-  onChangeQuantity,
-  onRemoveLine,
-}: {
-  line: TransferLine;
-  part: Part | undefined;
-  canEdit: boolean;
-  onChangeQuantity: (lineId: string, quantity: number) => Promise<void>;
-  onRemoveLine: (lineId: string) => Promise<void>;
-}) {
-  const [quantity, setQuantity] = useState(String(line.quantity));
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    setQuantity(String(line.quantity));
-  }, [line.quantity]);
-
-  async function commit() {
-    const next = Math.trunc(Number(quantity));
-    if (!Number.isFinite(next) || next < 1 || next === line.quantity) {
-      setQuantity(String(line.quantity));
-      return;
-    }
-    setBusy(true);
-    try {
-      await onChangeQuantity(line.id, next);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function remove() {
-    setBusy(true);
-    try {
-      await onRemoveLine(line.id);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <tr>
-      <td className="min-w-32 break-words py-2 pr-3 text-navy">
-        {part?.name ?? "Repuesto"}
-        <span className="mt-1 block font-mono text-xs text-blue">
-          {part?.code}
-        </span>
-      </td>
-      <td className="py-1.5 text-navy">
-        {canEdit ? (
-          <NumberInput
-            aria-label={`Cantidad de ${part?.name ?? "repuesto"}`}
-            min={1}
-            value={quantity}
-            disabled={busy}
-            onValueChange={(value) => setQuantity(value)}
-            onBlur={commit}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            }}
-            className="w-16 rounded-lg border border-navy/15 px-2 py-1 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 disabled:opacity-60"
-          />
-        ) : (
-          formatCount(line.quantity)
-        )}
-      </td>
-      <td className="whitespace-nowrap py-2 pl-3 text-right text-navy">
-        {line.unit_price == null ? "—" : `$${formatMoney(line.unit_price, 2)}`}
-      </td>
-      <td className="whitespace-nowrap py-2 pl-3 text-right font-medium text-navy">
-        {line.subtotal == null ? "—" : `$${formatMoney(line.subtotal, 2)}`}
-      </td>
-      {canEdit && (
-        <td className="py-1.5 pl-2 text-right">
-          <button
-            type="button"
-            onClick={remove}
-            disabled={busy}
-            aria-label={`Quitar ${part?.name ?? "repuesto"}`}
-            className="rounded-lg p-1.5 text-red-500 transition hover:bg-red-50 disabled:opacity-50"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </td>
-      )}
-    </tr>
-  );
 }
 
 export default function TransfersCard({
@@ -357,10 +265,17 @@ export default function TransfersCard({
                   </p>
                 ) : (
                   <div className="max-w-full overflow-x-auto">
-                    <table className="w-full min-w-[400px] text-left text-xs">
+                    <table className="w-full min-w-[440px] table-fixed text-left text-xs">
                       <caption className="sr-only">
                         {transfer.code} · Repuestos, cantidades y precios
                       </caption>
+                      <colgroup>
+                        <col style={{ width: "40%" }} />
+                        <col style={{ width: "15%" }} />
+                        <col style={{ width: "20%" }} />
+                        <col style={{ width: canEditLines ? "18%" : "25%" }} />
+                        {canEditLines && <col style={{ width: "7%" }} />}
+                      </colgroup>
                       <thead>
                         <tr className="text-steel">
                           <th className="pb-1.5 font-mono text-[10px] uppercase tracking-widest">

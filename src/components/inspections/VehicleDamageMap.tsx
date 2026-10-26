@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Camera, Plus, Trash2, X } from "lucide-react";
+import Modal from "@/components/common/Modal";
+import { evidenceUrl } from "@/lib/evidence";
+import EvidenceGallery from "./EvidenceGallery";
 import CreatableSelect from "@/components/concesionario/CreatableSelect";
 
 export interface DamagePoint {
@@ -72,83 +75,18 @@ function labelize(value: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** A simple schematic top-down car outline — not brand/pixel-accurate, just
- * enough visual context to place a point. Zone/kind/severity are chosen
- * explicitly from the dropdowns below, not derived from which shape was
- * tapped, so the diagram itself doesn't need labeled regions. */
+/** Use the mobile diagram’s full canvas for the shared normalized damage coordinates. */
 function CarOutline() {
   return (
-    <svg
-      viewBox="0 0 100 200"
-      className="h-full w-full"
-      role="img"
-      aria-label="Vista superior del vehículo para localizar daños exteriores"
-    >
-      <defs>
-        <linearGradient id="inspection-body" x1="0" x2="1">
-          <stop stopColor="#cbd5e1" />
-          <stop offset=".5" stopColor="#f8fafc" />
-          <stop offset="1" stopColor="#cbd5e1" />
-        </linearGradient>
-      </defs>
-      <rect x="13" y="43" width="9" height="26" rx="3" fill="#334155" />
-      <rect x="78" y="43" width="9" height="26" rx="3" fill="#334155" />
-      <rect x="13" y="135" width="9" height="26" rx="3" fill="#334155" />
-      <rect x="78" y="135" width="9" height="26" rx="3" fill="#334155" />
-      <path
-        d="M34 14 Q18 16 18 39 L18 164 Q18 184 35 186 H65 Q82 184 82 164 V39 Q82 16 66 14 Z"
-        fill="url(#inspection-body)"
-        stroke="#64748b"
-        strokeWidth="1.5"
-      />
-      <path
-        d="M28 43 Q50 36 72 43 L68 65 H32 Z"
-        fill="#c7d9ef"
-        stroke="#64748b"
-      />
-      <path
-        d="M32 124 H68 L72 148 Q50 154 28 148 Z"
-        fill="#c7d9ef"
-        stroke="#64748b"
-      />
-      <rect
-        x="32"
-        y="68"
-        width="36"
-        height="53"
-        rx="7"
-        fill="#e2e8f0"
-        stroke="#94a3b8"
-      />
-      <path
-        d="M22 70 L29 68 V121 L22 133 Z M78 70 L71 68 V121 L78 133 Z"
-        fill="#bdd2ea"
-        stroke="#64748b"
-      />
-      <path
-        d="M24 94 H29 M71 94 H76 M28 28 Q50 22 72 28 M27 167 Q50 175 73 167"
-        fill="none"
-        stroke="#94a3b8"
-      />
-      <path
-        d="M20 40 L30 36 M70 36 L80 40"
-        stroke="#fbbf24"
-        strokeWidth="4"
-        strokeLinecap="round"
-      />
-      <path
-        d="M20 172 L29 178 M71 178 L80 172"
-        stroke="#f87171"
-        strokeWidth="4"
-        strokeLinecap="round"
-      />
-      <path
-        d="M19 69 L11 73 M81 69 L89 73"
-        stroke="#64748b"
-        strokeWidth="4"
-        strokeLinecap="round"
-      />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/images/damage_map.svg"
+      width={326}
+      height={448}
+      draggable={false}
+      alt="Vista superior del vehículo; frente arriba y parte trasera abajo"
+      className="pointer-events-none h-full w-full select-none"
+    />
   );
 }
 
@@ -345,27 +283,55 @@ export default function VehicleDamageMap({
         )}
       </div>
 
-      <div className="mt-2 grid gap-4 sm:grid-cols-[180px_1fr]">
-        <div
-          onClick={handleContainerClick}
-          className={`relative mx-auto aspect-[1/2] w-full max-w-[180px] rounded-xl border border-navy/10 bg-white ${
-            editable ? "cursor-crosshair" : ""
-          }`}
-        >
-          <CarOutline />
-          {damages.map((damage, index) => (
-            <button
-              key={damage.id ?? index}
-              type="button"
-              onClick={(event) => openForEdit(index, event)}
-              title={`${labelize(damage.zone)} · ${labelize(damage.kind)} (${labelize(damage.severity)})`}
-              style={{ left: `${damage.x * 100}%`, top: `${damage.y * 100}%` }}
-              className={`absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow ${dotStyle(damage.severity)}`}
-            />
-          ))}
-        </div>
+      <div className="mt-2 grid gap-4 sm:grid-cols-[280px_minmax(0,1fr)]">
+        <figure className="min-w-0">
+          <figcaption className="mb-2 text-center font-mono text-[10px] uppercase tracking-widest text-steel">
+            ↑ Frente del vehículo
+          </figcaption>
+          <div
+            onClick={handleContainerClick}
+            className={`relative mx-auto aspect-[326/448] w-full max-w-[280px] overflow-visible rounded-2xl border border-navy/10 bg-slate-50 ${
+              editable ? "cursor-crosshair" : ""
+            }`}
+          >
+            <CarOutline />
+            {damages.map((damage, index) => (
+              <button
+                key={damage.id ?? index}
+                type="button"
+                onClick={(event) => openForEdit(index, event)}
+                title={`${index + 1}. ${labelize(damage.zone)} · ${labelize(damage.kind)} (${labelize(damage.severity)})`}
+                aria-label={`Daño ${index + 1}: ${labelize(damage.zone)}, ${labelize(damage.kind)}, ${labelize(damage.severity)}`}
+                aria-pressed={!editable && activePopover === index}
+                style={{
+                  left: `${damage.x * 100}%`,
+                  top: `${damage.y * 100}%`,
+                }}
+                className={`absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 text-xs font-bold text-navy shadow-sm ring-2 ring-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue ${dotStyle(damage.severity)}`}
+              >
+                {index + 1}
+              </button>
+            ))}
+          </div>
 
-        <div className="space-y-2">
+          <p className="mt-2 text-center font-mono text-[10px] uppercase tracking-widest text-steel">
+            Parte trasera
+          </p>
+          <div
+            className="mt-3 flex flex-wrap justify-center gap-3 text-[11px] text-steel"
+            aria-label="Severidad de daños"
+          >
+            {["leve", "moderado", "grave"].map((value) => (
+              <span key={value} className="inline-flex items-center gap-1">
+                <span
+                  className={`h-2.5 w-2.5 rounded-full border ${dotStyle(value)}`}
+                />
+                {labelize(value)}
+              </span>
+            ))}
+          </div>
+        </figure>
+        <div className="min-w-0 space-y-2">
           {damages.length === 0 && (
             <p className="text-sm text-steel">
               {editable
@@ -379,18 +345,21 @@ export default function VehicleDamageMap({
                 key={damage.id ?? index}
                 type="button"
                 onClick={(event) => openForEdit(index, event)}
-                className="flex w-full items-start gap-2 rounded-xl border border-navy/10 px-3 py-2 text-left text-sm transition hover:bg-ash"
+                className={`flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left text-sm transition ${activePopover === index ? "border-blue bg-blue-light" : "border-navy/10 hover:bg-ash"}`}
               >
-                {damage.photo_url && (
+                {evidenceUrl(damage.photo_url ?? "") && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={damage.photo_url}
+                    src={evidenceUrl(damage.photo_url ?? "") ?? undefined}
                     alt=""
                     className="h-10 w-10 shrink-0 rounded-lg object-cover"
                   />
                 )}
-                <div>
-                  <div className="flex items-center gap-2">
+                <div className="min-w-0">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-steel">
+                    Daño {index + 1}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={`h-2.5 w-2.5 rounded-full border ${dotStyle(damage.severity)}`}
                     />
@@ -436,7 +405,7 @@ export default function VehicleDamageMap({
 
       {draftPoint && editable && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/40 p-4"
           onClick={() => setDraftPoint(null)}
         >
           <div
@@ -558,45 +527,32 @@ export default function VehicleDamageMap({
       )}
 
       {activePopover !== null && !editable && damages[activePopover] && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={() => setActivePopover(null)}
+        <Modal
+          open
+          title={`Daño ${activePopover + 1} · ${labelize(damages[activePopover].zone)}`}
+          size="md"
+          onClose={() => setActivePopover(null)}
         >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <p className="font-display text-sm font-bold text-navy">
-                {labelize(damages[activePopover].zone)}
-              </p>
-              <button
-                onClick={() => setActivePopover(null)}
-                aria-label="Cerrar"
-                className="rounded-lg p-1.5 text-steel hover:bg-ash"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+          <div className="space-y-3 p-5">
             <p className="text-sm text-steel">
               {labelize(damages[activePopover].kind)} ·{" "}
               {labelize(damages[activePopover].severity)}
             </p>
             {damages[activePopover].description && (
-              <p className="mt-2 text-sm text-navy">
+              <p className="whitespace-pre-wrap text-sm text-navy">
                 {damages[activePopover].description}
               </p>
             )}
-            {damages[activePopover].photo_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={damages[activePopover].photo_url ?? undefined}
-                alt="Foto del daño"
-                className="mt-3 w-full rounded-xl object-cover"
-              />
-            )}
+            <EvidenceGallery
+              files={
+                damages[activePopover].photo_url
+                  ? [{ url: damages[activePopover].photo_url! }]
+                  : []
+              }
+              title="Foto del daño"
+            />
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

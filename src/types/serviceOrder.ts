@@ -84,6 +84,8 @@ export interface ServiceOrderTask {
 }
 
 export interface TransferLine {
+  part_name?: string | null;
+  part_code?: string | null;
   id: string;
   part_id: string;
   quantity: number;

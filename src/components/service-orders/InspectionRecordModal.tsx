@@ -105,28 +105,6 @@ export default function InspectionRecordModal({
                 damages={preliminary.damages}
                 editable={false}
               />
-              {preliminary.damages.map((d, i) => (
-                <div
-                  key={d.id}
-                  className="mt-3 rounded-xl border border-navy/10 p-4 text-sm"
-                >
-                  <p className="font-semibold text-navy">
-                    {i + 1}. {d.zone.replaceAll("_", " ")} ·{" "}
-                    {d.kind.replaceAll("_", " ")} · {d.severity}
-                  </p>
-                  <p className="mt-2 whitespace-pre-wrap text-steel">
-                    {d.description || "Sin descripción adicional."}
-                  </p>
-                  {d.photo_url && (
-                    <div className="mt-3">
-                      <EvidenceGallery
-                        files={[{ url: d.photo_url }]}
-                        title="Foto del daño"
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
             </section>
             <section>
               <h3 className="mb-3 font-semibold text-navy">
@@ -141,15 +119,19 @@ export default function InspectionRecordModal({
                 </p>
               )}
             </section>
-            {preliminary.fluids &&
-              Object.keys(preliminary.fluids).length > 0 && (
-                <section>
-                  <h3 className="mb-3 font-semibold text-navy">
-                    Fluidos y niveles de recepción
-                  </h3>
-                  <InspectionFields data={preliminary.fluids} />
-                </section>
+            <section>
+              <h3 className="mb-3 font-semibold text-navy">
+                Fluidos y niveles de recepción
+              </h3>
+              {preliminary.fluids &&
+              Object.keys(preliminary.fluids).length > 0 ? (
+                <InspectionFields data={preliminary.fluids} />
+              ) : (
+                <p className="text-sm text-steel">
+                  Sin datos de fluidos registrados desde la app.
+                </p>
               )}
+            </section>
             {preliminary.mileage_correction_reason && (
               <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
                 Corrección de kilometraje:{" "}
@@ -159,6 +141,9 @@ export default function InspectionRecordModal({
             <EvidenceGallery
               files={[
                 ...(preliminary.photo_urls ?? []).map((url) => ({ url })),
+                ...preliminary.damages.flatMap((damage) =>
+                  damage.photo_url ? [{ url: damage.photo_url }] : [],
+                ),
                 ...inspectionPhotos(preliminary.fluids),
                 ...inspectionPhotos(preliminary.interior),
               ]}

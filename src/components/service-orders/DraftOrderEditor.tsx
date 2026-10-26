@@ -345,8 +345,18 @@ export default function DraftOrderEditor({
                           className="border-b border-navy/5 last:border-0"
                         >
                           <td className="py-3 pr-2 text-navy">
-                            {parts.find((p) => p.id === line.part_id)?.name ??
+                            {line.part_name ??
+                              parts.find((p) => p.id === line.part_id)?.name ??
                               "Repuesto"}
+                            {(line.part_code ??
+                              parts.find((p) => p.id === line.part_id)
+                                ?.code) && (
+                              <span className="mt-1 block font-mono text-xs text-blue">
+                                {line.part_code ??
+                                  parts.find((p) => p.id === line.part_id)
+                                    ?.code}
+                              </span>
+                            )}
                           </td>
                           <td className="px-2 py-3 text-right">
                             {line.quantity}

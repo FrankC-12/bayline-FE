@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  El carro del mapa de daños: visto desde arriba, con el frente hacia arriba
+  y los costados abiertos, para poder tocar puertas y guardafangos.
+
+  Mide 326 × 448. La posición de un daño es x, y de 0 a 1 sobre este cuadro,
+  y es lo que guarda el servidor (docs/PENDIENTE-BACKEND.md §2). No cambies
+  las proporciones ni muevas el carro dentro del cuadro: los puntos ya
+  guardados se correrían.
+
+  El carro ocupa de x 56 a 270 y de y 44 a 404: ahí caen los daños. Los
+  márgenes quedan para los rótulos, que los pone el app (DamageMap), y son
+  anchos para que un punto en el borde del carro no los tape.
+
+  Los colores son los del modo claro (lib/src/core/theme/app_colors.dart):
+  borderStrong en las líneas, surface en la carrocería, surfaceSunken en los
+  vidrios, surfaceAlt en faros y retrovisores, y textBody en las ruedas. En
+  el modo oscuro, CarDrawingColors (damage_map.dart) cambia cada uno por el
+  mismo rol del oscuro: un color nuevo tiene que ser uno de esos roles.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="326" height="448" viewBox="0 0 326 448" fill="none">
+  <g transform="translate(0, 14)">
+    <g fill="#3A3A3D">
+      <rect x="62" y="66" width="12" height="50" rx="4"/>
+      <rect x="62" y="300" width="12" height="50" rx="4"/>
+      <rect x="252" y="66" width="12" height="50" rx="4"/>
+      <rect x="252" y="300" width="12" height="50" rx="4"/>
+    </g>
+    <g fill="#F0F0EE" stroke="#8F8F8B" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M72 128L60 131Q56 132 56 136V141Q56 145 60 145L72 148Z"/>
+      <path d="M254 128L266 131Q270 132 270 136V141Q270 145 266 145L254 148Z"/>
+    </g>
+    <path d="M108 30H218Q254 30 254 66V358Q254 390 222 390H104Q72 390 72 358V66Q72 30 108 30Z" fill="#FFFFFF" stroke="#8F8F8B" stroke-width="1.75"/>
+    <path d="M118 120H208Q216 120 216 128V292Q216 300 208 300H118Q110 300 110 292V128Q110 120 118 120Z" fill="#ECECEB" stroke="#8F8F8B" stroke-width="1.5"/>
+    <rect x="120" y="156" width="86" height="112" rx="10" fill="#FFFFFF" stroke="#8F8F8B" stroke-width="1.5"/>
+    <g fill="none" stroke="#8F8F8B" stroke-width="1.5" stroke-linecap="round">
+      <path d="M76 46Q163 53 250 46"/>
+      <path d="M75 374Q163 367 251 374"/>
+      <path d="M110 49V120"/>
+      <path d="M216 49V120"/>
+      <path d="M110 300V372"/>
+      <path d="M216 300V372"/>
+      <path d="M112 123L120 156"/>
+      <path d="M214 123L206 156"/>
+      <path d="M120 268L112 297"/>
+      <path d="M206 268L214 297"/>
+      <path d="M72 132H110"/>
+      <path d="M72 212H120"/>
+      <path d="M72 290H110"/>
+      <path d="M216 132H254"/>
+      <path d="M206 212H254"/>
+      <path d="M216 290H254"/>
+    </g>
+    <g fill="#F0F0EE" stroke="#8F8F8B" stroke-width="1.25">
+      <rect x="80" y="51" width="26" height="9" rx="4.5"/>
+      <rect x="220" y="51" width="26" height="9" rx="4.5"/>
+      <rect x="80" y="361" width="26" height="9" rx="4.5"/>
+      <rect x="220" y="361" width="26" height="9" rx="4.5"/>
+    </g>
+    <g fill="#ECECEB" stroke="#8F8F8B" stroke-width="1">
+      <rect x="82" y="190" width="4" height="14" rx="2"/>
+      <rect x="82" y="268" width="4" height="14" rx="2"/>
+      <rect x="240" y="190" width="4" height="14" rx="2"/>
+      <rect x="240" y="268" width="4" height="14" rx="2"/>
+    </g>
+  </g>
+</svg>
