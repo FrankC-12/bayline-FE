@@ -4,8 +4,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ALLOWED_STATUS_TRANSITIONS } from "@/lib/vehicle-catalog-dealership";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, ImageIcon, Trash2 } from "lucide-react";
-import { availableStatusOptions, locationLabel, STATUS_STYLES, statusLabel } from "@/lib/vehicle-catalog-dealership";
-import { formatMoney , formatCount} from "@/lib/format";
+import {
+  availableStatusOptions,
+  STATUS_STYLES,
+  statusLabel,
+} from "@/lib/vehicle-catalog-dealership";
+import { formatMoney, formatCount } from "@/lib/format";
 import type { DealershipVehicle } from "@/types/concesionario";
 
 interface VehicleCardProps {
@@ -31,22 +35,40 @@ export default function VehicleCard({
   reservedClientName,
   reservedByName,
 }: VehicleCardProps) {
-  const {currentUser} = useAuth();
-  const reservationLocked = vehicle.status === "reservado" && vehicle.reserved_by_user_id !== currentUser?.userId && currentUser?.roleSlug !== "filial-admin";
+  const { currentUser } = useAuth();
+  const reservationLocked =
+    vehicle.status === "reservado" &&
+    vehicle.reserved_by_user_id !== currentUser?.userId &&
+    currentUser?.roleSlug !== "filial-admin";
   const [photoIndex, setPhotoIndex] = useState(0);
   const photoCount = vehicle.images.length;
 
   return (
-    <div onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={(event) => { if (onClick && (event.key === "Enter" || event.key === " ")) onClick(); }} className={`overflow-hidden rounded-2xl border border-navy/10 bg-white ${onClick ? "cursor-pointer transition hover:-translate-y-0.5 hover:border-blue/30 hover:shadow-md" : ""}`}>
+    <div
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (onClick && (event.key === "Enter" || event.key === " ")) onClick();
+      }}
+      className={`overflow-hidden rounded-2xl border border-navy/10 bg-white ${onClick ? "cursor-pointer transition hover:-translate-y-0.5 hover:border-blue/30 hover:shadow-md" : ""}`}
+    >
       {photoCount > 0 ? (
         <div className="relative h-40 w-full overflow-hidden border-b border-navy/10">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={vehicle.images[photoIndex % photoCount]} alt={`${vehicle.brand} ${vehicle.model}`} className="h-full w-full object-cover" />
+          <img
+            src={vehicle.images[photoIndex % photoCount]}
+            alt={`${vehicle.brand} ${vehicle.model}`}
+            className="h-full w-full object-cover"
+          />
           {photoCount > 1 && (
             <>
               <button
                 type="button"
-                onClick={(event) => { event.stopPropagation(); setPhotoIndex((i) => (i - 1 + photoCount) % photoCount); }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setPhotoIndex((i) => (i - 1 + photoCount) % photoCount);
+                }}
                 aria-label="Foto anterior"
                 className="absolute left-1.5 top-1/2 -translate-y-1/2 rounded-full bg-navy/50 p-1 text-white hover:bg-navy/70"
               >
@@ -54,7 +76,10 @@ export default function VehicleCard({
               </button>
               <button
                 type="button"
-                onClick={(event) => { event.stopPropagation(); setPhotoIndex((i) => (i + 1) % photoCount); }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setPhotoIndex((i) => (i + 1) % photoCount);
+                }}
                 aria-label="Foto siguiente"
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full bg-navy/50 p-1 text-white hover:bg-navy/70"
               >
@@ -76,11 +101,15 @@ export default function VehicleCard({
       <div className="p-5">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-display text-lg font-bold text-navy">
-            {vehicle.brand} {vehicle.model} <span className="font-normal text-steel">{vehicle.year}</span>
+            {vehicle.brand} {vehicle.model}{" "}
+            <span className="font-normal text-steel">{vehicle.year}</span>
           </h3>
           {editable && onDelete && (
             <button
-              onClick={(event) => { event.stopPropagation(); onDelete(); }}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete();
+              }}
               aria-label="Eliminar vehículo"
               className="shrink-0 rounded-lg border border-navy/15 p-1.5 text-red-500 transition hover:bg-red-50"
             >
@@ -118,69 +147,107 @@ export default function VehicleCard({
         {vehicle.status === "reservado" && (
           <div className="mt-3 rounded-xl border border-blue/20 bg-blue-light/40 px-3 py-2 text-xs text-navy">
             <p>
-              Reservado para <span className="font-semibold">{reservedClientName ?? "—"}</span> por{" "}
-              <span className="font-semibold">{reservedByName ?? "—"}</span>
+              Reservado para{" "}
+              <span className="font-semibold">{reservedClientName ?? "—"}</span>{" "}
+              por <span className="font-semibold">{reservedByName ?? "—"}</span>
             </p>
             <p className="mt-0.5 text-steel">
-              Abono ${formatMoney(Number(vehicle.deposit_amount ?? 0))} · vigente hasta{" "}
+              Abono ${formatMoney(Number(vehicle.deposit_amount ?? 0))} ·
+              vigente hasta{" "}
               {vehicle.reservation_expires_at
-                ? new Date(`${vehicle.reservation_expires_at}T12:00:00`).toLocaleDateString("es-VE")
+                ? new Date(
+                    `${vehicle.reservation_expires_at}T12:00:00`,
+                  ).toLocaleDateString("es-VE")
                 : "—"}
             </p>
           </div>
         )}
 
-        <p className="mt-3 text-sm text-steel">Kilometraje: {vehicle.mileage == null ? "No registrado" : `${formatCount(vehicle.mileage)} km`}</p>
+        <p className="mt-3 text-sm text-steel">
+          Kilometraje:{" "}
+          {vehicle.mileage == null
+            ? "No registrado"
+            : `${formatCount(vehicle.mileage)} km`}
+        </p>
         <div className="mt-4 grid grid-cols-2 gap-y-2 text-sm">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">VIN</p>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
+              VIN
+            </p>
             <p className="break-all font-medium text-navy">{vehicle.vin}</p>
           </div>
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">Placa</p>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
+              Placa
+            </p>
             <p className="font-medium text-navy">{vehicle.plate ?? "—"}</p>
           </div>
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">Color</p>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
+              Color
+            </p>
             <p className="font-medium text-navy">{vehicle.color ?? "—"}</p>
           </div>
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">Combustible</p>
-            <p className="font-medium text-navy capitalize">{vehicle.fuel_type ?? "—"}</p>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
+              Combustible
+            </p>
+            <p className="font-medium text-navy capitalize">
+              {vehicle.fuel_type ?? "—"}
+            </p>
           </div>
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">Transmisión</p>
-            <p className="font-medium capitalize text-navy">{vehicle.transmission ?? "—"}</p>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
+              Transmisión
+            </p>
+            <p className="font-medium capitalize text-navy">
+              {vehicle.transmission ?? "—"}
+            </p>
           </div>
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">SKU</p>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
+              SKU
+            </p>
             <p className="font-medium text-navy">{vehicle.sku}</p>
-          </div>
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">Ubicación</p>
-            <p className="font-medium text-navy">{locationLabel(vehicle.location)}</p>
           </div>
         </div>
 
         <div className="mt-4 flex items-center justify-between border-t border-navy/10 pt-3">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">Contado</p>
-            <p className="font-display font-bold text-navy">${formatMoney(vehicle.price_cash)}</p>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
+              Contado
+            </p>
+            <p className="font-display font-bold text-navy">
+              ${formatMoney(vehicle.price_cash)}
+            </p>
           </div>
           <div className="text-right">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">Financiado</p>
-            <p className="font-display font-bold text-navy">${formatMoney(vehicle.price_financed)}</p>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
+              Financiado
+            </p>
+            <p className="font-display font-bold text-navy">
+              ${formatMoney(vehicle.price_financed)}
+            </p>
           </div>
         </div>
-        {onSell && !reservationLocked && ALLOWED_STATUS_TRANSITIONS[vehicle.status].includes("vendido") && (
-          <button
-            onClick={(event) => { event.stopPropagation(); onSell(); }}
-            className="mt-3 w-full rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white transition hover:bg-navy"
-          >
-            Vender vehículo
-          </button>
+        {onSell &&
+          !reservationLocked &&
+          ALLOWED_STATUS_TRANSITIONS[vehicle.status].includes("vendido") && (
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                onSell();
+              }}
+              className="mt-3 w-full rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white transition hover:bg-navy"
+            >
+              Vender vehículo
+            </button>
+          )}
+        {onClick && (
+          <div className="mt-3 flex items-center justify-end gap-1 text-xs font-semibold text-blue">
+            Ver detalle <ChevronRight className="h-3.5 w-3.5" />
+          </div>
         )}
-        {onClick && <div className="mt-3 flex items-center justify-end gap-1 text-xs font-semibold text-blue">Ver detalle <ChevronRight className="h-3.5 w-3.5" /></div>}
       </div>
     </div>
   );

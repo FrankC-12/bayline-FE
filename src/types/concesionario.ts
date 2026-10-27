@@ -1,5 +1,6 @@
 export type VehicleCondition = "nuevo" | "usado";
-export type VehicleStatus = "en_transito" | "disponible" | "en_preparacion" | "reservado" | "vendido";
+export type VehicleStatus =
+  "en_transito" | "disponible" | "en_preparacion" | "reservado" | "vendido";
 export type VehicleLocation = "patio" | "showroom" | "sucursal";
 export type FuelType = "gasolina" | "diesel" | "hibrido" | "electrico";
 export type TransmissionType = "automatica" | "manual";
@@ -15,6 +16,12 @@ export interface DealershipVehicle {
   model: string;
   year: number;
   mileage: number | null;
+  engine_type?: string | null;
+  seats?: number | null;
+  upholstery?: string | null;
+  previous_owners?: number | null;
+  version?: string | null;
+  registration_documents?: Record<string, string>;
   color: string | null;
   fuel_type: FuelType | null;
   transmission: TransmissionType | null;
@@ -55,6 +62,8 @@ export interface VehicleSale {
   advisor_user_id: string | null;
   sale_type: SaleType;
   payment_method: "usd" | "bs" | "mixed" | null;
+  usd_payment_channel?: string | null;
+  bs_payment_channel?: string | null;
   usd_base: number | null;
   igtf_amount: number;
   bcv_rate: number | null;

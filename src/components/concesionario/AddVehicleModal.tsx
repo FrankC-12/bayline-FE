@@ -1,13 +1,24 @@
 "use client";
 
+import VehicleSpecificationsFields, {
+  emptySpecifications,
+} from "./VehicleSpecificationsFields";
+import { uploadVehicleDocument, updateVehicle } from "@/lib/api/concesionario";
 import { inventoryMileageError } from "@/lib/inventory-mileage";
 import { NumberInput } from "@/components/ui/NumberInput";
 
 import { useEffect, useMemo, useState } from "react";
 import { X, Loader2 } from "lucide-react";
-import { LOCATION_OPTIONS, STATUS_OPTIONS, VEHICLE_COLORS } from "@/lib/vehicle-catalog-dealership";
+import {
+  LOCATION_OPTIONS,
+  STATUS_OPTIONS,
+  VEHICLE_COLORS,
+} from "@/lib/vehicle-catalog-dealership";
 import { formatMoney, formatMoneyInput } from "@/lib/format";
-import { getLatestExchangeRates, type CreateVehicleInput } from "@/lib/api/concesionario";
+import {
+  getLatestExchangeRates,
+  type CreateVehicleInput,
+} from "@/lib/api/concesionario";
 import type { DealershipVehicle } from "@/types/concesionario";
 import CreatableSelect from "./CreatableSelect";
 import BrandModelSelect from "@/components/common/BrandModelSelect";
@@ -33,7 +44,12 @@ interface AddVehicleModalProps {
   onUploadPhotos: (vehicleId: string, photos: File[]) => Promise<unknown>;
 }
 
-function suggestSku(brand: string, model: string, year: number | "", color: string): string {
+function suggestSku(
+  brand: string,
+  model: string,
+  year: number | "",
+  color: string,
+): string {
   const b = brand.slice(0, 3).toUpperCase();
   const m = model.slice(0, 3).toUpperCase();
   const y = year === "" ? "" : String(year).slice(-2);
@@ -41,10 +57,19 @@ function suggestSku(brand: string, model: string, year: number | "", color: stri
   return [b, m, y, c].filter(Boolean).join("-");
 }
 
-export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onUploadPhotos }: AddVehicleModalProps) {
+export default function AddVehicleModal({
+  open,
+  onClose,
+  filialId,
+  onSubmit,
+  onUploadPhotos,
+}: AddVehicleModalProps) {
   const { canEdit } = useModuleAccess("concesionario");
   const toast = useToast();
   const { brands } = useVehicleCatalog(filialId);
+  const [specifications, setSpecifications] = useState(emptySpecifications);
+  const [documents, setDocuments] = useState<Record<string, File>>({});
+  const [createdId, setCreatedId] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [status, setStatus] = useState("en_transito");
   const [location, setLocation] = useState("patio");
@@ -80,7 +105,10 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
     try {
       const saved = localStorage.getItem("bayline.vehicleOptions");
       if (!saved) return;
-      const parsed = JSON.parse(saved) as { years?: number[]; colors?: string[] };
+      const parsed = JSON.parse(saved) as {
+        years?: number[];
+        colors?: string[];
+      };
       if (parsed.colors) setColors(parsed.colors);
     } catch {
       // Keep the built-in options if local preferences are unavailable.
@@ -88,13 +116,18 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
   }, []);
 
   function saveOptions(nextColors = colors) {
-    localStorage.setItem("bayline.vehicleOptions", JSON.stringify({colors: nextColors}));
+    localStorage.setItem(
+      "bayline.vehicleOptions",
+      JSON.stringify({ colors: nextColors }),
+    );
   }
 
   function addColor(value: string) {
     const normalized = value.trim();
     if (!normalized) return;
-    const existing = colors.find((item) => item.toLowerCase() === normalized.toLowerCase());
+    const existing = colors.find(
+      (item) => item.toLowerCase() === normalized.toLowerCase(),
+    );
     const selected = existing ?? normalized;
     const next = existing ? colors : [...colors, selected].sort();
     setColors(next);
@@ -102,7 +135,10 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
     saveOptions(next);
   }
 
-  const suggestedSku = useMemo(() => suggestSku(brand, model, year, color), [brand, model, year, color]);
+  const suggestedSku = useMemo(
+    () => suggestSku(brand, model, year, color),
+    [brand, model, year, color],
+  );
 
   useEffect(() => {
     if (!skuTouched) setSku(suggestedSku);
@@ -110,6 +146,9 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
 
   useEffect(() => {
     if (!open) return;
+    setSpecifications(emptySpecifications);
+    setDocuments({});
+    setCreatedId(null);
     setStatus("en_transito");
     setCondition("nuevo");
     setMileage("");
@@ -134,35 +173,62 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
     setLuxuryTaxPercentage("0");
     setError(null);
     setFieldErrors({});
-    void getLatestExchangeRates().then((rates) => {
-      const usd = rates.find((rate) => rate.currency === "USD");
-      if (usd) { setBcvRate(usd.rate_ves); setBcvDate(usd.value_date); }
-    }).catch(() => undefined);
+    void getLatestExchangeRates()
+      .then((rates) => {
+        const usd = rates.find((rate) => rate.currency === "USD");
+        if (usd) {
+          setBcvRate(usd.rate_ves);
+          setBcvDate(usd.value_date);
+        }
+      })
+      .catch(() => undefined);
     // Reset only when the modal opens; option changes must not reset the form.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const cash = Number(priceCash) || 0;
-  const ivaAmount = cash * (Number(ivaPercentage) || 0) / 100;
+  const ivaAmount = (cash * (Number(ivaPercentage) || 0)) / 100;
   // IGTF taxes the actual payment amount, which already includes IVA — not
   // just the pre-tax base. Mirrors DealershipVehicle.igtf_amount. Shown
   // here only as an estimate ("if paid fully in USD") — it's deliberately
   // NOT part of cashTotal, since the real IGTF is computed at sale time on
   // whatever portion actually lands in foreign currency (see SellVehicleModal).
-  const igtfEstimate = priceCurrency === "USD" ? (cash + ivaAmount) * (Number(igtfPercentage) || 0) / 100 : 0;
-  const luxuryAmount = cash * (Number(luxuryTaxPercentage) || 0) / 100;
+  const igtfEstimate =
+    priceCurrency === "USD"
+      ? ((cash + ivaAmount) * (Number(igtfPercentage) || 0)) / 100
+      : 0;
+  const luxuryAmount = (cash * (Number(luxuryTaxPercentage) || 0)) / 100;
   const cashTotal = cash + ivaAmount + luxuryAmount;
 
   async function handleSubmit() {
+    if (
+      condition === "usado" &&
+      (!specifications.previous_owners ||
+        ["titulo", "experticia", "certificado"].some(
+          (kind) => !documents[kind],
+        ))
+    ) {
+      setError(
+        "Indica los dueños anteriores y adjunta título, experticia y certificado del usado.",
+      );
+      return;
+    }
     const nextFieldErrors: FieldErrors = {};
     if (!brand) nextFieldErrors.brand = "Elige la marca";
     if (!model) nextFieldErrors.model = "Elige el modelo";
-    if (year === "" || !Number.isInteger(Number(year)) || Number(year) < 1980 || Number(year) > 2100) nextFieldErrors.year = "El año debe estar entre 1980 y 2100.";
+    if (
+      year === "" ||
+      !Number.isInteger(Number(year)) ||
+      Number(year) < 1980 ||
+      Number(year) > 2100
+    )
+      nextFieldErrors.year = "El año debe estar entre 1980 y 2100.";
     const mileageError = inventoryMileageError(condition, mileage);
     if (mileageError) nextFieldErrors.mileage = mileageError;
     if (!vin.trim()) nextFieldErrors.vin = "El VIN es obligatorio.";
     if (!sku.trim()) nextFieldErrors.sku = "El SKU es obligatorio.";
-    if (!(Number(costPrice) > 0)) nextFieldErrors.costPrice = "Indica el costo de adquisición.";
+    if (!(Number(costPrice) > 0))
+      nextFieldErrors.costPrice = "Indica el costo de adquisición.";
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
       toast.error("Completa los campos obligatorios resaltados.");
@@ -172,7 +238,15 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
     setSubmitting(true);
     setError(null);
     try {
-      const created = await onSubmit({
+      const saveVehicle = createdId
+        ? (input: CreateVehicleInput) => updateVehicle(createdId, input)
+        : onSubmit;
+      const created = await saveVehicle({
+        engine_type: specifications.engine_type || null,
+        seats: specifications.seats ? Number(specifications.seats) : null,
+        upholstery: specifications.upholstery || null,
+        previous_owners:
+          condition === "usado" ? Number(specifications.previous_owners) : null,
         filial_id: filialId,
         status,
         condition,
@@ -197,10 +271,15 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
         luxury_tax_percentage: Number(luxuryTaxPercentage) || 0,
         financing_provider: "troyano",
       });
+      setCreatedId(created.id);
+      for (const [kind, file] of Object.entries(documents))
+        await uploadVehicleDocument(created.id, kind, file);
       if (photos.length > 0) await onUploadPhotos(created.id, photos);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo agregar el vehículo.");
+      setError(
+        err instanceof Error ? err.message : "No se pudo agregar el vehículo.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -210,14 +289,28 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div onClick={onClose} className="absolute inset-0 bg-navy/40" />
+      <div
+        onClick={() => {
+          if (!submitting) onClose();
+        }}
+        className="absolute inset-0 bg-navy/40"
+      />
       <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-navy/10 px-6 py-4">
           <div>
-            <h2 className="font-display text-xl font-bold text-navy">Agregar Vehículo</h2>
-            <p className="text-xs text-steel">Los campos marcados con * son obligatorios</p>
+            <h2 className="font-display text-xl font-bold text-navy">
+              Agregar Vehículo
+            </h2>
+            <p className="text-xs text-steel">
+              Los campos marcados con * son obligatorios
+            </p>
           </div>
-          <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy">
+          <button
+            disabled={submitting}
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -225,13 +318,17 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
         <div className="space-y-5 p-6">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Estado *</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Estado *
+              </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               >
-                {STATUS_OPTIONS.filter((o) => o.value !== "reservado" && o.value !== "vendido").map((o) => (
+                {STATUS_OPTIONS.filter(
+                  (o) => o.value !== "reservado" && o.value !== "vendido",
+                ).map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
@@ -239,7 +336,9 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Tipo *</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Tipo *
+              </label>
               <select
                 value={condition}
                 onChange={(e) => setCondition(e.target.value)}
@@ -250,7 +349,9 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Ubicación *</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Ubicación *
+              </label>
               <select
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
@@ -284,14 +385,62 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="mb-1.5 block text-sm font-medium text-navy">Año *</label><NumberInput min="1980" max="2100" step="1" value={year} onValueChange={(value) => {setYear(value === "" ? "" : Number(value)); setFieldErrors((prev) => ({...prev, year: undefined}));}} placeholder="1980–2100" className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm" />{fieldErrors.year && <p className="mt-1 text-xs text-red-600">{fieldErrors.year}</p>}</div>
-            <CreatableSelect label="Color" canAdd={canEdit} value={color} options={["", ...colors]} onChange={setColor} onAdd={addColor} />
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Año *
+              </label>
+              <NumberInput
+                min="1980"
+                max="2100"
+                step="1"
+                value={year}
+                onValueChange={(value) => {
+                  setYear(value === "" ? "" : Number(value));
+                  setFieldErrors((prev) => ({ ...prev, year: undefined }));
+                }}
+                placeholder="1980–2100"
+                className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm"
+              />
+              {fieldErrors.year && (
+                <p className="mt-1 text-xs text-red-600">{fieldErrors.year}</p>
+              )}
+            </div>
+            <CreatableSelect
+              label="Color"
+              canAdd={canEdit}
+              value={color}
+              options={["", ...colors]}
+              onChange={setColor}
+              onAdd={addColor}
+            />
           </div>
 
-          <div><label className="mb-1.5 block text-sm font-medium text-navy">Kilometraje (km){condition === "usado" ? " *" : " (opcional)"}</label><NumberInput min="0" step="1" value={mileage} onValueChange={(value) => {setMileage(value); setFieldErrors((prev) => ({...prev, mileage: undefined}));}} placeholder="Ej.: 65000" className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm" />{fieldErrors.mileage && <p role="alert" className="mt-1 text-xs text-red-600">{fieldErrors.mileage}</p>}</div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Kilometraje (km){condition === "usado" ? " *" : " (opcional)"}
+            </label>
+            <NumberInput
+              min="0"
+              step="1"
+              value={mileage}
+              onValueChange={(value) => {
+                setMileage(value);
+                setFieldErrors((prev) => ({ ...prev, mileage: undefined }));
+              }}
+              placeholder="Ej.: 65000"
+              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm"
+            />
+            {fieldErrors.mileage && (
+              <p role="alert" className="mt-1 text-xs text-red-600">
+                {fieldErrors.mileage}
+              </p>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Combustible</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Combustible
+              </label>
               <select
                 value={fuelType}
                 onChange={(e) => setFuelType(e.target.value)}
@@ -304,7 +453,9 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Transmisión</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Transmisión
+              </label>
               <select
                 value={transmission}
                 onChange={(e) => setTransmission(e.target.value)}
@@ -318,7 +469,9 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">VIN * ({vin.length}/17)</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                VIN * ({vin.length}/17)
+              </label>
               <input
                 value={vin}
                 onChange={(e) => {
@@ -330,25 +483,42 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
                   fieldErrors.vin ? "border-red-400" : "border-navy/15"
                 }`}
               />
-              {fieldErrors.vin && <p className="mt-1 text-xs text-red-600">{fieldErrors.vin}</p>}
+              {fieldErrors.vin && (
+                <p className="mt-1 text-xs text-red-600">{fieldErrors.vin}</p>
+              )}
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Placa (opcional)</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Placa (opcional)
+              </label>
               <input
                 value={plate}
                 disabled={noPlate}
-                onChange={(e) => setPlate(e.target.value.slice(0, 10).toUpperCase())}
+                onChange={(e) =>
+                  setPlate(e.target.value.slice(0, 10).toUpperCase())
+                }
                 placeholder="AB123CD"
                 className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
               />
-              <p className="mt-1 text-xs text-steel">Ejemplo: AB123CD o ABC123.</p>
-              <label className="mt-2 flex items-center gap-2 text-xs text-steel"><input type="checkbox" checked={noPlate} onChange={(e) => setNoPlate(e.target.checked)} />Sin placa (unidad aún no registrada)</label>
+              <p className="mt-1 text-xs text-steel">
+                Ejemplo: AB123CD o ABC123.
+              </p>
+              <label className="mt-2 flex items-center gap-2 text-xs text-steel">
+                <input
+                  type="checkbox"
+                  checked={noPlate}
+                  onChange={(e) => setNoPlate(e.target.checked)}
+                />
+                Sin placa (unidad aún no registrada)
+              </label>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">SKU *</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                SKU *
+              </label>
               <input
                 value={sku}
                 onChange={(e) => {
@@ -360,13 +530,26 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
                   fieldErrors.sku ? "border-red-400" : "border-navy/15"
                 }`}
               />
-              {fieldErrors.sku && <p className="mt-1 text-xs text-red-600">{fieldErrors.sku}</p>}
+              {fieldErrors.sku && (
+                <p className="mt-1 text-xs text-red-600">{fieldErrors.sku}</p>
+              )}
             </div>
             <div>
               <div className="mb-1.5 flex items-center justify-between gap-2">
-                <label className="block text-sm font-medium text-navy">Precio al contado (PVP) *</label>
+                <label className="block text-sm font-medium text-navy">
+                  Precio al contado (PVP) *
+                </label>
                 <div className="flex rounded-full bg-ash p-0.5 text-xs">
-                  {(["USD", "VES"] as const).map((currency) => <button type="button" key={currency} onClick={() => setPriceCurrency(currency)} className={`rounded-full px-2.5 py-1 ${priceCurrency === currency ? "bg-blue text-white" : "text-steel"}`}>{currency === "VES" ? "Bs." : "$"}</button>)}
+                  {(["USD", "VES"] as const).map((currency) => (
+                    <button
+                      type="button"
+                      key={currency}
+                      onClick={() => setPriceCurrency(currency)}
+                      className={`rounded-full px-2.5 py-1 ${priceCurrency === currency ? "bg-blue text-white" : "text-steel"}`}
+                    >
+                      {currency === "VES" ? "Bs." : "$"}
+                    </button>
+                  ))}
                 </div>
               </div>
               <div className="relative">
@@ -376,7 +559,9 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
                 <NumberInput
                   inputMode="decimal"
                   value={priceCash}
-                  onValueChange={(value) => setPriceCash(formatMoneyInput(value))}
+                  onValueChange={(value) =>
+                    setPriceCash(formatMoneyInput(value))
+                  }
                   placeholder="0,00"
                   className="w-full rounded-xl border border-navy/15 py-2.5 pl-12 pr-4 text-sm outline-none focus:border-blue"
                 />
@@ -385,7 +570,9 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Precio financiado ({priceCurrency === "USD" ? "USD" : "Bs."}) *</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Precio financiado ({priceCurrency === "USD" ? "USD" : "Bs."}) *
+            </label>
             <div className="relative max-w-xs">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-steel">
                 {priceCurrency === "USD" ? "$" : "Bs."}
@@ -393,16 +580,23 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
               <NumberInput
                 inputMode="decimal"
                 value={priceFinanced}
-                onValueChange={(value) => setPriceFinanced(formatMoneyInput(value))}
+                onValueChange={(value) =>
+                  setPriceFinanced(formatMoneyInput(value))
+                }
                 placeholder="0,00"
                 className="w-full rounded-xl border border-navy/15 py-2.5 pl-12 pr-4 text-sm outline-none focus:border-blue"
               />
             </div>
           </div>
-          <p className="-mt-3 text-xs text-steel">Preparado para Troyano; la referencia externa se asignará cuando se conecte su API.</p>
+          <p className="-mt-3 text-xs text-steel">
+            Preparado para Troyano; la referencia externa se asignará cuando se
+            conecte su API.
+          </p>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Costo de adquisición *</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Costo de adquisición *
+            </label>
             <div className="relative max-w-xs">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-steel">
                 {priceCurrency === "USD" ? "$" : "Bs."}
@@ -420,8 +614,15 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
                 }`}
               />
             </div>
-            {fieldErrors.costPrice && <p className="mt-1.5 text-xs text-red-600">{fieldErrors.costPrice}</p>}
-            <p className="mt-1.5 text-xs text-steel">Lo que pagó el concesionario por el vehículo — se usa para calcular la rentabilidad, no se muestra al cliente.</p>
+            {fieldErrors.costPrice && (
+              <p className="mt-1.5 text-xs text-red-600">
+                {fieldErrors.costPrice}
+              </p>
+            )}
+            <p className="mt-1.5 text-xs text-steel">
+              Lo que pagó el concesionario por el vehículo — se usa para
+              calcular la rentabilidad, no se muestra al cliente.
+            </p>
             <label className="mt-2 flex items-center gap-2 text-sm text-steel">
               <input
                 type="checkbox"
@@ -434,18 +635,111 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
           </div>
 
           <div className="rounded-2xl border border-navy/10 bg-ash/60 p-4">
-            <div className="mb-4 flex items-start justify-between gap-3"><div><h3 className="font-semibold text-navy">Impuestos del PVP</h3><p className="text-xs text-steel">IGTF se aplica automáticamente cuando la moneda es USD.</p></div>{bcvRate && <span className="text-right text-xs text-steel">BCV: Bs. {bcvRate.toLocaleString("es-VE", { minimumFractionDigits: 4, maximumFractionDigits: 8 })}<br />{bcvDate && new Date(`${bcvDate}T12:00:00`).toLocaleDateString("es-VE")}</span>}</div>
-            <div className="grid grid-cols-3 gap-3">
-              <label className="text-xs text-steel">IVA %<NumberInput inputMode="decimal" value={ivaPercentage} onValueChange={(value) => setIvaPercentage(formatMoneyInput(value))} className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy" /></label>
-              <label className="text-xs text-steel">IGTF %<NumberInput inputMode="decimal" disabled={priceCurrency !== "USD"} value={igtfPercentage} onValueChange={(value) => setIgtfPercentage(formatMoneyInput(value))} className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy disabled:opacity-50" /></label>
-              <label className="text-xs text-steel">Lujo % (manual)<NumberInput inputMode="decimal" value={luxuryTaxPercentage} onValueChange={(value) => setLuxuryTaxPercentage(formatMoneyInput(value))} className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy" /></label>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-navy">Impuestos del PVP</h3>
+                <p className="text-xs text-steel">
+                  IGTF se aplica automáticamente cuando la moneda es USD.
+                </p>
+              </div>
+              {bcvRate && (
+                <span className="text-right text-xs text-steel">
+                  BCV: Bs.{" "}
+                  {bcvRate.toLocaleString("es-VE", {
+                    minimumFractionDigits: 4,
+                    maximumFractionDigits: 8,
+                  })}
+                  <br />
+                  {bcvDate &&
+                    new Date(`${bcvDate}T12:00:00`).toLocaleDateString("es-VE")}
+                </span>
+              )}
             </div>
-            <dl className="mt-4 space-y-1 border-t border-navy/10 pt-3 text-sm"><div className="flex justify-between"><dt>IVA</dt><dd>{formatMoney(ivaAmount)}</dd></div><div className="flex justify-between"><dt>Impuesto al lujo</dt><dd>{formatMoney(luxuryAmount)}</dd></div><div className="flex justify-between pt-1 font-bold text-navy"><dt>Precio de lista</dt><dd>{priceCurrency === "USD" ? "$" : "Bs."} {formatMoney(cashTotal)}</dd></div>{priceCurrency === "USD" && bcvRate && <div className="flex justify-between text-xs text-steel"><dt>Equivalente BCV</dt><dd>Bs. {formatMoney(cashTotal * bcvRate)}</dd></div>}{priceCurrency === "USD" && <div className="flex justify-between text-xs text-steel"><dt>IGTF estimado si se cobra todo en USD</dt><dd>{formatMoney(igtfEstimate)}</dd></div>}</dl>
-            <p className="mt-2 text-xs text-steel">El IGTF real se calcula al vender, según cuánto se cobre en divisas — no forma parte del precio de lista.</p>
+            <div className="grid grid-cols-3 gap-3">
+              <label className="text-xs text-steel">
+                IVA %
+                <NumberInput
+                  inputMode="decimal"
+                  value={ivaPercentage}
+                  onValueChange={(value) =>
+                    setIvaPercentage(formatMoneyInput(value))
+                  }
+                  className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy"
+                />
+              </label>
+              <label className="text-xs text-steel">
+                IGTF %
+                <NumberInput
+                  inputMode="decimal"
+                  disabled={priceCurrency !== "USD"}
+                  value={igtfPercentage}
+                  onValueChange={(value) =>
+                    setIgtfPercentage(formatMoneyInput(value))
+                  }
+                  className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy disabled:opacity-50"
+                />
+              </label>
+              <label className="text-xs text-steel">
+                Lujo % (manual)
+                <NumberInput
+                  inputMode="decimal"
+                  value={luxuryTaxPercentage}
+                  onValueChange={(value) =>
+                    setLuxuryTaxPercentage(formatMoneyInput(value))
+                  }
+                  className="mt-1 w-full rounded-lg border border-navy/15 bg-white px-3 py-2 text-sm text-navy"
+                />
+              </label>
+            </div>
+            <dl className="mt-4 space-y-1 border-t border-navy/10 pt-3 text-sm">
+              <div className="flex justify-between">
+                <dt>IVA</dt>
+                <dd>{formatMoney(ivaAmount)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt>Impuesto al lujo</dt>
+                <dd>{formatMoney(luxuryAmount)}</dd>
+              </div>
+              <div className="flex justify-between pt-1 font-bold text-navy">
+                <dt>Precio de lista</dt>
+                <dd>
+                  {priceCurrency === "USD" ? "$" : "Bs."}{" "}
+                  {formatMoney(cashTotal)}
+                </dd>
+              </div>
+              {priceCurrency === "USD" && bcvRate && (
+                <div className="flex justify-between text-xs text-steel">
+                  <dt>Equivalente BCV</dt>
+                  <dd>Bs. {formatMoney(cashTotal * bcvRate)}</dd>
+                </div>
+              )}
+              {priceCurrency === "USD" && (
+                <div className="flex justify-between text-xs text-steel">
+                  <dt>IGTF estimado si se cobra todo en USD</dt>
+                  <dd>{formatMoney(igtfEstimate)}</dd>
+                </div>
+              )}
+            </dl>
+            <p className="mt-2 text-xs text-steel">
+              El IGTF real se calcula al vender, según cuánto se cobre en
+              divisas — no forma parte del precio de lista.
+            </p>
           </div>
 
+          <VehicleSpecificationsFields
+            value={specifications}
+            onChange={setSpecifications}
+            used={condition === "usado"}
+            documents={documents}
+            onDocument={(kind, file) =>
+              setDocuments((prev) => ({ ...prev, [kind]: file }))
+            }
+          />
+
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Fotos del vehículo (opcional)</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Fotos del vehículo (opcional)
+            </label>
             <input
               type="file"
               accept="image/*"
@@ -454,11 +748,18 @@ export default function AddVehicleModal({ open, onClose, filialId, onSubmit, onU
               className="w-full text-sm text-steel file:mr-3 file:rounded-full file:border-0 file:bg-blue-light file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-blue"
             />
             {photos.length > 0 && (
-              <p className="mt-1 text-xs text-steel">{photos.length} foto{photos.length === 1 ? "" : "s"} seleccionada{photos.length === 1 ? "" : "s"}</p>
+              <p className="mt-1 text-xs text-steel">
+                {photos.length} foto{photos.length === 1 ? "" : "s"}{" "}
+                seleccionada{photos.length === 1 ? "" : "s"}
+              </p>
             )}
           </div>
 
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+          {error && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
 
           <button
             type="button"

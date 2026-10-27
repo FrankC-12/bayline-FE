@@ -10,6 +10,11 @@ export interface CreateVehicleInput {
   model: string;
   year: number;
   mileage?: number | null;
+  engine_type?: string | null;
+  seats?: number | null;
+  upholstery?: string | null;
+  previous_owners?: number | null;
+  version?: string | null;
   color?: string | null;
   fuel_type?: string | null;
   transmission?: string | null;
@@ -36,7 +41,9 @@ export interface ExchangeRate {
 }
 
 export async function getLatestExchangeRates(): Promise<ExchangeRate[]> {
-  const response = await apiFetch<{ rates: ExchangeRate[] }>("/exchange-rates/latest");
+  const response = await apiFetch<{ rates: ExchangeRate[] }>(
+    "/exchange-rates/latest",
+  );
   return response.rates;
 }
 
@@ -44,12 +51,14 @@ export interface VehicleSaleInput {
   client_id?: string | null;
   client_name: string;
   client_document?: string | null;
-  advisor_user_id?: string | null;
+  advisor_user_id: string;
   sale_type: string;
   // Only for sale_type="contado" — how the payment splits between foreign
   // currency and bolívares. The server computes IGTF/final_price from this;
   // it never trusts a client-submitted total.
   payment_method?: "usd" | "bs" | "mixed" | null;
+  usd_payment_channel?: "cash" | "binance" | "paypal" | "zelle" | null;
+  bs_payment_channel?: "pago_movil" | "transferencia" | null;
   usd_base?: number | null;
   // Only meaningful when the price comes out below the vehicle's cost —
   // the server decides that, this just carries the authorized override.
@@ -66,6 +75,13 @@ export interface VehicleReservationInput {
 }
 
 export interface UpdateVehicleInput {
+  vin?: string;
+  sku?: string;
+  price_currency?: "USD" | "VES";
+  iva_percentage?: number;
+  igtf_percentage?: number;
+  luxury_tax_percentage?: number;
+  financing_provider?: string | null;
   status_reason?: string;
   status?: string;
   condition?: string;
@@ -74,6 +90,11 @@ export interface UpdateVehicleInput {
   model?: string;
   year?: number;
   mileage?: number | null;
+  engine_type?: string | null;
+  seats?: number | null;
+  upholstery?: string | null;
+  previous_owners?: number | null;
+  version?: string | null;
   color?: string | null;
   fuel_type?: string | null;
   transmission?: string | null;
@@ -85,33 +106,52 @@ export interface UpdateVehicleInput {
   sale?: VehicleSaleInput;
 }
 
-export async function listVehicles(filialId: string, search?: string): Promise<DealershipVehicle[]> {
+export async function listVehicles(
+  filialId: string,
+  search?: string,
+): Promise<DealershipVehicle[]> {
   const query = new URLSearchParams({ filial_id: filialId });
   if (search) query.set("search", search);
-  return apiFetch<DealershipVehicle[]>(`/dealership-vehicles?${query.toString()}`);
+  return apiFetch<DealershipVehicle[]>(
+    `/dealership-vehicles?${query.toString()}`,
+  );
 }
 
-export async function createVehicle(input: CreateVehicleInput): Promise<DealershipVehicle> {
+export async function createVehicle(
+  input: CreateVehicleInput,
+): Promise<DealershipVehicle> {
   return apiFetch<DealershipVehicle>("/dealership-vehicles", {
     method: "POST",
     body: JSON.stringify(input),
   });
 }
 
-export async function updateVehicle(id: string, input: UpdateVehicleInput): Promise<DealershipVehicle> {
+export async function updateVehicle(
+  id: string,
+  input: UpdateVehicleInput,
+): Promise<DealershipVehicle> {
   return apiFetch<DealershipVehicle>(`/dealership-vehicles/${id}`, {
     method: "PATCH",
     body: JSON.stringify(input),
   });
 }
 
-export async function uploadVehiclePhotos(id: string, photos: File[]): Promise<DealershipVehicle> {
+export async function uploadVehiclePhotos(
+  id: string,
+  photos: File[],
+): Promise<DealershipVehicle> {
   const form = new FormData();
   for (const photo of photos) form.append("photos", photo);
-  return apiFetch<DealershipVehicle>(`/dealership-vehicles/${id}/photos`, { method: "POST", body: form });
+  return apiFetch<DealershipVehicle>(`/dealership-vehicles/${id}/photos`, {
+    method: "POST",
+    body: form,
+  });
 }
 
-export async function removeVehiclePhoto(id: string, photoUrl: string): Promise<DealershipVehicle> {
+export async function removeVehiclePhoto(
+  id: string,
+  photoUrl: string,
+): Promise<DealershipVehicle> {
   return apiFetch<DealershipVehicle>(`/dealership-vehicles/${id}/photos`, {
     method: "DELETE",
     body: JSON.stringify({ photo_url: photoUrl }),
@@ -120,7 +160,7 @@ export async function removeVehiclePhoto(id: string, photoUrl: string): Promise<
 
 export async function reserveVehicle(
   id: string,
-  input: VehicleReservationInput
+  input: VehicleReservationInput,
 ): Promise<DealershipVehicle> {
   return apiFetch<DealershipVehicle>(`/dealership-vehicles/${id}/reserve`, {
     method: "POST",
@@ -132,17 +172,50 @@ export async function deleteVehicle(id: string): Promise<void> {
   await apiFetch(`/dealership-vehicles/${id}`, { method: "DELETE" });
 }
 
-export async function listVehicleSales(filialId: string): Promise<VehicleSale[]> {
+export async function listVehicleSales(
+  filialId: string,
+): Promise<VehicleSale[]> {
   return apiFetch<VehicleSale[]>(`/vehicle-sales?filial_id=${filialId}`);
 }
 
 export interface VehicleStatusEvent {
- id: string; previous_status: DealershipVehicle["status"] | null; new_status: DealershipVehicle["status"];
- user_id: string; user_name: string; reason: string; created_at: string;
- reservation_snapshot: {client_id: string; advisor_user_id: string | null; deposit_amount: number; expires_at: string | null} | null;
+  id: string;
+  previous_status: DealershipVehicle["status"] | null;
+  new_status: DealershipVehicle["status"];
+  user_id: string;
+  user_name: string;
+  reason: string;
+  created_at: string;
+  reservation_snapshot: {
+    client_id: string;
+    advisor_user_id: string | null;
+    deposit_amount: number;
+    expires_at: string | null;
+  } | null;
 }
-export const getVehicleStatusHistory = (id: string) => apiFetch<VehicleStatusEvent[]>(`/dealership-vehicles/${id}/status-history`);
+export const getVehicleStatusHistory = (id: string) =>
+  apiFetch<VehicleStatusEvent[]>(`/dealership-vehicles/${id}/status-history`);
 
-export const getVehicleSaleDocument = (id: string) => apiFetch<{filename: string; html: string}>(`/vehicle-sales/${id}/document`);
+export const getVehicleSaleDocument = (id: string) =>
+  apiFetch<{ filename: string; html: string }>(`/vehicle-sales/${id}/document`);
 
-export const getVehicleSalePdf = (id: string) => apiFetchBlob(`/vehicle-sales/${id}/invoice/pdf`);
+export const getVehicleSalePdf = (id: string) =>
+  apiFetchBlob(`/vehicle-sales/${id}/invoice/pdf`);
+
+export async function uploadVehicleDocument(
+  id: string,
+  kind: string,
+  file: File,
+): Promise<DealershipVehicle> {
+  const body = new FormData();
+  body.append("file", file);
+  return apiFetch<DealershipVehicle>(
+    `/dealership-vehicles/${id}/documents/${kind}`,
+    { method: "POST", body },
+  );
+}
+export const downloadVehicleDocument = (id: string, kind: string) =>
+  apiFetchBlob(`/dealership-vehicles/${id}/documents/${kind}`);
+
+export const getVehicleSaleForVehicle = (id: string) =>
+  apiFetch<VehicleSale>(`/dealership-vehicles/${id}/sale`);

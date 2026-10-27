@@ -16,8 +16,15 @@ import ReserveVehicleModal from "./ReserveVehicleModal";
 import VehicleDetailDrawer from "./VehicleDetailDrawer";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
-import type { DealershipVehicle, VehicleLocation, VehicleStatus } from "@/types/concesionario";
-import type { VehicleReservationInput, VehicleSaleInput } from "@/lib/api/concesionario";
+import type {
+  DealershipVehicle,
+  VehicleLocation,
+  VehicleStatus,
+} from "@/types/concesionario";
+import type {
+  VehicleReservationInput,
+  VehicleSaleInput,
+} from "@/lib/api/concesionario";
 import { LOCATION_OPTIONS } from "@/lib/vehicle-catalog-dealership";
 
 export default function VehicleCatalogView() {
@@ -27,28 +34,57 @@ export default function VehicleCatalogView() {
   const filialId = currentUser?.filialId ?? null;
 
   const [search, setSearch] = useState("");
-  const [locationFilter, setLocationFilter] = useState<VehicleLocation | "">("");
-  const { vehicles, loading, error, addVehicle, editVehicle, reserveVehicle, addVehiclePhotos, removeVehiclePhoto, refresh } = useVehicles(filialId, search || undefined);
+  const [locationFilter, setLocationFilter] = useState<VehicleLocation | "">(
+    "",
+  );
+  const {
+    vehicles,
+    loading,
+    error,
+    addVehicle,
+    editVehicle,
+    reserveVehicle,
+    addVehiclePhotos,
+    removeVehiclePhoto,
+    refresh,
+  } = useVehicles(filialId, search || undefined);
   const { clients } = useClients(filialId);
   const { users } = useUserDirectory({ filialId });
   const [addOpen, setAddOpen] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<DealershipVehicle | null>(null);
+  const [selectedVehicle, setSelectedVehicle] =
+    useState<DealershipVehicle | null>(null);
   const [sellTarget, setSellTarget] = useState<DealershipVehicle | null>(null);
-  const [statusTarget, setStatusTarget] = useState<{vehicle: DealershipVehicle; target: VehicleStatus} | null>(null);
-  const [reserveTarget, setReserveTarget] = useState<DealershipVehicle | null>(null);
+  const [statusTarget, setStatusTarget] = useState<{
+    vehicle: DealershipVehicle;
+    target: VehicleStatus;
+  } | null>(null);
+  const [reserveTarget, setReserveTarget] = useState<DealershipVehicle | null>(
+    null,
+  );
   const visibleVehicles = useMemo(
     () =>
       vehicles.filter(
-        (vehicle) => vehicle.status !== "vendido" && (!locationFilter || vehicle.location === locationFilter)
+        (vehicle) =>
+          vehicle.status !== "vendido" &&
+          (!locationFilter || vehicle.location === locationFilter),
       ),
-    [vehicles, locationFilter]
+    [vehicles, locationFilter],
   );
-  const summary = useMemo(() => ({
-    nuevos: visibleVehicles.filter((vehicle) => vehicle.condition === "nuevo").length,
-    usados: visibleVehicles.filter((vehicle) => vehicle.condition === "usado").length,
-    enTransito: visibleVehicles.filter((vehicle) => vehicle.status === "en_transito").length,
-    disponibles: visibleVehicles.filter((vehicle) => vehicle.status === "disponible").length,
-  }), [visibleVehicles]);
+  const summary = useMemo(
+    () => ({
+      nuevos: visibleVehicles.filter((vehicle) => vehicle.condition === "nuevo")
+        .length,
+      usados: visibleVehicles.filter((vehicle) => vehicle.condition === "usado")
+        .length,
+      enTransito: visibleVehicles.filter(
+        (vehicle) => vehicle.status === "en_transito",
+      ).length,
+      disponibles: visibleVehicles.filter(
+        (vehicle) => vehicle.status === "disponible",
+      ).length,
+    }),
+    [visibleVehicles],
+  );
 
   async function changeStatus(status: string) {
     if (!selectedVehicle) return;
@@ -60,7 +96,11 @@ export default function VehicleCatalogView() {
       setReserveTarget(selectedVehicle);
       return;
     }
-    if (status !== selectedVehicle.status) setStatusTarget({vehicle: selectedVehicle, target: status as VehicleStatus});
+    if (status !== selectedVehicle.status)
+      setStatusTarget({
+        vehicle: selectedVehicle,
+        target: status as VehicleStatus,
+      });
   }
 
   async function changeLocation(location: string) {
@@ -83,9 +123,11 @@ export default function VehicleCatalogView() {
 
   async function confirmSale(sale: VehicleSaleInput) {
     if (!sellTarget) return;
-    const updated = await editVehicle(sellTarget.id, { status: "vendido", sale });
+    const updated = await editVehicle(sellTarget.id, {
+      status: "vendido",
+      sale,
+    });
     setSelectedVehicle(updated);
-    setSellTarget(null);
   }
 
   async function confirmReservation(reservation: VehicleReservationInput) {
@@ -101,13 +143,21 @@ export default function VehicleCatalogView() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold text-navy">Catálogo de Vehículos</h1>
-          <p className="mt-1 text-sm text-steel">Consulta de inventario del concesionario</p>
+          <h1 className="font-display text-3xl font-bold text-navy">
+            Catálogo de Vehículos
+          </h1>
+          <p className="mt-1 text-sm text-steel">
+            Consulta de inventario del concesionario
+          </p>
         </div>
         <button
           onClick={() => setAddOpen(true)}
           disabled={!canManageCatalog}
-          title={canManageCatalog ? "Agregar vehículo" : "Administración registra las unidades y sus precios"}
+          title={
+            canManageCatalog
+              ? "Agregar vehículo"
+              : "Administración registra las unidades y sus precios"
+          }
           className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
         >
           <Plus className="h-4 w-4" />
@@ -116,7 +166,24 @@ export default function VehicleCatalogView() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[{ label: "Nuevos", value: summary.nuevos }, { label: "Usados", value: summary.usados }, { label: "En tránsito", value: summary.enTransito }, { label: "Disponibles", value: summary.disponibles }].map((item) => <div key={item.label} className="rounded-2xl border border-navy/10 bg-white p-5"><p className="font-mono text-[11px] uppercase tracking-widest text-steel">{item.label}</p><p className="mt-1 font-display text-3xl font-bold text-navy">{formatCount(item.value)}</p></div>)}
+        {[
+          { label: "Nuevos", value: summary.nuevos },
+          { label: "Usados", value: summary.usados },
+          { label: "En tránsito", value: summary.enTransito },
+          { label: "Disponibles", value: summary.disponibles },
+        ].map((item) => (
+          <div
+            key={item.label}
+            className="rounded-2xl border border-navy/10 bg-white p-5"
+          >
+            <p className="font-mono text-[11px] uppercase tracking-widest text-steel">
+              {item.label}
+            </p>
+            <p className="mt-1 font-display text-3xl font-bold text-navy">
+              {formatCount(item.value)}
+            </p>
+          </div>
+        ))}
       </div>
 
       <div className="mb-6 flex items-center gap-3">
@@ -125,21 +192,27 @@ export default function VehicleCatalogView() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-        placeholder="Buscar por marca, modelo, año, placa, VIN o SKU..."
+            placeholder="Buscar por marca, modelo, año, placa, VIN o SKU..."
             className="w-full rounded-full border border-navy/15 bg-white py-3 pl-11 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
           />
         </div>
         <select
           value={locationFilter}
-          onChange={(e) => setLocationFilter(e.target.value as VehicleLocation | "")}
+          onChange={(e) =>
+            setLocationFilter(e.target.value as VehicleLocation | "")
+          }
           className="rounded-full border border-navy/15 bg-white px-4 py-3 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
         >
           <option value="">Todas las ubicaciones</option>
           {LOCATION_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
           ))}
         </select>
-        <span className="whitespace-nowrap text-sm text-steel">{visibleVehicles.length} vehículos</span>
+        <span className="whitespace-nowrap text-sm text-steel">
+          {visibleVehicles.length} vehículos
+        </span>
       </div>
 
       {loading ? (
@@ -151,7 +224,11 @@ export default function VehicleCatalogView() {
       ) : visibleVehicles.length === 0 ? (
         <EmptyState
           compact
-          title={search ? `Sin resultados para "${search}"` : "No hay vehículos en el catálogo."}
+          title={
+            search
+              ? `Sin resultados para "${search}"`
+              : "No hay vehículos en el catálogo."
+          }
         />
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -161,29 +238,79 @@ export default function VehicleCatalogView() {
               vehicle={v}
               onClick={() => setSelectedVehicle(v)}
               onSell={canEdit ? () => setSellTarget(v) : undefined}
-              reservedClientName={clients.find((c) => c.id === v.reserved_client_id)?.full_name}
-              reservedByName={users.find((u) => u.id === v.reserved_by_user_id)?.full_name}
+              reservedClientName={
+                clients.find((c) => c.id === v.reserved_client_id)?.full_name
+              }
+              reservedByName={
+                users.find((u) => u.id === v.reserved_by_user_id)?.full_name
+              }
             />
           ))}
         </div>
       )}
 
-      {statusTarget && <ChangeVehicleStatusModal key={`${statusTarget.vehicle.id}:${statusTarget.target}`} vehicle={statusTarget.vehicle} target={statusTarget.target} onClose={() => setStatusTarget(null)} onConfirm={async (reason) => { const updated = await editVehicle(statusTarget.vehicle.id, {status: statusTarget.target, status_reason: reason}); setSelectedVehicle(updated); }} />}
-      <AddVehicleModal open={addOpen} onClose={() => setAddOpen(false)} filialId={filialId} onSubmit={addVehicle} onUploadPhotos={addVehiclePhotos} />
+      {statusTarget && (
+        <ChangeVehicleStatusModal
+          key={`${statusTarget.vehicle.id}:${statusTarget.target}`}
+          vehicle={statusTarget.vehicle}
+          target={statusTarget.target}
+          onClose={() => setStatusTarget(null)}
+          onConfirm={async (reason) => {
+            const updated = await editVehicle(statusTarget.vehicle.id, {
+              status: statusTarget.target,
+              status_reason: reason,
+            });
+            setSelectedVehicle(updated);
+          }}
+        />
+      )}
+      <AddVehicleModal
+        open={addOpen}
+        onClose={() => {
+          setAddOpen(false);
+          void refresh();
+        }}
+        filialId={filialId}
+        onSubmit={addVehicle}
+        onUploadPhotos={addVehiclePhotos}
+      />
       <VehicleDetailDrawer
         vehicle={selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
         onStatusChange={changeStatus}
         onLocationChange={changeLocation}
         canEdit={canEdit}
-        onDetailsChange={async (input) => { if (selectedVehicle) {const updated = await editVehicle(selectedVehicle.id, input); setSelectedVehicle(updated);} }}
+        onDetailsChange={async (input) => {
+          if (selectedVehicle) {
+            const updated = await editVehicle(selectedVehicle.id, input);
+            setSelectedVehicle(updated);
+          }
+        }}
         onUploadPhotos={uploadPhotos}
         onDeletePhoto={deletePhoto}
-        reservedClientName={clients.find((c) => c.id === selectedVehicle?.reserved_client_id)?.full_name}
-        reservedByName={users.find((u) => u.id === selectedVehicle?.reserved_by_user_id)?.full_name}
+        reservedClientName={
+          clients.find((c) => c.id === selectedVehicle?.reserved_client_id)
+            ?.full_name
+        }
+        reservedByName={
+          users.find((u) => u.id === selectedVehicle?.reserved_by_user_id)
+            ?.full_name
+        }
       />
-      <SellVehicleModal open={sellTarget != null} onClose={() => setSellTarget(null)} filialId={filialId} vehicle={sellTarget} onConfirm={confirmSale} />
-      <ReserveVehicleModal open={reserveTarget != null} onClose={() => setReserveTarget(null)} filialId={filialId} vehicle={reserveTarget} onConfirm={confirmReservation} />
+      <SellVehicleModal
+        open={sellTarget != null}
+        onClose={() => setSellTarget(null)}
+        filialId={filialId}
+        vehicle={sellTarget}
+        onConfirm={confirmSale}
+      />
+      <ReserveVehicleModal
+        open={reserveTarget != null}
+        onClose={() => setReserveTarget(null)}
+        filialId={filialId}
+        vehicle={reserveTarget}
+        onConfirm={confirmReservation}
+      />
     </div>
   );
 }
