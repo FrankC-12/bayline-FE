@@ -2,6 +2,8 @@ import { apiFetch, removeLegacyTokens, settleSessionRefresh } from "./client";
 import type { CurrentUser, ModuleAccessLevel, RoleScope } from "@/types/auth";
 
 interface SessionUser {
+  holding_context?: boolean;
+  filial_name?: string | null;
   user_id: string;
   email: string;
   full_name: string;
@@ -15,6 +17,8 @@ interface SessionUser {
 export async function getSessionUser(): Promise<CurrentUser> {
   const user = await apiFetch<SessionUser>("/auth/me", { toastOnError: false });
   return {
+    holdingContext: user.holding_context ?? false,
+    filialName: user.filial_name ?? null,
     userId: user.user_id,
     email: user.email,
     fullName: user.full_name,
@@ -57,4 +61,14 @@ export async function getAccessMap(): Promise<
     "/auth/access",
   );
   return result.modules;
+}
+
+export async function switchHoldingContext(
+  filialId: string | null,
+): Promise<void> {
+  await settleSessionRefresh();
+  await apiFetch("/auth/holding-context", {
+    method: "POST",
+    body: JSON.stringify({ filial_id: filialId }),
+  });
 }

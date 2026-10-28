@@ -103,16 +103,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadAccessMap]);
 
   const sessionUserId = currentUser?.userId;
+  const sessionContext = currentUser
+    ? `${currentUser.scope}:${currentUser.filialId ?? ""}`
+    : null;
 
   // Check idle tabs too; every ordinary API request is also checked by the server.
   useEffect(() => {
     if (!sessionUserId) return;
     let pending = false;
+    let active = true;
     const check = async () => {
       if (pending || document.visibilityState === "hidden") return;
       pending = true;
       try {
-        await getSessionUser();
+        const user = await getSessionUser();
+        if (
+          active &&
+          `${user.scope}:${user.filialId ?? ""}` !== sessionContext
+        ) {
+          window.location.assign(
+            user.scope === "holding"
+              ? "/holding/entrada"
+              : user.scope === "filial"
+                ? "/dashboard"
+                : "/platform/holdings",
+          );
+        }
       } catch {
         /* Authentication errors emit the session-expired event. */
       } finally {
@@ -126,11 +142,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener("focus", onVisible);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
+      active = false;
       window.clearInterval(timer);
       window.removeEventListener("focus", onVisible);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [sessionUserId]);
+  }, [sessionUserId, sessionContext]);
 
   async function login(email: string, password: string): Promise<CurrentUser> {
     const user = await loginRequest({ email, password });

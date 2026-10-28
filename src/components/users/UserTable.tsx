@@ -1,4 +1,4 @@
-import { Pencil, UserX, UserCheck } from "lucide-react";
+import { Pencil, UserX, UserCheck, KeyRound } from "lucide-react";
 import type { AppUser } from "@/types/user";
 import type { Role } from "@/types/role";
 import type { ListErrorInfo } from "@/lib/api/listError";
@@ -16,6 +16,7 @@ interface UserTableProps {
   onView: (user: AppUser) => void;
   onEdit: (user: AppUser) => void;
   onToggleStatus: (user: AppUser) => void;
+  onResetPassword: (user: AppUser) => void;
 }
 
 function getInitials(name: string) {
@@ -38,6 +39,7 @@ export default function UserTable({
   onView,
   onEdit,
   onToggleStatus,
+  onResetPassword,
 }: UserTableProps) {
   const roleName = (roleId: string) =>
     roles.find((r) => r.id === roleId)?.name ?? "—";
@@ -119,6 +121,18 @@ export default function UserTable({
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
+                    {u.id !== currentUserId && (
+                      <button
+                        type="button"
+                        disabled={u.status !== "activo"}
+                        onClick={() => onResetPassword(u)}
+                        title="Restablecer contraseña"
+                        aria-label={`Restablecer contraseña de ${u.full_name}`}
+                        className="rounded-lg p-2 text-steel transition hover:bg-blue-light hover:text-blue disabled:opacity-30"
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </button>
+                    )}
                     {u.id !== currentUserId && (
                       <button
                         onClick={() => onToggleStatus(u)}

@@ -19,10 +19,17 @@ import {
   Wrench,
   BookOpen,
   Activity,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const NAV_ITEMS = [
+  {
+    href: "/holding/seguridad",
+    label: "Seguridad y recuperación",
+    icon: ShieldCheck,
+  },
+  { href: "/holding/entrada", label: "Elegir vista o filial", icon: Building2 },
   { href: "/holding", label: "Resumen", icon: LayoutDashboard },
   { href: "/holding/tesoreria", label: "Tesorería", icon: Wallet },
   {

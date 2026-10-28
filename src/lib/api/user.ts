@@ -44,13 +44,35 @@ export async function getUsersDirectory(params?: {
   if (params?.holding_id) query.set("holding_id", params.holding_id);
   if (params?.filial_id) query.set("filial_id", params.filial_id);
   const qs = query.toString();
-  return apiFetch<UserDirectoryEntry[]>(`/users/directory${qs ? `?${qs}` : ""}`);
+  return apiFetch<UserDirectoryEntry[]>(
+    `/users/directory${qs ? `?${qs}` : ""}`,
+  );
 }
 
 export async function createUser(input: CreateUserInput): Promise<AppUser> {
-  return apiFetch<AppUser>("/users", { method: "POST", body: JSON.stringify(input) });
+  return apiFetch<AppUser>("/users", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
-export async function updateUser(id: string, input: UpdateUserInput): Promise<AppUser> {
-  return apiFetch<AppUser>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+export async function updateUser(
+  id: string,
+  input: UpdateUserInput,
+): Promise<AppUser> {
+  return apiFetch<AppUser>(`/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
+
+export const resetUserPassword = (
+  id: string,
+  current_password: string,
+  new_password: string,
+) =>
+  apiFetch<void>(`/users/${id}/reset-password`, {
+    method: "POST",
+    toastOnError: false,
+    body: JSON.stringify({ current_password, new_password }),
+  });

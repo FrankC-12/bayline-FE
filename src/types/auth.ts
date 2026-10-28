@@ -10,4 +10,6 @@ export interface CurrentUser {
   scope: RoleScope;
   holdingId: string | null;
   filialId: string | null;
+  holdingContext?: boolean;
+  filialName?: string | null;
 }

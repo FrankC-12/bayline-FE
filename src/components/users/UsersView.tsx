@@ -9,6 +9,7 @@ import { useRoles } from "@/hooks/useRoles";
 import type { AppUser, UserStatus } from "@/types/user";
 import type { CreateUserInput } from "@/lib/api/user";
 import UsersToolbar from "./UsersToolbar";
+import ResetUserPasswordModal from "./ResetUserPasswordModal";
 import UserTable from "./UserTable";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import UserDetailModal from "./UserDetailModal";
@@ -29,6 +30,7 @@ export default function UsersView() {
   const [statusFilter, setStatusFilter] = useState<UserStatus | "todos">(
     "todos",
   );
+  const [passwordTarget, setPasswordTarget] = useState<AppUser | null>(null);
   const [statusTarget, setStatusTarget] = useState<AppUser | null>(null);
   const [statusBusy, setStatusBusy] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -154,8 +156,16 @@ export default function UsersView() {
         onView={setDetailUser}
         onEdit={openEdit}
         onToggleStatus={handleToggleStatus}
+        onResetPassword={setPasswordTarget}
       />
 
+      {passwordTarget && canManage && (
+        <ResetUserPasswordModal
+          key={passwordTarget.id}
+          user={passwordTarget}
+          onClose={() => setPasswordTarget(null)}
+        />
+      )}
       <ConfirmDialog
         open={!!statusTarget}
         title={

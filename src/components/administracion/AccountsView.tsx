@@ -1,5 +1,7 @@
 "use client";
 
+import BankIdentity from "@/components/common/BankIdentity";
+import { VENEZUELAN_BANKS, findVenezuelanBank } from "@/lib/venezuelan-banks";
 import { NumberInput } from "@/components/ui/NumberInput";
 
 import { useState } from "react";
@@ -12,14 +14,19 @@ import CashCountModal from "./CashCountModal";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import ErrorState from "@/components/common/ErrorState";
 
-const TYPE_LABELS: Record<string, string> = { corriente: "Corriente", ahorro: "Ahorro", caja: "Caja" };
+const TYPE_LABELS: Record<string, string> = {
+  corriente: "Corriente",
+  ahorro: "Ahorro",
+  caja: "Caja",
+};
 
 export default function AccountsView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
-  const { accounts, loading, error, addAccount, editAccount, refresh } = useAccounts(filialId);
+  const { accounts, loading, error, addAccount, editAccount, refresh } =
+    useAccounts(filialId);
   const [cashCountOpen, setCashCountOpen] = useState(false);
-  const {canEdit} = useModuleAccess("administracion");
+  const { canEdit } = useModuleAccess("administracion");
   const [createOpen, setCreateOpen] = useState(false);
 
   return (
@@ -34,27 +41,60 @@ export default function AccountsView() {
           Nueva Cuenta
         </button>
       </div>
-      <p className="mb-4 text-sm text-steel">Cuentas bancarias y de efectivo del negocio</p>
-      {canEdit && <button type="button" onClick={() => setCashCountOpen(true)} className="mb-6 rounded-full border border-blue/25 bg-white px-5 py-2.5 text-sm font-semibold text-blue">Arqueo de caja</button>}
-      {filialId && <CashCountModal open={cashCountOpen} onClose={() => setCashCountOpen(false)} filialId={filialId} accounts={accounts} />}
+      <p className="mb-4 text-sm text-steel">
+        Cuentas bancarias y de efectivo del negocio
+      </p>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={() => setCashCountOpen(true)}
+          className="mb-6 rounded-full border border-blue/25 bg-white px-5 py-2.5 text-sm font-semibold text-blue"
+        >
+          Arqueo de caja
+        </button>
+      )}
+      {filialId && (
+        <CashCountModal
+          open={cashCountOpen}
+          onClose={() => setCashCountOpen(false)}
+          filialId={filialId}
+          accounts={accounts}
+        />
+      )}
 
       <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
         {loading ? (
-          <div className="p-12 text-center text-sm text-steel">Cargando cuentas...</div>
+          <div className="p-12 text-center text-sm text-steel">
+            Cargando cuentas...
+          </div>
         ) : error ? (
           <ErrorState error={error} onRetry={refresh} compact />
         ) : accounts.length === 0 ? (
-          <div className="p-12 text-center text-sm text-steel">No hay cuentas registradas.</div>
+          <div className="p-12 text-center text-sm text-steel">
+            No hay cuentas registradas.
+          </div>
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="border-b border-navy/10 bg-ash">
               <tr>
-                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Nombre de cuenta</th>
-                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Banco</th>
-                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Moneda</th>
-                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Tipo</th>
-                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Saldo actual</th>
-                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Estado</th>
+                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                  Nombre de cuenta
+                </th>
+                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                  Banco
+                </th>
+                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                  Moneda
+                </th>
+                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                  Tipo
+                </th>
+                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                  Saldo actual
+                </th>
+                <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                  Estado
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-navy/5">
@@ -68,25 +108,39 @@ export default function AccountsView() {
                       {a.name}
                     </Link>
                   </td>
-                  <td className="px-6 py-4 text-steel">{a.bank ?? "—"}</td>
+                  <td className="px-6 py-4 text-steel">
+                    {a.bank ? <BankIdentity name={a.bank} /> : "—"}
+                  </td>
                   <td className="px-6 py-4">
                     <span className="rounded-full bg-blue-light px-2 py-0.5 text-xs font-semibold text-blue">
                       {a.currency === "usd" ? "USD" : "Bs"}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-navy">{TYPE_LABELS[a.account_type]}</td>
+                  <td className="px-6 py-4 text-navy">
+                    {TYPE_LABELS[a.account_type]}
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-navy">
-                        {a.currency === "usd" ? `$${formatMoney(a.balance)}` : `Bs. ${formatMoney(a.balance)}`}
+                        {a.currency === "usd"
+                          ? `$${formatMoney(a.balance)}`
+                          : `Bs. ${formatMoney(a.balance)}`}
                       </span>
-                      <span className="rounded bg-ash px-1.5 py-0.5 font-mono text-[9px] font-semibold text-steel">AUTO</span>
+                      <span className="rounded bg-ash px-1.5 py-0.5 font-mono text-[9px] font-semibold text-steel">
+                        AUTO
+                      </span>
                     </div>
-                    {a.currency === "bs" && <p className="text-xs text-steel">≈ ${formatMoney(a.balance_usd)}</p>}
+                    {a.currency === "bs" && (
+                      <p className="text-xs text-steel">
+                        ≈ ${formatMoney(a.balance_usd)}
+                      </p>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <button
-                      onClick={() => editAccount(a.id, { is_active: !a.is_active })}
+                      onClick={() =>
+                        editAccount(a.id, { is_active: !a.is_active })
+                      }
                       className={`rounded-full px-2.5 py-1 text-xs font-semibold ${a.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}
                     >
                       {a.is_active ? "Activa" : "Inactiva"}
@@ -99,7 +153,13 @@ export default function AccountsView() {
         )}
       </div>
 
-      {filialId && <CreateAccountModal open={createOpen} onClose={() => setCreateOpen(false)} onSubmit={addAccount} />}
+      {filialId && (
+        <CreateAccountModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onSubmit={addAccount}
+        />
+      )}
     </div>
   );
 }
@@ -137,7 +197,10 @@ function CreateAccountModal({
     try {
       await onSubmit({
         name,
-        bank: bank || null,
+        bank:
+          accountType === "caja"
+            ? null
+            : (findVenezuelanBank(bank)?.name ?? bank.trim()) || null,
         currency,
         account_type: accountType,
         opening_balance: Number(openingBalance) || 0,
@@ -149,7 +212,9 @@ function CreateAccountModal({
       setOpeningBalance("0");
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo crear la cuenta.");
+      setError(
+        err instanceof Error ? err.message : "No se pudo crear la cuenta.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -163,17 +228,27 @@ function CreateAccountModal({
       <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-navy/10 px-6 py-4">
           <div>
-            <h2 className="font-display text-lg font-bold text-navy">Nueva Cuenta</h2>
-            <p className="text-xs text-steel">Los campos marcados con * son obligatorios</p>
+            <h2 className="font-display text-lg font-bold text-navy">
+              Nueva Cuenta
+            </h2>
+            <p className="text-xs text-steel">
+              Los campos marcados con * son obligatorios
+            </p>
           </div>
-          <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy">
+          <button
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="space-y-5 p-6">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Nombre de la cuenta *</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Nombre de la cuenta *
+            </label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -182,17 +257,41 @@ function CreateAccountModal({
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Banco</label>
+            <label
+              htmlFor="financial-account-bank"
+              className="mb-1.5 block text-sm font-medium text-navy"
+            >
+              Banco
+            </label>
             <input
+              id="financial-account-bank"
+              list="financial-account-banks"
               value={bank}
               onChange={(e) => setBank(e.target.value)}
               placeholder="BNC, Banesco, Mercantil..."
               className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
             />
+            <datalist id="financial-account-banks">
+              {VENEZUELAN_BANKS.map((item) => (
+                <option key={item.code} value={item.name}>
+                  {item.code}
+                </option>
+              ))}
+            </datalist>
+            <p className="mt-2 text-xs text-steel">
+              Selecciona un banco o escribe su nombre o código para ver su logo.
+            </p>
+            {bank.trim() && accountType !== "caja" && (
+              <div className="mt-3">
+                <BankIdentity name={findVenezuelanBank(bank)?.name ?? bank} />
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Moneda *</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Moneda *
+              </label>
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
@@ -203,7 +302,9 @@ function CreateAccountModal({
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Tipo *</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Tipo *
+              </label>
               <select
                 value={accountType}
                 onChange={(e) => setAccountType(e.target.value)}
@@ -217,9 +318,13 @@ function CreateAccountModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Saldo inicial</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Saldo inicial
+            </label>
             <div className="flex items-center gap-2">
-              <span className="text-steel">{currency === "usd" ? "$" : "Bs."}</span>
+              <span className="text-steel">
+                {currency === "usd" ? "$" : "Bs."}
+              </span>
               <NumberInput
                 step="0.01"
                 value={openingBalance}
@@ -228,12 +333,17 @@ function CreateAccountModal({
               />
             </div>
             <p className="mt-1.5 text-xs text-steel">
-              El saldo que ya tenía la cuenta antes de empezar a registrarla aquí. A partir de ahí, el saldo se
-              calcula solo con los ingresos y egresos asociados a la cuenta.
+              El saldo que ya tenía la cuenta antes de empezar a registrarla
+              aquí. A partir de ahí, el saldo se calcula solo con los ingresos y
+              egresos asociados a la cuenta.
             </p>
           </div>
 
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+          {error && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
 
           <button
             onClick={handleSubmit}
