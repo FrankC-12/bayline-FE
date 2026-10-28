@@ -1,4 +1,5 @@
 "use client";
+import { counterSaleLabel } from "@/lib/counter-sale-flow";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -11,13 +12,6 @@ import { formatMoney, formatCount } from "@/lib/format";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 
-const STATUS_LABELS: Record<string, string> = {
-  pendiente: "Pendiente",
-  pedido: "Pedido",
-  completado: "Completado",
-  cancelado: "Cancelado",
-};
-
 const STATUS_STYLES: Record<string, string> = {
   pendiente: "bg-amber-100 text-amber-700",
   pedido: "bg-blue-light text-blue",
@@ -26,8 +20,8 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const WAREHOUSE_LABELS: Record<string, string> = {
-  pendiente: "Buscando repuestos",
-  pedido: "Despachando repuestos",
+  pendiente: "Esperando despacho de almacén",
+  pedido: "Esperando recepción en mostrador",
   completado: "Repuestos despachados a mostrador",
   cancelado: "—",
 };
@@ -128,8 +122,8 @@ export default function PartSalesListView() {
           { id: "todas", label: "Todas" },
           { id: "en_almacen", label: "En almacén" },
           { id: "por_cobrar", label: "Por cobrar" },
-          { id: "pendiente", label: "Pendientes" },
-          { id: "pedido", label: "En despacho" },
+          { id: "pendiente", label: "Esperando almacén" },
+          { id: "pedido", label: "Por recibir" },
           { id: "completado", label: "En mostrador" },
           { id: "cancelado", label: "Canceladas" },
         ].map((item) => (
@@ -235,7 +229,7 @@ export default function PartSalesListView() {
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${STATUS_STYLES[s.status]}`}
                     >
-                      {STATUS_LABELS[s.status]}
+                      {counterSaleLabel(s)}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-steel">
@@ -248,7 +242,9 @@ export default function PartSalesListView() {
                           : "Pendiente"}
                   </td>
                   <td className="px-6 py-4 text-steel">
-                    {WAREHOUSE_LABELS[s.status]}
+                    {s.status === "pedido" && !s.dispatched_at
+                      ? "Esperando despacho de almacén"
+                      : WAREHOUSE_LABELS[s.status]}
                   </td>
                 </tr>
               ))}

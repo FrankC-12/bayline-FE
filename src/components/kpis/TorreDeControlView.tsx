@@ -12,15 +12,28 @@ import {
   getUpsellConversionRate,
   type KpiCategory,
 } from "@/lib/api/kpis";
-import type { KpiReport, ManualMovementsRate, ReworkReport, UpsellConversionRate } from "@/types/kpis";
+import type {
+  KpiReport,
+  ManualMovementsRate,
+  ReworkReport,
+  UpsellConversionRate,
+} from "@/types/kpis";
+import WorkshopOverviewPanel from "./WorkshopOverviewPanel";
 import MaintenanceDueCard from "./MaintenanceDueCard";
 import ManualMovementsRateCard from "./ManualMovementsRateCard";
 import ReworkRateCard from "./ReworkRateCard";
 import UpsellConversionRateCard from "./UpsellConversionRateCard";
 
-type Tab = KpiCategory | "mantenimientos" | "retrabajo" | "movimientos-manuales" | "conversion-upsells";
+type Tab =
+  | "resumen"
+  | KpiCategory
+  | "mantenimientos"
+  | "retrabajo"
+  | "movimientos-manuales"
+  | "conversion-upsells";
 
 const TABS: { value: Tab; label: string }[] = [
+  { value: "resumen", label: "Resumen" },
   { value: "mantenimientos", label: "Mantenimiento por vencer" },
   { value: "retrabajo", label: "Tasa de retrabajo" },
   { value: "movimientos-manuales", label: "Movimientos manuales" },
@@ -48,47 +61,79 @@ export default function TorreDeControlView() {
   const filialId = currentUser?.filialId ?? null;
   const { users } = useUserDirectory({ filialId });
 
-  const [tab, setTab] = useState<Tab>("mantenimientos");
+  const [tab, setTab] = useState<Tab>("resumen");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [report, setReport] = useState<KpiReport | null>(null);
   const [reworkReport, setReworkReport] = useState<ReworkReport | null>(null);
-  const [manualMovementsReport, setManualMovementsReport] = useState<ManualMovementsRate | null>(null);
-  const [upsellConversionReport, setUpsellConversionReport] = useState<UpsellConversionRate | null>(null);
+  const [manualMovementsReport, setManualMovementsReport] =
+    useState<ManualMovementsRate | null>(null);
+  const [upsellConversionReport, setUpsellConversionReport] =
+    useState<UpsellConversionRate | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const userName = (id: string) => users.find((u) => u.id === id)?.full_name ?? "Usuario desconocido";
+  const userName = (id: string) =>
+    users.find((u) => u.id === id)?.full_name ?? "Usuario desconocido";
   const isKpiCategory = (t: Tab): t is KpiCategory =>
-    t !== "mantenimientos" && t !== "retrabajo" && t !== "movimientos-manuales" && t !== "conversion-upsells";
+    t !== "resumen" &&
+    t !== "mantenimientos" &&
+    t !== "retrabajo" &&
+    t !== "movimientos-manuales" &&
+    t !== "conversion-upsells";
 
-  async function fetchReport(next: Tab, filial: string, from: string, to: string) {
+  async function fetchReport(
+    next: Tab,
+    filial: string,
+    from: string,
+    to: string,
+  ) {
     if (next === "retrabajo") return getReworkReport(filial, from, to);
-    if (next === "movimientos-manuales") return getManualMovementsRate(filial, from, to);
-    if (next === "conversion-upsells") return getUpsellConversionRate(filial, from, to);
+    if (next === "movimientos-manuales")
+      return getManualMovementsRate(filial, from, to);
+    if (next === "conversion-upsells")
+      return getUpsellConversionRate(filial, from, to);
     if (isKpiCategory(next)) return getKpiReport(next, filial, from, to);
     return null;
   }
 
   function applyReport(
     next: Tab,
-    data: ReworkReport | ManualMovementsRate | UpsellConversionRate | KpiReport | null
+    data:
+      | ReworkReport
+      | ManualMovementsRate
+      | UpsellConversionRate
+      | KpiReport
+      | null,
   ) {
     if (next === "retrabajo") setReworkReport(data as ReworkReport);
-    else if (next === "movimientos-manuales") setManualMovementsReport(data as ManualMovementsRate);
-    else if (next === "conversion-upsells") setUpsellConversionReport(data as UpsellConversionRate);
+    else if (next === "movimientos-manuales")
+      setManualMovementsReport(data as ManualMovementsRate);
+    else if (next === "conversion-upsells")
+      setUpsellConversionReport(data as UpsellConversionRate);
     else setReport(data as KpiReport);
   }
 
   async function handleApply() {
-    if (!filialId || !dateFrom || !dateTo || tab === "mantenimientos") return;
+    if (
+      !filialId ||
+      !dateFrom ||
+      !dateTo ||
+      tab === "mantenimientos" ||
+      tab === "resumen"
+    )
+      return;
     setLoading(true);
     setError(null);
     try {
       const data = await fetchReport(tab, filialId, dateFrom, dateTo);
       applyReport(tab, data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudieron cargar las métricas.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudieron cargar las métricas.",
+      );
     } finally {
       setLoading(false);
     }
@@ -100,21 +145,38 @@ export default function TorreDeControlView() {
     setReworkReport(null);
     setManualMovementsReport(null);
     setUpsellConversionReport(null);
-    if (next !== "mantenimientos" && filialId && dateFrom && dateTo) {
+    if (
+      next !== "resumen" &&
+      next !== "mantenimientos" &&
+      filialId &&
+      dateFrom &&
+      dateTo
+    ) {
       setLoading(true);
       fetchReport(next, filialId, dateFrom, dateTo)
         .then((data) => applyReport(next, data))
+        .catch((err) =>
+          setError(
+            err instanceof Error
+              ? err.message
+              : "No se pudieron cargar las métricas.",
+          ),
+        )
         .finally(() => setLoading(false));
     }
   }
 
   return (
     <div>
-      <h1 className="font-display text-3xl font-bold text-navy">Torre de Control del Taller</h1>
-      <p className="mt-1 text-sm text-steel">Tiempos operativos del taller · promedios y ranking por persona</p>
+      <h1 className="font-display text-3xl font-bold text-navy">
+        Torre de Control del Taller
+      </h1>
+      <p className="mt-1 text-sm text-steel">
+        Actividad del taller, mantenimientos y rendimiento del equipo.
+      </p>
 
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
-        <div className="flex rounded-full border border-navy/15 p-1">
+        <div className="flex flex-wrap gap-1 rounded-2xl border border-navy/15 p-1">
           {TABS.map((t) => (
             <button
               key={t.value}
@@ -128,10 +190,12 @@ export default function TorreDeControlView() {
           ))}
         </div>
 
-        {tab !== "mantenimientos" && (
-          <div className="flex items-end gap-3">
+        {tab !== "resumen" && tab !== "mantenimientos" && (
+          <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-steel">Desde</label>
+              <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-steel">
+                Desde
+              </label>
               <input
                 type="date"
                 value={dateFrom}
@@ -140,7 +204,9 @@ export default function TorreDeControlView() {
               />
             </div>
             <div>
-              <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-steel">Hasta</label>
+              <label className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-steel">
+                Hasta
+              </label>
               <input
                 type="date"
                 value={dateTo}
@@ -159,7 +225,12 @@ export default function TorreDeControlView() {
         )}
       </div>
 
-      {tab === "mantenimientos" ? (
+      {tab === "resumen" ? (
+        <WorkshopOverviewPanel
+          filialId={filialId}
+          onMaintenance={() => handleTabChange("mantenimientos")}
+        />
+      ) : tab === "mantenimientos" ? (
         <div className="mt-6 rounded-2xl border border-navy/10 bg-white">
           <MaintenanceDueCard filialId={filialId} />
         </div>
@@ -171,7 +242,9 @@ export default function TorreDeControlView() {
                 <Calendar className="h-6 w-6 text-blue" />
               </div>
               <p className="font-display text-lg font-bold text-navy">
-                {!dateFrom || !dateTo ? "Selecciona un rango de fechas para ver las métricas" : "Sin resultados en este rango"}
+                {!dateFrom || !dateTo
+                  ? "Selecciona un rango de fechas para ver las métricas"
+                  : "Sin resultados en este rango"}
               </p>
               <p className="text-sm text-steel">
                 {!dateFrom || !dateTo
@@ -180,7 +253,9 @@ export default function TorreDeControlView() {
               </p>
             </div>
           ) : loading ? (
-            <div className="p-16 text-center text-sm text-steel">Calculando métricas...</div>
+            <div className="p-16 text-center text-sm text-steel">
+              Calculando métricas...
+            </div>
           ) : reworkReport ? (
             <ReworkRateCard report={reworkReport} userName={userName} />
           ) : null}
@@ -193,7 +268,9 @@ export default function TorreDeControlView() {
                 <Calendar className="h-6 w-6 text-blue" />
               </div>
               <p className="font-display text-lg font-bold text-navy">
-                {!dateFrom || !dateTo ? "Selecciona un rango de fechas para ver las métricas" : "Sin resultados en este rango"}
+                {!dateFrom || !dateTo
+                  ? "Selecciona un rango de fechas para ver las métricas"
+                  : "Sin resultados en este rango"}
               </p>
               <p className="text-sm text-steel">
                 {!dateFrom || !dateTo
@@ -202,7 +279,9 @@ export default function TorreDeControlView() {
               </p>
             </div>
           ) : loading ? (
-            <div className="p-16 text-center text-sm text-steel">Calculando métricas...</div>
+            <div className="p-16 text-center text-sm text-steel">
+              Calculando métricas...
+            </div>
           ) : manualMovementsReport ? (
             <ManualMovementsRateCard report={manualMovementsReport} />
           ) : null}
@@ -215,7 +294,9 @@ export default function TorreDeControlView() {
                 <Calendar className="h-6 w-6 text-blue" />
               </div>
               <p className="font-display text-lg font-bold text-navy">
-                {!dateFrom || !dateTo ? "Selecciona un rango de fechas para ver las métricas" : "Sin resultados en este rango"}
+                {!dateFrom || !dateTo
+                  ? "Selecciona un rango de fechas para ver las métricas"
+                  : "Sin resultados en este rango"}
               </p>
               <p className="text-sm text-steel">
                 {!dateFrom || !dateTo
@@ -224,74 +305,112 @@ export default function TorreDeControlView() {
               </p>
             </div>
           ) : loading ? (
-            <div className="p-16 text-center text-sm text-steel">Calculando métricas...</div>
+            <div className="p-16 text-center text-sm text-steel">
+              Calculando métricas...
+            </div>
           ) : upsellConversionReport ? (
             <UpsellConversionRateCard report={upsellConversionReport} />
           ) : null}
         </div>
       ) : (
-      <div className="mt-6 rounded-2xl border border-navy/10 bg-white">
-        {!dateFrom || !dateTo || (!report && !loading) ? (
-          <div className="flex flex-col items-center justify-center gap-3 p-16 text-center">
-            <div className="rounded-2xl bg-blue-light p-4">
-              <Calendar className="h-6 w-6 text-blue" />
-            </div>
-            <p className="font-display text-lg font-bold text-navy">
-              {!dateFrom || !dateTo ? "Selecciona un rango de fechas para ver las métricas" : "Sin resultados en este rango"}
-            </p>
-            <p className="text-sm text-steel">
-              {!dateFrom || !dateTo
-                ? 'Elige fecha "Desde" y "Hasta" arriba, luego presiona Aplicar.'
-                : "No hay órdenes cerradas para esta categoría en las fechas elegidas."}
-            </p>
-          </div>
-        ) : loading ? (
-          <div className="p-16 text-center text-sm text-steel">Calculando métricas...</div>
-        ) : report ? (
-          <div className="p-6">
-            <div className="mb-6 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl bg-ash p-5">
-                <p className="font-mono text-[11px] uppercase tracking-widest text-steel">{TAB_METRIC_LABEL[tab]}</p>
-                <p className="mt-1 font-display text-2xl font-bold text-navy">{formatHours(report.overall_avg_hours)}</p>
+        <div className="mt-6 rounded-2xl border border-navy/10 bg-white">
+          {!dateFrom || !dateTo || (!report && !loading) ? (
+            <div className="flex flex-col items-center justify-center gap-3 p-16 text-center">
+              <div className="rounded-2xl bg-blue-light p-4">
+                <Calendar className="h-6 w-6 text-blue" />
               </div>
-              <div className="rounded-xl bg-ash p-5">
-                <p className="font-mono text-[11px] uppercase tracking-widest text-steel">Total en el período</p>
-                <p className="mt-1 font-display text-2xl font-bold text-navy">{formatCount(report.overall_count)}</p>
-              </div>
+              <p className="font-display text-lg font-bold text-navy">
+                {!dateFrom || !dateTo
+                  ? "Selecciona un rango de fechas para ver las métricas"
+                  : "Sin resultados en este rango"}
+              </p>
+              <p className="text-sm text-steel">
+                {!dateFrom || !dateTo
+                  ? 'Elige fecha "Desde" y "Hasta" arriba, luego presiona Aplicar.'
+                  : "No hay órdenes cerradas para esta categoría en las fechas elegidas."}
+              </p>
             </div>
+          ) : loading ? (
+            <div className="p-16 text-center text-sm text-steel">
+              Calculando métricas...
+            </div>
+          ) : report ? (
+            <div className="p-6">
+              <div className="mb-6 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl bg-ash p-5">
+                  <p className="font-mono text-[11px] uppercase tracking-widest text-steel">
+                    {TAB_METRIC_LABEL[tab]}
+                  </p>
+                  <p className="mt-1 font-display text-2xl font-bold text-navy">
+                    {formatHours(report.overall_avg_hours)}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-ash p-5">
+                  <p className="font-mono text-[11px] uppercase tracking-widest text-steel">
+                    Total en el período
+                  </p>
+                  <p className="mt-1 font-display text-2xl font-bold text-navy">
+                    {formatCount(report.overall_count)}
+                  </p>
+                </div>
+              </div>
 
-            {report.rows.length === 0 ? (
-              <p className="p-6 text-center text-sm text-steel">No hay datos para esta categoría en el rango elegido.</p>
-            ) : (
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-navy/10">
-                  <tr className="text-steel">
-                    <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">#</th>
-                    <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">Persona</th>
-                    <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">Cantidad</th>
-                    <th className="pb-2 text-right font-mono text-[10px] uppercase tracking-widest">Tiempo promedio</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-navy/5">
-                  {report.rows.map((row, i) => (
-                    <tr key={row.user_id}>
-                      <td className="py-3">
-                        {i === 0 ? <Trophy className="h-4 w-4 text-amber-500" /> : <span className="text-steel">{i + 1}</span>}
-                      </td>
-                      <td className="py-3 font-semibold text-navy">{userName(row.user_id)}</td>
-                      <td className="py-3 text-navy">{formatCount(row.count)}</td>
-                      <td className="py-3 text-right font-medium text-navy">{formatHours(row.avg_hours)}</td>
+              {report.rows.length === 0 ? (
+                <p className="p-6 text-center text-sm text-steel">
+                  No hay datos para esta categoría en el rango elegido.
+                </p>
+              ) : (
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-navy/10">
+                    <tr className="text-steel">
+                      <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">
+                        #
+                      </th>
+                      <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">
+                        Persona
+                      </th>
+                      <th className="pb-2 font-mono text-[10px] uppercase tracking-widest">
+                        Cantidad
+                      </th>
+                      <th className="pb-2 text-right font-mono text-[10px] uppercase tracking-widest">
+                        Tiempo promedio
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        ) : null}
-      </div>
+                  </thead>
+                  <tbody className="divide-y divide-navy/5">
+                    {report.rows.map((row, i) => (
+                      <tr key={row.user_id}>
+                        <td className="py-3">
+                          {i === 0 ? (
+                            <Trophy className="h-4 w-4 text-amber-500" />
+                          ) : (
+                            <span className="text-steel">{i + 1}</span>
+                          )}
+                        </td>
+                        <td className="py-3 font-semibold text-navy">
+                          {userName(row.user_id)}
+                        </td>
+                        <td className="py-3 text-navy">
+                          {formatCount(row.count)}
+                        </td>
+                        <td className="py-3 text-right font-medium text-navy">
+                          {formatHours(row.avg_hours)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ) : null}
+        </div>
       )}
 
-      {error && <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+      {error && (
+        <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

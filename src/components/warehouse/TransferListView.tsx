@@ -1,4 +1,5 @@
 "use client";
+import { counterSaleLabel } from "@/lib/counter-sale-flow";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -104,6 +105,11 @@ export default function TransfersListView() {
   const [tab, setTab] = useState<"despachos" | "transferencias" | "mostrador">(
     "despachos",
   );
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "mostrador")
+      setTab("mostrador");
+  }, []);
+
   const [stage, setStage] = useState<Stage | "activos">("activos");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -802,7 +808,7 @@ export default function TransfersListView() {
               .map((sale) => (
                 <Link
                   key={sale.id}
-                  href={`/dashboard/repuestos/ventas/${sale.id}`}
+                  href={`/dashboard/almacen/mostrador/${sale.id}`}
                   className="flex items-center justify-between border-t border-navy/10 p-5 text-sm"
                 >
                   <div>
@@ -814,7 +820,9 @@ export default function TransfersListView() {
                         .join(", ")}
                     </p>
                   </div>
-                  <span>{sale.status.replaceAll("_", " ")}</span>
+                  <span className="ml-4 rounded-full bg-blue-light px-3 py-1 text-xs font-semibold text-blue">
+                    {counterSaleLabel(sale)}
+                  </span>
                 </Link>
               ))}
           </>

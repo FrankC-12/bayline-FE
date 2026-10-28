@@ -4,11 +4,11 @@ import PartPaymentModal from "./PartPaymentModal";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { NumberInput } from "@/components/ui/NumberInput";
 
+import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ChevronLeft, Loader2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useParts } from "@/hooks/useParts";
+import { counterSaleLabel, counterSaleActions } from "@/lib/counter-sale-flow";
 import { downloadBlob } from "@/lib/download";
 import {
   getPartSale,
@@ -17,13 +17,6 @@ import {
 } from "@/lib/api/parts";
 import { formatMoney, formatCount } from "@/lib/format";
 import type { PartSale } from "@/types/parts";
-
-const STATUS_LABELS: Record<string, string> = {
-  pendiente: "Pendiente",
-  pedido: "Pedido",
-  completado: "Completado",
-  cancelado: "Cancelado",
-};
 
 const STATUS_STYLES: Record<string, string> = {
   pendiente: "bg-amber-100 text-amber-700",
@@ -34,18 +27,25 @@ const STATUS_STYLES: Record<string, string> = {
 
 interface PartSaleDetailViewProps {
   saleId: string;
+  warehouseView?: boolean;
 }
 
 export default function PartSaleDetailView({
   saleId,
+  warehouseView = false,
 }: PartSaleDetailViewProps) {
   const router = useRouter();
+  const { currentUser } = useAuth();
   const { canEdit: canCollect } = useModuleAccess("finanzas-cobrar");
   const [collecting, setCollecting] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const { currentUser } = useAuth();
-  const filialId = currentUser?.filialId ?? null;
-  const { parts } = useParts(filialId);
+
+  const { canEdit: canWarehouseEdit } = useModuleAccess("almacen");
+  const { canEdit: hasSalesEdit } = useModuleAccess("repuestos");
+  const canSalesEdit = hasSalesEdit && currentUser?.roleSlug !== "almacenista";
+  const backHref = warehouseView
+    ? "/dashboard/almacen/transferencias?tab=mostrador"
+    : "/dashboard/repuestos/ventas";
 
   const [sale, setSale] = useState<PartSale | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +57,6 @@ export default function PartSaleDetailView({
   const [actionError, setActionError] = useState<string | null>(null);
 
   async function load() {
-    setLoading(true);
     setError(null);
     try {
       const data = await getPartSale(saleId);
@@ -80,19 +79,35 @@ export default function PartSaleDetailView({
   }
 
   useEffect(() => {
+    setLoading(true);
+    setSale(null);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleId]);
 
-  const partName = (id: string) => parts.find((p) => p.id === id)?.name ?? "—";
-  const partCode = (id: string) => parts.find((p) => p.id === id)?.code ?? "—";
+  useEffect(() => {
+    if (!sale?.status || ["completado", "cancelado"].includes(sale.status))
+      return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible")
+        void getPartSale(saleId)
+          .then(setSale)
+          .catch(() => {});
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [saleId, sale?.status]);
+
+  const partName = (id: string) =>
+    sale?.lines.find((line) => line.part_id === id)?.part_name ?? "—";
+  const partCode = (id: string) =>
+    sale?.lines.find((line) => line.part_id === id)?.part_code ?? "—";
 
   async function markAsPedido() {
     if (!sale) return;
     setSubmitting(true);
     setActionError(null);
     try {
-      await updatePartSaleStatus(
+      const updated = await updatePartSaleStatus(
         sale.id,
         "pedido",
         sale.lines.map((line) => ({
@@ -101,7 +116,7 @@ export default function PartSaleDetailView({
             Number(dispatchDrafts[line.id] ?? line.quantity) || 0,
         })),
       );
-      await load();
+      setSale(updated);
     } catch (err) {
       setActionError(
         err instanceof Error
@@ -118,8 +133,8 @@ export default function PartSaleDetailView({
     setSubmitting(true);
     setActionError(null);
     try {
-      await updatePartSaleStatus(sale.id, status);
-      await load();
+      const updated = await updatePartSaleStatus(sale.id, status);
+      setSale(updated);
     } catch (err) {
       setActionError(
         err instanceof Error ? err.message : "No se pudo actualizar la venta.",
@@ -149,28 +164,38 @@ export default function PartSaleDetailView({
           {error ?? "La venta no existe o fue eliminada."}
         </p>
         <button
-          onClick={() => router.push("/dashboard/repuestos/ventas")}
+          onClick={() => router.push(backHref)}
           className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-steel hover:text-navy"
         >
           <ChevronLeft className="h-4 w-4" />
-          Volver a Ventas de Repuestos
+          {warehouseView ? "Volver a Almacén" : "Volver a Ventas de Repuestos"}
         </button>
       </div>
     );
   }
 
+  const { dispatch: canDispatch, receive: canReceive } = counterSaleActions(
+    sale,
+    warehouseView,
+    canWarehouseEdit,
+    canSalesEdit &&
+      (currentUser?.roleSlug === "filial-admin" ||
+        sale.dispatched_by_user_id !== currentUser?.userId),
+  );
   const canCancel =
+    !warehouseView &&
+    canSalesEdit &&
     sale.amount_collected <= 0 &&
     (sale.status === "pendiente" || sale.status === "pedido");
 
   return (
     <div>
       <button
-        onClick={() => router.push("/dashboard/repuestos/ventas")}
+        onClick={() => router.push(backHref)}
         className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-steel hover:text-navy"
       >
         <ChevronLeft className="h-4 w-4" />
-        Volver a Ventas de Repuestos
+        {warehouseView ? "Volver a Almacén" : "Volver a Ventas de Repuestos"}
       </button>
 
       <div className="mb-6 flex items-center justify-between">
@@ -186,7 +211,7 @@ export default function PartSaleDetailView({
         <span
           className={`rounded-full px-4 py-2 text-sm font-semibold ${STATUS_STYLES[sale.status]}`}
         >
-          {STATUS_LABELS[sale.status]}
+          {counterSaleLabel(sale)}
         </span>
       </div>
 
@@ -194,9 +219,9 @@ export default function PartSaleDetailView({
         <section className="mb-5 rounded-2xl border border-navy/10 bg-white p-5">
           <ol aria-label="Flujo de venta" className="grid gap-3 sm:grid-cols-3">
             {[
-              { id: "pendiente", label: "Pedido creado" },
-              { id: "pedido", label: "Despacho del almacén" },
-              { id: "completado", label: "Confirmado en mostrador" },
+              { id: "pendiente", label: "Esperando despacho de almacén" },
+              { id: "pedido", label: "Despachado por almacén" },
+              { id: "completado", label: "Recibido en mostrador" },
             ].map((step, index) => {
               const current = ["pendiente", "pedido", "completado"].indexOf(
                 sale.status,
@@ -218,9 +243,15 @@ export default function PartSaleDetailView({
           <p className="mt-4 text-sm text-steel">
             <strong className="text-navy">Siguiente paso: </strong>
             {sale.status === "pendiente"
-              ? "verifica las cantidades y comienza el despacho."
+              ? warehouseView
+                ? "verifica las cantidades y confirma el despacho hacia mostrador."
+                : "esperando despacho de almacén. Te avisaremos cuando puedas confirmar la recepción."
               : sale.status === "pedido"
-                ? "confirma la recepción de los repuestos en el mostrador."
+                ? !sale.dispatched_at
+                  ? "almacén debe confirmar el despacho de esta solicitud."
+                  : warehouseView
+                    ? "despacho registrado. Esperando confirmación de recepción en mostrador."
+                    : "confirma la recepción de los repuestos en el mostrador."
                 : sale.pending_amount > 0
                   ? "registra el cobro o consulta el saldo pendiente."
                   : "venta confirmada y cobrada; puedes consultar su factura."}
@@ -251,7 +282,7 @@ export default function PartSaleDetailView({
           <tbody className="divide-y divide-navy/5">
             {sale.lines.map((line) => {
               const draftMismatch =
-                sale.status === "pendiente" &&
+                canDispatch &&
                 dispatchDrafts[line.id] !== undefined &&
                 Number(dispatchDrafts[line.id]) !== line.quantity;
               const confirmedMismatch =
@@ -269,7 +300,7 @@ export default function PartSaleDetailView({
                     {formatCount(line.quantity)}
                   </td>
                   <td className="py-2">
-                    {sale.status === "pendiente" ? (
+                    {canDispatch ? (
                       <NumberInput
                         min="0"
                         value={dispatchDrafts[line.id] ?? ""}
@@ -334,11 +365,11 @@ export default function PartSaleDetailView({
         </div>
       </div>
 
-      {sale.status === "pendiente" && (
+      {canDispatch && (
         <p className="mt-4 text-xs text-steel">
           Confirma cuánto se despachó realmente de cada línea. Si no coincide
-          con lo vendido, la venta no podrá marcarse como &quot;Pedido&quot;
-          hasta resolver la diferencia.
+          con lo vendido, no se podrá confirmar el despacho hasta resolver la
+          diferencia.
         </p>
       )}
 
@@ -400,16 +431,8 @@ export default function PartSaleDetailView({
             setConfirming(false);
           }}
           onCollected={async () => {
-            if (confirming) await advance("completado");
-            else await load();
+            await load();
           }}
-          onUnpaid={
-            confirming
-              ? async () => {
-                  await advance("completado");
-                }
-              : undefined
-          }
         />
       )}
       {confirming && !collecting && (
@@ -417,25 +440,17 @@ export default function PartSaleDetailView({
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Confirmar en Mostrador"
+            aria-label="Confirmar recepción en mostrador"
             className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6"
           >
             <h2 className="font-display text-xl font-bold text-navy">
-              ¿El cliente pagó?
+              ¿Recibiste los repuestos en mostrador?
             </h2>
             <p className="text-sm text-steel">
-              Pendiente: ${formatMoney(sale.pending_amount)}. La entrega y el
-              cobro se registran por separado.
+              Confirma únicamente cuando hayas recibido y revisado las
+              cantidades despachadas por almacén. El cobro se registra por
+              separado.
             </p>
-            {canCollect && sale.pending_amount > 0 && (
-              <button
-                disabled={submitting}
-                onClick={() => setCollecting(true)}
-                className="w-full rounded-full bg-blue p-3 font-semibold text-white"
-              >
-                Sí · Registrar cobro
-              </button>
-            )}
             <button
               disabled={submitting}
               onClick={() => {
@@ -445,9 +460,7 @@ export default function PartSaleDetailView({
               }}
               className="w-full p-3 font-semibold text-blue"
             >
-              {sale.pending_amount <= 0
-                ? "Ya pagado · Confirmar entrega"
-                : "Confirmar entrega sin cobro"}
+              Confirmar recepción
             </button>
             {!canCollect && sale.pending_amount > 0 && (
               <p className="text-xs text-steel">
@@ -471,7 +484,7 @@ export default function PartSaleDetailView({
         </div>
       )}
       <div className="mt-6 flex items-center gap-3">
-        {sale.status === "completado" && (
+        {!warehouseView && sale.status === "completado" && (
           <button
             disabled={submitting}
             onClick={() => {
@@ -493,7 +506,8 @@ export default function PartSaleDetailView({
             Descargar factura PDF
           </button>
         )}
-        {canCollect &&
+        {!warehouseView &&
+          canCollect &&
           sale.status !== "cancelado" &&
           sale.pending_amount > 0 && (
             <button
@@ -506,24 +520,24 @@ export default function PartSaleDetailView({
               Registrar cobro
             </button>
           )}
-        {sale.status === "pendiente" && (
+        {canDispatch && (
           <button
             onClick={markAsPedido}
             disabled={submitting}
             className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Marcar como despachando
+            Confirmar despacho a mostrador
           </button>
         )}
-        {sale.status === "pedido" && (
+        {canReceive && (
           <button
             onClick={() => setConfirming(true)}
             disabled={submitting}
             className="flex items-center justify-center gap-2 rounded-full bg-blue px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-navy disabled:opacity-50"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Confirmar en Mostrador
+            Confirmar recepción en mostrador
           </button>
         )}
         {canCancel && (

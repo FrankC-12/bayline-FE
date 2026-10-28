@@ -74,3 +74,17 @@ export interface UpsellConversionRate {
   converted_count: number;
   rate: number;
 }
+
+export interface WorkshopOverview {
+  as_of: string;
+  registered_vehicles: number;
+  active_orders: number;
+  pending_orders: number;
+  in_progress_orders: number;
+  ready_orders: number;
+  draft_orders: number;
+  maintenance_due_7: number;
+  maintenance_due_30: number;
+  maintenance_overdue: number;
+  trend: { day: string; created: number; delivered: number }[];
+}

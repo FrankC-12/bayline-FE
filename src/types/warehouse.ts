@@ -112,6 +112,7 @@ export interface PartSaleRequestLine {
 }
 
 export interface PartSaleRequest {
+  dispatched_at?: string | null;
   id: string;
   code: string;
   client_name: string;

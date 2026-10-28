@@ -1,6 +1,8 @@
-export type PartSaleStatus = "pendiente" | "pedido" | "completado" | "cancelado";
+export type PartSaleStatus =
+  "pendiente" | "pedido" | "completado" | "cancelado";
 export type ReturnCondition = "nuevo" | "usado" | "defectuoso";
-export type ReturnReason = "pedido_en_exceso" | "defectuoso" | "repuesto_incorrecto" | "otro";
+export type ReturnReason =
+  "pedido_en_exceso" | "defectuoso" | "repuesto_incorrecto" | "otro";
 
 export interface Part {
   list_price?: number | null;
@@ -61,6 +63,8 @@ export interface PartWarranty {
 }
 
 export interface PartSaleLine {
+  part_name?: string | null;
+  part_code?: string | null;
   id: string;
   part_id: string;
   quantity: number;
@@ -74,6 +78,10 @@ export interface PartSaleLine {
 }
 
 export interface PartSale {
+  dispatched_at?: string | null;
+  created_by_user_id?: string | null;
+  dispatched_by_user_id?: string | null;
+  received_by_user_id?: string | null;
   completed_at?: string | null;
   id: string;
   filial_id: string;
