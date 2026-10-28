@@ -1,7 +1,9 @@
 "use client";
 
+import BankIdentity from "@/components/common/BankIdentity";
 import Modal from "@/components/common/Modal";
 
+import { detectVenezuelanBank, VENEZUELAN_BANKS } from "@/lib/venezuelan-banks";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { CreateSupplierInput } from "@/lib/api/administracion";
@@ -14,7 +16,12 @@ interface CreateSupplierModalProps {
   onSubmit: (input: CreateSupplierInput) => Promise<unknown>;
 }
 
-export default function CreateSupplierModal({ open, onClose, filialId, onSubmit }: CreateSupplierModalProps) {
+export default function CreateSupplierModal({
+  open,
+  onClose,
+  filialId,
+  onSubmit,
+}: CreateSupplierModalProps) {
   const [businessName, setBusinessName] = useState("");
   const [tradeName, setTradeName] = useState("");
   const [rif, setRif] = useState("J-");
@@ -27,11 +34,30 @@ export default function CreateSupplierModal({ open, onClose, filialId, onSubmit 
   const [bankName, setBankName] = useState("");
   const [accountHolder, setAccountHolder] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
-  const [accountCurrency, setAccountCurrency] = useState<"usd" | "bs" | "eur">("bs");
+  const [accountCurrency, setAccountCurrency] = useState<"usd" | "bs" | "eur">(
+    "bs",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = businessName.trim() && rif.trim() && supplierType && (!paymentMethod || accountHolder.trim());
+  const detectedBank = detectVenezuelanBank(accountNumber, paymentMethod);
+  function changeAccountNumber(value: string) {
+    const previous = detectVenezuelanBank(accountNumber, paymentMethod);
+    const detected = detectVenezuelanBank(value, paymentMethod);
+    setAccountNumber(value.replace(/\s/g, ""));
+    if (detected) setBankName(detected.name);
+    else if (previous && bankName === previous.name) setBankName("");
+  }
+  function changePaymentMethod(value: string) {
+    if (detectedBank && bankName === detectedBank.name) setBankName("");
+    setPaymentMethod(value);
+  }
+
+  const canSubmit =
+    businessName.trim() &&
+    rif.trim() &&
+    supplierType &&
+    (!paymentMethod || accountHolder.trim());
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -48,19 +74,29 @@ export default function CreateSupplierModal({ open, onClose, filialId, onSubmit 
         phone: phone ? phone.replace(/\D/g, "") : null,
         email: email || null,
         address: address || null,
-        payment_accounts: paymentMethod && accountHolder.trim() ? [{
-          payment_method: paymentMethod as "transferencia" | "pago_movil" | "zelle" | "efectivo" | "otro",
-          bank_name: bankName || null,
-          account_holder: accountHolder,
-          document: rif || null,
-          account_number: accountNumber || null,
-          account_type: null,
-          currency: accountCurrency,
-          phone: phone ? phone.replace(/\D/g, "") : null,
-          email: email || null,
-          notes: null,
-          is_active: true,
-        }] : [],
+        payment_accounts:
+          paymentMethod && accountHolder.trim()
+            ? [
+                {
+                  payment_method: paymentMethod as
+                    | "transferencia"
+                    | "pago_movil"
+                    | "zelle"
+                    | "efectivo"
+                    | "otro",
+                  bank_name: bankName || null,
+                  account_holder: accountHolder,
+                  document: rif || null,
+                  account_number: accountNumber || null,
+                  account_type: null,
+                  currency: accountCurrency,
+                  phone: phone ? phone.replace(/\D/g, "") : null,
+                  email: email || null,
+                  notes: null,
+                  is_active: true,
+                },
+              ]
+            : [],
       });
       setBusinessName("");
       setTradeName("");
@@ -77,7 +113,9 @@ export default function CreateSupplierModal({ open, onClose, filialId, onSubmit 
       setAccountCurrency("bs");
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo crear el proveedor.");
+      setError(
+        err instanceof Error ? err.message : "No se pudo crear el proveedor.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -86,8 +124,17 @@ export default function CreateSupplierModal({ open, onClose, filialId, onSubmit 
   if (!open) return null;
 
   return (
-    <Modal open={open} onClose={onClose} title="Crear Nuevo Proveedor" size="lg" closeDisabled={submitting} footer={<><button
-            onClick={onClose} disabled={submitting}
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Crear Nuevo Proveedor"
+      size="lg"
+      closeDisabled={submitting}
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            disabled={submitting}
             className="rounded-full border border-navy/15 px-5 py-2.5 text-sm font-semibold text-navy transition hover:border-navy/40"
           >
             Cancelar
@@ -99,115 +146,194 @@ export default function CreateSupplierModal({ open, onClose, filialId, onSubmit 
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Crear Proveedor
-          </button></>}>
+          </button>
+        </>
+      }
+    >
       <div className="space-y-5 p-5 sm:p-7">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Razón social</label>
-            <input
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="Ej. Repuestos Andinos C.A."
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Nombre comercial (opcional)</label>
-            <input
-              value={tradeName}
-              onChange={(e) => setTradeName(e.target.value)}
-              placeholder="Ej. Andinos Repuestos"
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">RIF</label>
-            <input
-              value={rif}
-              onChange={(e) => setRif(e.target.value)}
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Tipo de proveedor</label>
-            <select
-              value={supplierType}
-              onChange={(e) => setSupplierType(e.target.value)}
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            >
-              <option value="">Seleccionar tipo...</option>
-              <option value="fabricante">Fabricante</option>
-              <option value="nacional">Nacional</option>
-              <option value="importador">Importador</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Persona de contacto</label>
-            <input
-              value={contactPerson}
-              onChange={(e) => setContactPerson(e.target.value)}
-              placeholder="Ej. Carmen Villegas"
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Teléfono</label>
-            <input
-              inputMode="tel"
-              value={formatVenezuelanPhone(phone)}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
-              placeholder="(0414) 123-4567"
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Correo electrónico</label>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ventas@proveedor.com"
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Dirección</label>
-            <textarea
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              rows={2}
-              placeholder="Av. Principal, edificio, ciudad, estado"
-              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
-            />
-          </div>
-
-          <div className="border-t border-navy/10 pt-5">
-            <h3 className="mb-1 font-semibold text-navy">Cuenta o método de pago</h3>
-            <p className="mb-4 text-xs text-steel">Opcional; quedará visible en la ficha del proveedor.</p>
-            <div className="space-y-4">
-              <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue">
-                <option value="">Sin método registrado</option>
-                <option value="transferencia">Transferencia bancaria</option>
-                <option value="pago_movil">Pago móvil</option>
-                <option value="zelle">Zelle</option>
-                <option value="efectivo">Efectivo</option>
-                <option value="otro">Otro</option>
-              </select>
-              {paymentMethod && <>
-                <input value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} placeholder="Titular de la cuenta *" className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue" />
-                <div className="grid grid-cols-2 gap-3">
-                  <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Banco" className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue" />
-                  <select value={accountCurrency} onChange={(e) => setAccountCurrency(e.target.value as "usd" | "bs" | "eur")} className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue">
-                    <option value="bs">Bolívares</option><option value="usd">USD</option><option value="eur">EUR</option>
-                  </select>
-                </div>
-                <input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value.replace(/\s/g, ""))} placeholder="Número de cuenta, teléfono o correo" className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue" />
-              </>}
-            </div>
-          </div>
-
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-navy">
+            Razón social
+          </label>
+          <input
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            placeholder="Ej. Repuestos Andinos C.A."
+            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-navy">
+            Nombre comercial (opcional)
+          </label>
+          <input
+            value={tradeName}
+            onChange={(e) => setTradeName(e.target.value)}
+            placeholder="Ej. Andinos Repuestos"
+            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-navy">
+            RIF
+          </label>
+          <input
+            value={rif}
+            onChange={(e) => setRif(e.target.value)}
+            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-navy">
+            Tipo de proveedor
+          </label>
+          <select
+            value={supplierType}
+            onChange={(e) => setSupplierType(e.target.value)}
+            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+          >
+            <option value="">Seleccionar tipo...</option>
+            <option value="fabricante">Fabricante</option>
+            <option value="nacional">Nacional</option>
+            <option value="importador">Importador</option>
+          </select>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-navy">
+            Persona de contacto
+          </label>
+          <input
+            value={contactPerson}
+            onChange={(e) => setContactPerson(e.target.value)}
+            placeholder="Ej. Carmen Villegas"
+            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-navy">
+            Teléfono
+          </label>
+          <input
+            inputMode="tel"
+            value={formatVenezuelanPhone(phone)}
+            onChange={(e) =>
+              setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))
+            }
+            placeholder="(0414) 123-4567"
+            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-navy">
+            Correo electrónico
+          </label>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="ventas@proveedor.com"
+            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-navy">
+            Dirección
+          </label>
+          <textarea
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            rows={2}
+            placeholder="Av. Principal, edificio, ciudad, estado"
+            className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+          />
         </div>
 
+        <div className="border-t border-navy/10 pt-5">
+          <h3 className="mb-1 font-semibold text-navy">
+            Cuenta o método de pago
+          </h3>
+          <p className="mb-4 text-xs text-steel">
+            Opcional; quedará visible en la ficha del proveedor.
+          </p>
+          <div className="space-y-4">
+            <select
+              value={paymentMethod}
+              onChange={(e) => changePaymentMethod(e.target.value)}
+              className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+            >
+              <option value="">Sin método registrado</option>
+              <option value="transferencia">Transferencia bancaria</option>
+              <option value="pago_movil">Pago móvil</option>
+              <option value="zelle">Zelle</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="otro">Otro</option>
+            </select>
+            {paymentMethod && (
+              <>
+                <input
+                  value={accountHolder}
+                  onChange={(e) => setAccountHolder(e.target.value)}
+                  placeholder="Titular de la cuenta *"
+                  className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+                />
+                <label className="block text-sm font-medium text-navy">
+                  {paymentMethod === "transferencia"
+                    ? "Número de cuenta"
+                    : "Identificador del método de pago"}
+                  <input
+                    value={accountNumber}
+                    onChange={(e) => changeAccountNumber(e.target.value)}
+                    placeholder="Número de cuenta, teléfono o correo"
+                    className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    aria-label="Banco"
+                    list="supplier-bank-list"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    placeholder="Banco"
+                    className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+                  />
+                  <select
+                    value={accountCurrency}
+                    onChange={(e) =>
+                      setAccountCurrency(e.target.value as "usd" | "bs" | "eur")
+                    }
+                    className="w-full rounded-xl border border-navy/15 px-4 py-2.5 text-sm outline-none focus:border-blue"
+                  >
+                    <option value="bs">Bolívares</option>
+                    <option value="usd">USD</option>
+                    <option value="eur">EUR</option>
+                  </select>
+                </div>
 
+                {bankName.trim() && <BankIdentity name={bankName} />}
+                <datalist id="supplier-bank-list">
+                  {VENEZUELAN_BANKS.map((bank) => (
+                    <option key={bank.code} value={bank.name}>
+                      {bank.code}
+                    </option>
+                  ))}
+                </datalist>
+                {paymentMethod === "transferencia" && (
+                  <p aria-live="polite" className="text-xs text-steel">
+                    {detectedBank && bankName === detectedBank.name
+                      ? `Banco identificado por el código ${detectedBank.code}. Puedes corregirlo si lo necesitas.`
+                      : "En cuentas venezolanas, el banco se completa con los primeros 4 dígitos. Si no se reconoce o es una cuenta extranjera, escribe el banco manualmente."}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {error && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+            {error}
+          </p>
+        )}
+      </div>
     </Modal>
   );
 }

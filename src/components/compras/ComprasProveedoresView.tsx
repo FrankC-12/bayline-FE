@@ -1,5 +1,6 @@
 "use client";
 
+import SupplierCard from "./SupplierCard";
 import WorkshopBackorders from "./WorkshopBackorders";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -8,7 +9,7 @@ import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { usePurchaseRequests } from "@/hooks/usePurchaseRequests";
-import { formatMoney, formatVenezuelanPhone } from "@/lib/format";
+import { formatMoney, formatCount } from "@/lib/format";
 import EmptyState from "@/components/common/EmptyState";
 import ErrorState from "@/components/common/ErrorState";
 import CreateSupplierModal from "./CreateSuppliermodal";
@@ -34,42 +35,55 @@ const REQUEST_STATUS_STYLES: Record<PurchaseRequestStatus, string> = {
   cancelada: "bg-red-100 text-red-700",
 };
 
-const SUPPLIER_TYPE_LABELS: Record<string, string> = {
-  fabricante: "Fabricante",
-  nacional: "Nacional",
-  importador: "Importador",
-};
-
 export default function ComprasProveedoresView() {
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialTab = searchParams.get("tab") === "proveedores" ? "proveedores" : "compras";
+  const initialTab =
+    searchParams.get("tab") === "proveedores" ? "proveedores" : "compras";
   const [tab, setTab] = useState<"compras" | "proveedores">(initialTab);
 
   useEffect(() => {
-    setTab(searchParams.get("tab") === "proveedores" ? "proveedores" : "compras");
+    setTab(
+      searchParams.get("tab") === "proveedores" ? "proveedores" : "compras",
+    );
   }, [searchParams]);
 
   const [search, setSearch] = useState("");
-  const { requests, loading: loadingRequests, error: requestsError, refresh: refreshRequests } = usePurchaseRequests(filialId, search || undefined);
+  const {
+    requests,
+    loading: loadingRequests,
+    error: requestsError,
+    refresh: refreshRequests,
+  } = usePurchaseRequests(filialId, search || undefined);
   const {
     suppliers,
     loading: loadingSuppliers,
     error: suppliersError,
     addSupplier,
     refresh: refreshSuppliers,
-  } = useSuppliers(filialId, tab === "proveedores" ? search || undefined : undefined);
-  const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.business_name ?? "—";
+  } = useSuppliers(
+    filialId,
+    tab === "proveedores" ? search || undefined : undefined,
+  );
+  const supplierName = (id: string) =>
+    suppliers.find((s) => s.id === id)?.business_name ?? "—";
 
   const [createSupplierOpen, setCreateSupplierOpen] = useState(false);
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
+    null,
+  );
 
   return (
     <div>
-      {tab === "compras" && filialId && <WorkshopBackorders filialId={filialId} />}
-      <div className="mb-6 flex rounded-full border border-navy/15 p-1" style={{ width: "fit-content" }}>
+      {tab === "compras" && filialId && (
+        <WorkshopBackorders filialId={filialId} />
+      )}
+      <div
+        className="mb-6 flex rounded-full border border-navy/15 p-1"
+        style={{ width: "fit-content" }}
+      >
         <button
           onClick={() => setTab("compras")}
           className={`rounded-full px-5 py-2 text-sm font-medium transition ${tab === "compras" ? "bg-navy text-white" : "text-steel"}`}
@@ -87,7 +101,9 @@ export default function ComprasProveedoresView() {
       {tab === "compras" ? (
         <div>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-4">
-            <h1 className="font-display text-3xl font-bold text-navy">Historial de Compras a Proveedores</h1>
+            <h1 className="font-display text-3xl font-bold text-navy">
+              Historial de Compras a Proveedores
+            </h1>
             <Link
               href="/dashboard/compras/nueva"
               className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
@@ -96,7 +112,9 @@ export default function ComprasProveedoresView() {
               Nueva solicitud de compra
             </Link>
           </div>
-          <p className="mb-4 text-sm text-steel">Solicitudes de compra de repuestos a fabricantes y distribuidores</p>
+          <p className="mb-4 text-sm text-steel">
+            Solicitudes de compra de repuestos a fabricantes y distribuidores
+          </p>
 
           <div className="relative mb-4">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
@@ -110,38 +128,78 @@ export default function ComprasProveedoresView() {
 
           <div className="overflow-hidden rounded-2xl border border-navy/10 bg-white">
             {loadingRequests ? (
-              <div className="p-12 text-center text-sm text-steel">Cargando compras...</div>
+              <div className="p-12 text-center text-sm text-steel">
+                Cargando compras...
+              </div>
             ) : requestsError ? (
-              <ErrorState error={requestsError} onRetry={refreshRequests} compact />
+              <ErrorState
+                error={requestsError}
+                onRetry={refreshRequests}
+                compact
+              />
             ) : requests.length === 0 ? (
               <EmptyState
                 compact
-                title={search ? `Sin resultados para "${search}"` : "No hay solicitudes de compra todavía."}
+                title={
+                  search
+                    ? `Sin resultados para "${search}"`
+                    : "No hay solicitudes de compra todavía."
+                }
               />
             ) : (
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-navy/10 bg-ash">
                   <tr>
-                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">N.º Solicitud</th>
-                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Proveedor</th>
-                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Fecha</th>
-                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Estado</th>
-                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Total cotizado</th>
+                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                      N.º Solicitud
+                    </th>
+                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                      Proveedor
+                    </th>
+                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                      Fecha
+                    </th>
+                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                      Estado
+                    </th>
+                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">
+                      Total cotizado
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-navy/5">
                   {requests.map((r) => (
-                    <tr key={r.id} className="cursor-pointer transition hover:bg-ash/60" onClick={() => router.push(`/dashboard/compras/${r.id}`)}>
-                      <td className="px-6 py-4 font-mono font-semibold text-blue">{r.code}</td>
-                      <td className="px-6 py-4 font-medium text-navy">{supplierName(r.supplier_id)}</td>
-                      <td className="px-6 py-4 text-steel">{new Date(r.created_at).toLocaleDateString("es-VE")}</td>
+                    <tr
+                      key={r.id}
+                      className="cursor-pointer transition hover:bg-ash/60"
+                      onClick={() => router.push(`/dashboard/compras/${r.id}`)}
+                    >
+                      <td className="px-6 py-4 font-mono font-semibold text-blue">
+                        {r.code}
+                      </td>
+                      <td className="px-6 py-4 font-medium text-navy">
+                        {supplierName(r.supplier_id)}
+                      </td>
+                      <td className="px-6 py-4 text-steel">
+                        {new Date(r.created_at).toLocaleDateString("es-VE")}
+                      </td>
                       <td className="px-6 py-4">
-                        <span className={`rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${REQUEST_STATUS_STYLES[r.status]}`}>
-                          {r.paid_at ? "Pagada" : r.invoice_number ? "Conciliada" : r.status === "conciliada" ? "Recibida · falta factura" : REQUEST_STATUS_LABELS[r.status]}
+                        <span
+                          className={`rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-widest ${REQUEST_STATUS_STYLES[r.status]}`}
+                        >
+                          {r.paid_at
+                            ? "Pagada"
+                            : r.invoice_number
+                              ? "Conciliada"
+                              : r.status === "conciliada"
+                                ? "Recibida · falta factura"
+                                : REQUEST_STATUS_LABELS[r.status]}
                         </span>
                       </td>
                       <td className="px-6 py-4 font-semibold text-navy">
-                        {r.total_quoted != null ? `$${formatMoney(r.total_quoted)}` : "—"}
+                        {r.total_quoted != null
+                          ? `$${formatMoney(r.total_quoted)}`
+                          : "—"}
                       </td>
                     </tr>
                   ))}
@@ -153,7 +211,9 @@ export default function ComprasProveedoresView() {
       ) : (
         <div>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-4">
-            <h1 className="font-display text-3xl font-bold text-navy">Proveedores</h1>
+            <h1 className="font-display text-3xl font-bold text-navy">
+              Proveedores
+            </h1>
             <button
               onClick={() => setCreateSupplierOpen(true)}
               className="inline-flex items-center gap-2 rounded-full bg-blue px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-navy"
@@ -162,9 +222,11 @@ export default function ComprasProveedoresView() {
               Nuevo Proveedor
             </button>
           </div>
-          <p className="mb-4 text-sm text-steel">Fabricantes, distribuidores nacionales e importadores registrados</p>
+          <p className="mb-4 text-sm text-steel">
+            Fabricantes, distribuidores nacionales e importadores registrados
+          </p>
 
-          <div className="mb-4 flex items-center gap-3">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
               <input
@@ -174,54 +236,42 @@ export default function ComprasProveedoresView() {
                 className="w-full rounded-full border border-navy/15 bg-white py-3 pl-11 pr-4 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/20"
               />
             </div>
-            <span className="whitespace-nowrap text-sm text-steel">{suppliers.length} proveedores</span>
+            <span className="whitespace-nowrap text-sm text-steel">
+              {formatCount(suppliers.length)}{" "}
+              {suppliers.length === 1 ? "proveedor" : "proveedores"}
+            </span>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-navy/10 bg-white">
+          <div>
             {loadingSuppliers ? (
-              <div className="p-12 text-center text-sm text-steel">Cargando proveedores...</div>
+              <div className="p-12 text-center text-sm text-steel">
+                Cargando proveedores...
+              </div>
             ) : suppliersError ? (
-              <ErrorState error={suppliersError} onRetry={refreshSuppliers} compact />
+              <ErrorState
+                error={suppliersError}
+                onRetry={refreshSuppliers}
+                compact
+              />
             ) : suppliers.length === 0 ? (
               <EmptyState
                 compact
-                title={search ? `Sin resultados para "${search}"` : "No hay proveedores registrados."}
+                title={
+                  search
+                    ? `Sin resultados para "${search}"`
+                    : "No hay proveedores registrados."
+                }
               />
             ) : (
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-navy/10 bg-ash">
-                  <tr>
-                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Razón social</th>
-                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">RIF</th>
-                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Tipo</th>
-                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Persona de contacto</th>
-                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Teléfono</th>
-                    <th className="px-6 py-3 font-mono text-[11px] uppercase tracking-widest text-steel">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-navy/5">
-                  {suppliers.map((s) => (
-                    <tr key={s.id} onClick={() => setSelectedSupplier(s)} className="cursor-pointer transition hover:bg-ash/60">
-                      <td className="px-6 py-4 font-semibold text-navy">{s.business_name}</td>
-                      <td className="px-6 py-4 font-mono text-steel">{s.rif}</td>
-                      <td className="px-6 py-4">
-                        <span className="rounded-full bg-blue-light px-2.5 py-1 text-xs font-semibold text-blue">
-                          {SUPPLIER_TYPE_LABELS[s.supplier_type]}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-steel">{s.contact_person ?? "—"}</td>
-                      <td className="px-6 py-4 text-steel">
-                        {s.phone ? formatVenezuelanPhone(s.phone) : "—"}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${s.status === "activo" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                          {s.status === "activo" ? "Activo" : "Inactivo"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {suppliers.map((supplier) => (
+                  <SupplierCard
+                    key={supplier.id}
+                    supplier={supplier}
+                    onView={() => setSelectedSupplier(supplier)}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -235,7 +285,14 @@ export default function ComprasProveedoresView() {
           onSubmit={addSupplier}
         />
       )}
-      <SupplierDetailDrawer supplier={selectedSupplier} onClose={() => setSelectedSupplier(null)} onUpdated={(updated) => { void refreshSuppliers(); setSelectedSupplier(updated); }} />
+      <SupplierDetailDrawer
+        supplier={selectedSupplier}
+        onClose={() => setSelectedSupplier(null)}
+        onUpdated={(updated) => {
+          void refreshSuppliers();
+          setSelectedSupplier(updated);
+        }}
+      />
     </div>
   );
 }
