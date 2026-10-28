@@ -19,16 +19,20 @@ export default function UsersView() {
   const filialId = currentUser?.filialId ?? null;
   const canManage = currentUser?.roleSlug === "filial-admin";
 
-  const { users, loading, error, addUser, editUser, refresh } = useUsers({ filialId });
+  const { users, loading, error, addUser, editUser, refresh } = useUsers({
+    filialId,
+  });
   const { roles } = useRoles("filial");
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("todos");
-  const [statusFilter, setStatusFilter] = useState<UserStatus | "todos">("todos");
-  const [statusTarget,setStatusTarget]=useState<AppUser | null>(null);
-  const [statusBusy,setStatusBusy]=useState(false);
-  const [statusError,setStatusError]=useState<string | null>(null);
-  const [detailUser,setDetailUser]=useState<AppUser | null>(null);
+  const [statusFilter, setStatusFilter] = useState<UserStatus | "todos">(
+    "todos",
+  );
+  const [statusTarget, setStatusTarget] = useState<AppUser | null>(null);
+  const [statusBusy, setStatusBusy] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [detailUser, setDetailUser] = useState<AppUser | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
 
@@ -38,7 +42,8 @@ export default function UsersView() {
         u.full_name.toLowerCase().includes(search.toLowerCase()) ||
         u.email.toLowerCase().includes(search.toLowerCase());
       const matchesRole = roleFilter === "todos" || u.role_id === roleFilter;
-      const matchesStatus = statusFilter === "todos" || u.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "todos" || u.status === statusFilter;
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [users, search, roleFilter, statusFilter]);
@@ -53,16 +58,29 @@ export default function UsersView() {
     setPanelOpen(true);
   }
 
-  function handleToggleStatus(user:AppUser) {
-    if(!canManage || user.id===currentUser?.userId) return;
-    setStatusError(null);setStatusTarget(user);
+  function handleToggleStatus(user: AppUser) {
+    if (!canManage || user.id === currentUser?.userId) return;
+    setStatusError(null);
+    setStatusTarget(user);
   }
   async function confirmStatusChange() {
-    if(!statusTarget || statusBusy || !canManage) return;
-    setStatusBusy(true);setStatusError(null);
-    try {await editUser(statusTarget.id,{status:statusTarget.status === "inactivo" ? "activo" : "inactivo"});setStatusTarget(null);}
-    catch(error){setStatusError(error instanceof Error ? error.message : "No se pudo cambiar el estado.");}
-    finally{setStatusBusy(false);}
+    if (!statusTarget || statusBusy || !canManage) return;
+    setStatusBusy(true);
+    setStatusError(null);
+    try {
+      await editUser(statusTarget.id, {
+        status: statusTarget.status === "inactivo" ? "activo" : "inactivo",
+      });
+      setStatusTarget(null);
+    } catch (error) {
+      setStatusError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo cambiar el estado.",
+      );
+    } finally {
+      setStatusBusy(false);
+    }
   }
 
   async function handleSubmit(input: CreateUserInput) {
@@ -81,7 +99,9 @@ export default function UsersView() {
   if (!filialId) {
     return (
       <div className="mx-auto max-w-7xl px-6 py-12">
-        <p className="text-sm text-steel">No se encontró una filial asociada a tu cuenta.</p>
+        <p className="text-sm text-steel">
+          No se encontró una filial asociada a tu cuenta.
+        </p>
       </div>
     );
   }
@@ -97,10 +117,15 @@ export default function UsersView() {
       </Link>
 
       <div className="mb-8">
-        <span className="font-mono text-xs uppercase tracking-[0.2em] text-blue">Súper Admin</span>
-        <h1 className="mt-2 font-display text-3xl font-bold text-navy">Usuarios y Accesos</h1>
+        <span className="font-mono text-xs uppercase tracking-[0.2em] text-blue">
+          Súper Admin
+        </span>
+        <h1 className="mt-2 font-display text-3xl font-bold text-navy">
+          Usuarios y Accesos
+        </h1>
         <p className="mt-1 text-sm text-steel">
-          Administra quién entra a Bayline y qué módulos puede ver, dentro de tu filial.
+          Administra quién entra a Bayline y qué módulos puede ver, dentro de tu
+          filial.
         </p>
       </div>
 
@@ -131,9 +156,42 @@ export default function UsersView() {
         onToggleStatus={handleToggleStatus}
       />
 
-      <ConfirmDialog open={!!statusTarget} title={statusTarget?.status === "inactivo" ? "Reactivar usuario" : "Inactivar usuario"} description={statusError ?? (statusTarget?.status === "inactivo" ? `¿Deseas reactivar a ${statusTarget.full_name}?` : `¿Deseas inactivar a ${statusTarget?.full_name}? No podrá iniciar sesión hasta que se reactive.`)} confirmLabel={statusTarget?.status === "inactivo" ? "Reactivar" : "Inactivar"} confirming={statusBusy} onCancel={()=>{if(!statusBusy) setStatusTarget(null);}} onConfirm={()=>void confirmStatusChange()}/>
+      <ConfirmDialog
+        open={!!statusTarget}
+        title={
+          statusTarget?.status === "inactivo"
+            ? "Reactivar usuario"
+            : "Suspender usuario"
+        }
+        description={
+          statusError ??
+          (statusTarget?.status === "inactivo"
+            ? `¿Deseas reactivar a ${statusTarget.full_name}?`
+            : `¿Deseas suspender a ${statusTarget?.full_name}? Se cerrarán sus sesiones y no podrá ingresar hasta que se reactive.`)
+        }
+        confirmLabel={
+          statusTarget?.status === "inactivo" ? "Reactivar" : "Suspender"
+        }
+        confirming={statusBusy}
+        onCancel={() => {
+          if (!statusBusy) setStatusTarget(null);
+        }}
+        onConfirm={() => void confirmStatusChange()}
+      />
 
-      {detailUser && <UserDetailModal user={detailUser} roles={roles} canManage={canManage} onClose={()=>setDetailUser(null)} onEdit={()=>{const user=detailUser;setDetailUser(null);openEdit(user);}}/>}
+      {detailUser && (
+        <UserDetailModal
+          user={detailUser}
+          roles={roles}
+          canManage={canManage}
+          onClose={() => setDetailUser(null)}
+          onEdit={() => {
+            const user = detailUser;
+            setDetailUser(null);
+            openEdit(user);
+          }}
+        />
+      )}
 
       {canManage && (
         <CreateUserPanel

@@ -61,7 +61,7 @@ export default function UsersToolbar({
           <option value="todos">Todos los estados</option>
           <option value="activo">Activo</option>
           <option value="invitado">Invitado</option>
-          <option value="inactivo">Inactivo</option>
+          <option value="inactivo">Suspendido</option>
         </select>
       </div>
 

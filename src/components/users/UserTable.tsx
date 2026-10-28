@@ -27,8 +27,20 @@ function getInitials(name: string) {
     .join("");
 }
 
-export default function UserTable({ users, roles, loading, error, onRetry, canManage, currentUserId, onView, onEdit, onToggleStatus }: UserTableProps) {
-  const roleName = (roleId: string) => roles.find((r) => r.id === roleId)?.name ?? "—";
+export default function UserTable({
+  users,
+  roles,
+  loading,
+  error,
+  onRetry,
+  canManage,
+  currentUserId,
+  onView,
+  onEdit,
+  onToggleStatus,
+}: UserTableProps) {
+  const roleName = (roleId: string) =>
+    roles.find((r) => r.id === roleId)?.name ?? "—";
 
   if (loading) {
     return (
@@ -45,8 +57,12 @@ export default function UserTable({ users, roles, loading, error, onRetry, canMa
   if (users.length === 0) {
     return (
       <div className="rounded-2xl border border-navy/10 bg-white p-12 text-center">
-        <p className="font-display text-lg font-bold text-navy">No hay usuarios todavía</p>
-        <p className="mt-1 text-sm text-steel">Crea el primer usuario para esta filial.</p>
+        <p className="font-display text-lg font-bold text-navy">
+          No hay usuarios todavía
+        </p>
+        <p className="mt-1 text-sm text-steel">
+          Crea el primer usuario para esta filial.
+        </p>
       </div>
     );
   }
@@ -77,7 +93,14 @@ export default function UserTable({ users, roles, loading, error, onRetry, canMa
                     {getInitials(u.full_name)}
                   </span>
                   <div>
-                    <button type="button" onClick={()=>onView(u)} aria-label={`Ver información de ${u.full_name}`} className="text-left font-semibold text-navy hover:text-blue focus-visible:outline-2 focus-visible:outline-blue">{u.full_name}</button>
+                    <button
+                      type="button"
+                      onClick={() => onView(u)}
+                      aria-label={`Ver información de ${u.full_name}`}
+                      className="text-left font-semibold text-navy hover:text-blue focus-visible:outline-2 focus-visible:outline-blue"
+                    >
+                      {u.full_name}
+                    </button>
                     <p className="text-xs text-steel">{u.email}</p>
                   </div>
                 </div>
@@ -99,8 +122,14 @@ export default function UserTable({ users, roles, loading, error, onRetry, canMa
                     {u.id !== currentUserId && (
                       <button
                         onClick={() => onToggleStatus(u)}
-                        aria-label={u.status === "inactivo" ? `Reactivar ${u.full_name}` : `Inactivar ${u.full_name}`}
-                        title={u.status === "inactivo" ? "Reactivar" : "Inactivar"}
+                        aria-label={
+                          u.status === "inactivo"
+                            ? `Reactivar ${u.full_name}`
+                            : `Suspender ${u.full_name}`
+                        }
+                        title={
+                          u.status === "inactivo" ? "Reactivar" : "Suspender"
+                        }
                         className={`rounded-lg p-2 transition ${
                           u.status === "inactivo"
                             ? "text-steel hover:bg-emerald-50 hover:text-emerald-600"

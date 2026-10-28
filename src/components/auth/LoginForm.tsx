@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
@@ -25,6 +25,19 @@ export default function LoginForm() {
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("bayline:suspended")) {
+        setError(
+          "Tu usuario está suspendido. Contacta a un administrador para reactivarlo.",
+        );
+        sessionStorage.removeItem("bayline:suspended");
+      }
+    } catch {
+      /* Storage may be disabled. */
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,7 +69,9 @@ export default function LoginForm() {
         if (err.errorCode === "invalid_credentials") {
           setError("Correo o contraseña incorrectos.");
         } else if (err.errorCode === "inactive_user") {
-          setError("Esta cuenta no está activa. Contacta a tu administrador.");
+          setError(
+            "Tu usuario está suspendido. Contacta a un administrador para reactivarlo.",
+          );
         } else {
           setError(err.message);
         }

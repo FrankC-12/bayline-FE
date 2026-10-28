@@ -1,9 +1,28 @@
 "use client";
 
-import { clearClientDrafts, getDraftStorage, resumeClientDrafts } from "@/lib/client-draft";
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { AUTH_SESSION_EXPIRED_EVENT, removeLegacyTokens } from "@/lib/api/client";
-import { getAccessMap, getSessionUser, login as loginRequest, logout as logoutRequest } from "@/lib/api/auth";
+import {
+  clearClientDrafts,
+  getDraftStorage,
+  resumeClientDrafts,
+} from "@/lib/client-draft";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  AUTH_SESSION_EXPIRED_EVENT,
+  removeLegacyTokens,
+} from "@/lib/api/client";
+import {
+  getAccessMap,
+  getSessionUser,
+  login as loginRequest,
+  logout as logoutRequest,
+} from "@/lib/api/auth";
 import type { CurrentUser, ModuleAccessLevel } from "@/types/auth";
 
 interface AuthContextValue {
@@ -24,7 +43,9 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [accessMap, setAccessMap] = useState<Record<string, ModuleAccessLevel>>({});
+  const [accessMap, setAccessMap] = useState<Record<string, ModuleAccessLevel>>(
+    {},
+  );
   const [accessLoading, setAccessLoading] = useState(true);
 
   const loadAccessMap = useCallback(async () => {
@@ -74,9 +95,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       active = false;
-      window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired);
+      window.removeEventListener(
+        AUTH_SESSION_EXPIRED_EVENT,
+        handleSessionExpired,
+      );
     };
   }, [loadAccessMap]);
+
+  const sessionUserId = currentUser?.userId;
+
+  // Check idle tabs too; every ordinary API request is also checked by the server.
+  useEffect(() => {
+    if (!sessionUserId) return;
+    let pending = false;
+    const check = async () => {
+      if (pending || document.visibilityState === "hidden") return;
+      pending = true;
+      try {
+        await getSessionUser();
+      } catch {
+        /* Authentication errors emit the session-expired event. */
+      } finally {
+        pending = false;
+      }
+    };
+    const timer = window.setInterval(() => void check(), 15000);
+    const onVisible = () => {
+      void check();
+    };
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [sessionUserId]);
 
   async function login(email: string, password: string): Promise<CurrentUser> {
     const user = await loginRequest({ email, password });
@@ -109,7 +163,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ currentUser, isLoading, accessMap, accessLoading, hasModuleAccess, canEditModule, login, logout }}
+      value={{
+        currentUser,
+        isLoading,
+        accessMap,
+        accessLoading,
+        hasModuleAccess,
+        canEditModule,
+        login,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>

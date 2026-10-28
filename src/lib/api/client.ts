@@ -12,7 +12,11 @@ export interface ToastEventDetail {
  * call with no provider mounted (e.g. in tests): the event just goes nowhere. */
 export function notifyToast(kind: ToastKind, message: string): void {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent<ToastEventDetail>(TOAST_EVENT, { detail: { kind, message } }));
+  window.dispatchEvent(
+    new CustomEvent<ToastEventDetail>(TOAST_EVENT, {
+      detail: { kind, message },
+    }),
+  );
 }
 
 /** Remove credentials left by the previous localStorage-based release. */
@@ -21,12 +25,15 @@ export function removeLegacyTokens(): void {
   try {
     localStorage.removeItem("bayline_access_token");
     localStorage.removeItem("bayline_refresh_token");
-  } catch { /* Storage can be disabled; the session uses cookies exclusively. */ }
+  } catch {
+    /* Storage can be disabled; the session uses cookies exclusively. */
+  }
 }
 
 let refreshPromise: Promise<void> | null = null;
 function expireSession(): void {
-  if (typeof window !== "undefined") window.dispatchEvent(new Event(AUTH_SESSION_EXPIRED_EVENT));
+  if (typeof window !== "undefined")
+    window.dispatchEvent(new Event(AUTH_SESSION_EXPIRED_EVENT));
 }
 
 export async function settleSessionRefresh(): Promise<void> {
@@ -37,7 +44,9 @@ export async function refreshSession(): Promise<void> {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
     const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: "POST", credentials: "same-origin", cache: "no-store",
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
       headers: { "X-CSRF-Protection": "1" },
     });
     if (!response.ok) {
@@ -45,7 +54,11 @@ export async function refreshSession(): Promise<void> {
       throw new Error("No se pudo renovar la sesión.");
     }
   })();
-  try { await refreshPromise; } finally { refreshPromise = null; }
+  try {
+    await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
 }
 
 /** One entry per invalid field on a 422 — `field` is the plain field name
@@ -70,7 +83,9 @@ export interface ApiErrorBody {
 function isFieldErrorList(details: unknown): details is ApiFieldError[] {
   return (
     Array.isArray(details) &&
-    details.every((d) => d && typeof d === "object" && "field" in d && "message" in d)
+    details.every(
+      (d) => d && typeof d === "object" && "field" in d && "message" in d,
+    )
   );
 }
 
@@ -85,7 +100,12 @@ export class ApiError extends Error {
   requestId?: string;
 
   constructor(body: ApiErrorBody) {
-    super(body.message + (body.statusCode >= 500 && body.requestId ? ` Referencia: ${body.requestId}` : ""));
+    super(
+      body.message +
+        (body.statusCode >= 500 && body.requestId
+          ? ` Referencia: ${body.requestId}`
+          : ""),
+    );
     this.requestId = body.requestId;
     this.statusCode = body.statusCode;
     this.errorCode = body.errorCode;
@@ -99,7 +119,9 @@ export class ApiError extends Error {
  * screen needs to check for this case separately (see classifyListError). */
 export class ApiTimeoutError extends Error {
   constructor() {
-    super("No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.");
+    super(
+      "No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.",
+    );
   }
 }
 
@@ -120,7 +142,10 @@ interface ApiFetchOptions extends RequestInit {
   toastOnError?: boolean;
 }
 
-async function apiResponse(path: string, options: ApiFetchOptions = {}): Promise<Response> {
+async function apiResponse(
+  path: string,
+  options: ApiFetchOptions = {},
+): Promise<Response> {
   const { auth = true, headers, toastOnError, ...rest } = options;
   const method = (rest.method ?? "GET").toUpperCase();
   const shouldToast = toastOnError ?? method !== "GET";
@@ -136,7 +161,10 @@ async function apiResponse(path: string, options: ApiFetchOptions = {}): Promise
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       return await fetch(`${API_BASE_URL}${path}`, {
-        ...rest, headers: finalHeaders, credentials: "same-origin", cache: "no-store",
+        ...rest,
+        headers: finalHeaders,
+        credentials: "same-origin",
+        cache: "no-store",
         signal: controller.signal,
       });
     } catch {
@@ -152,6 +180,20 @@ async function apiResponse(path: string, options: ApiFetchOptions = {}): Promise
   try {
     response = await request();
     if (auth && response.status === 401) {
+      const failure = await response
+        .clone()
+        .json()
+        .catch(() => null);
+      if (
+        failure?.errorCode === "inactive_user" &&
+        typeof window !== "undefined"
+      ) {
+        try {
+          sessionStorage.setItem("bayline:suspended", "1");
+        } catch {
+          /* Storage may be disabled. */
+        }
+      }
       await refreshSession();
       response = await request();
       if (response.status === 401) expireSession();
@@ -164,26 +206,36 @@ async function apiResponse(path: string, options: ApiFetchOptions = {}): Promise
   }
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    const error = new ApiError(body ?? {
-      statusCode: response.status, errorCode: "unknown_error",
-      message: "No se pudo completar la solicitud.", path,
-      timestamp: new Date().toISOString(),
-    });
+    const error = new ApiError(
+      body ?? {
+        statusCode: response.status,
+        errorCode: "unknown_error",
+        message: "No se pudo completar la solicitud.",
+        path,
+        timestamp: new Date().toISOString(),
+      },
+    );
     // A 401 means the session just expired — AuthContext handles that (it
     // redirects to login), a generic error toast on top would just be noise.
-    if (shouldToast && response.status !== 401) notifyToast("error", error.message);
+    if (shouldToast && response.status !== 401)
+      notifyToast("error", error.message);
     throw error;
   }
   return response;
 }
 
-
-export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
+export async function apiFetch<T>(
+  path: string,
+  options: ApiFetchOptions = {},
+): Promise<T> {
   const response = await apiResponse(path, options);
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
-export async function apiFetchBlob(path: string, options: ApiFetchOptions = {}): Promise<Blob> {
+export async function apiFetchBlob(
+  path: string,
+  options: ApiFetchOptions = {},
+): Promise<Blob> {
   return (await apiResponse(path, options)).blob();
 }

@@ -9,7 +9,7 @@ const STYLES: Record<UserStatus, string> = {
 const LABELS: Record<UserStatus, string> = {
   activo: "Activo",
   invitado: "Invitado",
-  inactivo: "Inactivo",
+  inactivo: "Suspendido",
 };
 
 export default function UserStatusBadge({ status }: { status: UserStatus }) {
