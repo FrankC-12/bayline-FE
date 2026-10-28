@@ -508,10 +508,10 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           complete={[
             !!inspection,
             !!summary?.tasks.length,
+            detailed.inspection?.status === "completada",
             !!inspection &&
               !!summary &&
               summary.transfers.every((t) => !!t.picked_up_at),
-            detailed.inspection?.status === "completada",
             !!summary?.tasks.length &&
               summary.tasks.every(
                 (t) => t.status === "completada" || t.status === "cancelada",

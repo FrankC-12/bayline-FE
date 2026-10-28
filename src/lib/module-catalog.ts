@@ -27,7 +27,7 @@ export interface ModuleCatalogItem {
 }
 
 export const MODULE_CATALOG: ModuleCatalogItem[] = [
-  { id: "asesor-servicios", label: "Asesor de Servicios", icon: FileText },
+  { id: "asesor-servicios", label: "Taller", icon: FileText },
   { id: "tecnico-servicio", label: "Técnico de Servicio", icon: Smartphone },
   { id: "administracion", label: "Administración", icon: ClipboardList },
   { id: "usuarios-accesos", label: "Usuarios y Accesos", icon: ShieldCheck },

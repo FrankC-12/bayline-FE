@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-const LABELS=["Inspección preliminar","Tareas asignadas","Vehículo y repuestos recibidos","Inspección minuciosa","Realización de tareas","Facturación y cobro","Entrega"];
+const LABELS=["Inspección preliminar","Tareas asignadas","Inspección minuciosa","Repuestos recibidos","Realización de tareas","Facturación y cobro","Entrega"];
 export default function OrderStages({complete,cancelled}:{complete:boolean[];cancelled:boolean}) {
  const current=complete.findIndex(value=>!value);
  return <nav aria-label="Etapas de la ODS" className="mt-5 border-t border-navy/10 pt-5"><ol className="grid grid-cols-2 gap-y-4 sm:grid-cols-4 xl:grid-cols-7">{LABELS.map((label,index)=> {

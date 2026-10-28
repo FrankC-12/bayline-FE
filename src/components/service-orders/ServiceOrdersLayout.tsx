@@ -59,7 +59,7 @@ function ServiceOrdersLayoutContent({
           Volver al Dashboard
         </Link>
         <p className="mb-3 font-mono text-[11px] uppercase tracking-widest text-steel">
-          Asesor de Servicios
+          Taller
         </p>
         <nav
           aria-label="Navegación de servicios"

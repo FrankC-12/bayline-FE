@@ -42,7 +42,7 @@ export interface ModuleCardData {
 export const modules: ModuleCardData[] = [
   {
     icon: FileText,
-    title: "Asesor de Servicios",
+    title: "Taller",
     description: "Inspecciones, órdenes de servicio, tareas y facturación del taller.",
     badge: moduleBadge(SERVICE_ORDERS_ITEMS.length),
     tint: "bg-indigo-100 text-indigo-600",
