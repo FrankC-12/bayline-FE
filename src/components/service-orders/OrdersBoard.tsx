@@ -17,6 +17,9 @@ import { useVehicleLookup } from "@/hooks/useVehicleLookUp";
 import { useUserDirectory } from "@/hooks/useUserDirectory";
 import ErrorState from "@/components/common/ErrorState";
 import type { ServiceOrder, ServiceOrderStatus } from "@/types/serviceOrder";
+import LeadFormModal from "@/components/clients/LeadFormModal";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
+import { notifyToast } from "@/lib/api/client";
 import OrderTabs from "./OrderTabs";
 import OrderCard from "./OrderCard";
 
@@ -28,6 +31,8 @@ const COLUMNS: { status: ServiceOrderStatus; label: string; dot: string }[] = [
 
 export default function OrdersBoard() {
   const router = useRouter();
+  const [leadOpen, setLeadOpen] = useState(false);
+  const { canEdit } = useModuleAccess("asesor-servicios");
   const { currentUser } = useAuth();
   const filialId = currentUser?.filialId ?? null;
 
@@ -108,6 +113,29 @@ export default function OrdersBoard() {
         </button>
       </div>
 
+      {canEdit && (
+        <button
+          onClick={() => setLeadOpen(true)}
+          className="mb-5 rounded-full border border-blue/20 bg-white px-4 py-2.5 text-sm font-semibold text-blue"
+        >
+          + Registrar lead del taller
+        </button>
+      )}
+      {leadOpen && filialId && (
+        <LeadFormModal
+          filialId={filialId}
+          defaultOrigin="taller"
+          defaultInterest="taller"
+          onClose={() => setLeadOpen(false)}
+          onSaved={() => {
+            setLeadOpen(false);
+            notifyToast(
+              "success",
+              "Lead registrado para seguimiento del taller.",
+            );
+          }}
+        />
+      )}
       <OrderTabs />
       <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[

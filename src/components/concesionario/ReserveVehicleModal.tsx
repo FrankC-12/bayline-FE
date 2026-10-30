@@ -1,5 +1,7 @@
 "use client";
 
+import { salesAccounts, type SalesAccount } from "@/lib/api/opportunities";
+import { apiFetch } from "@/lib/api/client";
 import { NumberInput } from "@/components/ui/NumberInput";
 
 import { useEffect, useState } from "react";
@@ -16,9 +18,9 @@ import type { VehicleReservationInput } from "@/lib/api/concesionario";
 import type { DealershipVehicle } from "@/types/concesionario";
 import { formatDocumentId } from "@/lib/format";
 
-function defaultExpiration(): string {
+function defaultExpiration(days = 7): string {
   const date = new Date();
-  date.setDate(date.getDate() + 7);
+  date.setDate(date.getDate() + days);
   return date.toISOString().slice(0, 10);
 }
 
@@ -26,6 +28,9 @@ interface ReserveVehicleModalProps {
   open: boolean;
   onClose: () => void;
   filialId: string;
+  initialClient?: Client | null;
+  quotedAmount?: number | null;
+  opportunityVersion?: number;
   vehicle: DealershipVehicle | null;
   onConfirm: (reservation: VehicleReservationInput) => Promise<void>;
 }
@@ -35,16 +40,70 @@ export default function ReserveVehicleModal({
   onClose,
   filialId,
   vehicle,
+  initialClient,
+  quotedAmount,
+  opportunityVersion,
   onConfirm,
 }: ReserveVehicleModalProps) {
   const toast = useToast();
-  const {currentUser} = useAuth();
-  const {canEdit: canAssignAdvisor} = useModuleAccess("administracion");
+  const [accounts, setAccounts] = useState<SalesAccount[]>([]);
+  const [accountId, setAccountId] = useState("");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentChannel, setPaymentChannel] = useState<
+    "cash" | "binance" | "paypal" | "zelle"
+  >("cash");
+  useEffect(() => {
+    let active = true;
+    if (open && opportunityVersion)
+      salesAccounts(filialId)
+        .then((v) => {
+          if (active) setAccounts(v.filter((a) => a.currency === "usd"));
+        })
+        .catch(() => {
+          if (active)
+            setError("No se pudieron consultar las cuentas del abono.");
+        });
+    return () => {
+      active = false;
+    };
+  }, [open, filialId, opportunityVersion]);
+
+  const { currentUser } = useAuth();
+  const { canEdit: canAssignAdvisor } = useModuleAccess("administracion");
+  const [rules, setRules] = useState<Record<string, number> | null>(null);
+  useEffect(() => {
+    let active = true;
+    if (open) {
+      setRules(null);
+      apiFetch<Record<string, number>>(
+        `/vehicle-opportunities/rules/current?filial_id=${filialId}`,
+        { toastOnError: false },
+      )
+        .then((v) => {
+          if (active) {
+            setRules(v);
+            setExpiresAt(defaultExpiration(v.vehicle_reservation_days));
+          }
+        })
+        .catch(() => {
+          if (active)
+            setError(
+              "No se pudieron consultar las reglas de reserva. Cierra y vuelve a intentar.",
+            );
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [open, filialId]);
   const [reason, setReason] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [createClientOpen, setCreateClientOpen] = useState(false);
-  const { clients, addClient } = useClients(filialId, clientSearch || undefined);
+  const { clients, addClient } = useClients(
+    filialId,
+    clientSearch || undefined,
+  );
   const { users } = useUserDirectory({ filialId });
 
   const [advisorId, setAdvisorId] = useState("");
@@ -55,14 +114,17 @@ export default function ReserveVehicleModal({
 
   useEffect(() => {
     if (!open) return;
-    setSelectedClient(null);
+    setSelectedClient(initialClient ?? null);
     setClientSearch("");
     setAdvisorId(currentUser?.userId ?? "");
     setReason("");
     setDepositAmount("");
+    setAccountId("");
+    setPaymentReference("");
+    setPaymentChannel("cash");
     setExpiresAt(defaultExpiration());
     setError(null);
-  }, [open, currentUser?.userId]);
+  }, [open, currentUser?.userId, initialClient]);
 
   async function handleCreateClient(input: CreateClientInput) {
     const created = await addClient(input);
@@ -80,7 +142,23 @@ export default function ReserveVehicleModal({
       setError("Selecciona el vendedor responsable de la reserva.");
       return;
     }
+    if (!rules) {
+      setError("Espera a que se carguen las reglas de venta.");
+      return;
+    }
+    const minimum =
+      Math.round(
+        (quotedAmount ?? vehicle.cash_total) *
+          rules.vehicle_min_deposit_percentage,
+      ) / 100;
     const deposit = Number(depositAmount);
+    if (deposit < minimum) {
+      setError(
+        `El abono mínimo es ${minimum.toLocaleString("es-VE", { minimumFractionDigits: 2 })} ${vehicle.price_currency}.`,
+      );
+      return;
+    }
+
     if (!deposit || deposit <= 0) {
       setError("Indica el monto del abono.");
       return;
@@ -89,21 +167,41 @@ export default function ReserveVehicleModal({
       setError("Indica hasta cuándo es válida la reserva.");
       return;
     }
-    if (reason.trim().length < 3) {setError("Indica un motivo de al menos 3 caracteres."); return;}
+    if (reason.trim().length < 3) {
+      setError("Indica un motivo de al menos 3 caracteres.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
+      if (
+        opportunityVersion &&
+        (!accountId || paymentReference.trim().length < 3)
+      )
+        throw new Error(
+          "Selecciona la cuenta USD e indica la referencia del abono.",
+        );
       await onConfirm({
+        opportunity_version: opportunityVersion,
+        account_id: opportunityVersion ? accountId : undefined,
+        payment_reference: opportunityVersion
+          ? paymentReference.trim()
+          : undefined,
+        payment_channel: opportunityVersion ? paymentChannel : undefined,
         client_id: selectedClient.id,
         advisor_user_id: advisorId,
         deposit_amount: deposit,
         expires_at: expiresAt,
         reason: reason.trim(),
       });
-      toast.success(`Reserva registrada — ${vehicle.brand} ${vehicle.model} quedó bloqueado para otros vendedores.`);
+      toast.success(
+        `Reserva registrada — ${vehicle.brand} ${vehicle.model} quedó bloqueado para otros vendedores.`,
+      );
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo registrar la reserva.");
+      setError(
+        err instanceof Error ? err.message : "No se pudo registrar la reserva.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -118,25 +216,38 @@ export default function ReserveVehicleModal({
       <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-navy/10 px-6 py-4">
           <div>
-            <h2 className="font-display text-lg font-bold text-navy">Reservar vehículo</h2>
+            <h2 className="font-display text-lg font-bold text-navy">
+              Reservar vehículo
+            </h2>
             <p className="text-xs text-steel">
               {vehicle.brand} {vehicle.model} {vehicle.year} · {vehicle.vin}
             </p>
           </div>
-          <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy">
+          <button
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="rounded-lg p-2 text-steel hover:bg-ash hover:text-navy"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="space-y-5 p-6">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Cliente *</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Cliente *
+            </label>
             {selectedClient ? (
               <div className="flex items-center justify-between rounded-xl border border-navy/10 bg-ash px-4 py-3">
                 <div>
-                  <p className="font-medium text-navy">{selectedClient.full_name}</p>
+                  <p className="font-medium text-navy">
+                    {selectedClient.full_name}
+                  </p>
                   <p className="font-mono text-xs text-steel">
-                    {formatDocumentId(selectedClient.document_type, selectedClient.document_number)}
+                    {formatDocumentId(
+                      selectedClient.document_type,
+                      selectedClient.document_number,
+                    )}
                   </p>
                 </div>
                 <button
@@ -173,12 +284,17 @@ export default function ReserveVehicleModal({
                         >
                           <p className="font-medium text-navy">{c.full_name}</p>
                           <p className="font-mono text-xs text-steel">
-                            {formatDocumentId(c.document_type, c.document_number)}
+                            {formatDocumentId(
+                              c.document_type,
+                              c.document_number,
+                            )}
                           </p>
                         </button>
                       ))
                     ) : (
-                      <div className="px-4 py-3 text-sm text-steel">No se encontró ningún cliente.</div>
+                      <div className="px-4 py-3 text-sm text-steel">
+                        No se encontró ningún cliente.
+                      </div>
                     )}
                     <button
                       type="button"
@@ -194,7 +310,9 @@ export default function ReserveVehicleModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-navy">Vendedor *</label>
+            <label className="mb-1.5 block text-sm font-medium text-navy">
+              Vendedor *
+            </label>
             <select
               value={advisorId}
               disabled={!canAssignAdvisor}
@@ -209,13 +327,16 @@ export default function ReserveVehicleModal({
               ))}
             </select>
             <p className="mt-1 text-[11px] text-steel">
-              Mientras esté reservado, solo este vendedor (o un administrador) podrá modificarlo.
+              Mientras esté reservado, solo este vendedor (o un administrador)
+              podrá modificarlo.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Monto de abono *</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Monto de abono *
+              </label>
               <div className="flex items-center gap-1">
                 <span className="text-sm text-steel">{symbol}</span>
                 <NumberInput
@@ -228,7 +349,9 @@ export default function ReserveVehicleModal({
               </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-navy">Vigencia *</label>
+              <label className="mb-1.5 block text-sm font-medium text-navy">
+                Vigencia *
+              </label>
               <input
                 type="date"
                 value={expiresAt}
@@ -238,8 +361,71 @@ export default function ReserveVehicleModal({
             </div>
           </div>
 
-          <label className="block text-sm font-medium text-navy">Motivo de la reserva *<textarea maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} className="mt-2 w-full rounded-xl border border-navy/15 p-3" /></label>
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+          {opportunityVersion && (
+            <section className="space-y-3 rounded-xl bg-blue-light/40 p-4">
+              <h3 className="text-sm font-semibold">
+                Registrar abono en Finanzas
+              </h3>
+              <label className="block text-xs">
+                Cuenta USD que recibió el pago
+                <select
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  className="mt-1 w-full rounded-lg border p-2"
+                >
+                  <option value="">Selecciona la cuenta…</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs">
+                Medio de pago
+                <select
+                  value={paymentChannel}
+                  onChange={(e) =>
+                    setPaymentChannel(e.target.value as typeof paymentChannel)
+                  }
+                  className="mt-1 w-full rounded-lg border p-2"
+                >
+                  {["cash", "binance", "paypal", "zelle"].map((c) => (
+                    <option key={c} value={c}>
+                      {c === "cash" ? "Efectivo" : c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs">
+                Referencia o constancia
+                <input
+                  maxLength={60}
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  className="mt-1 w-full rounded-lg border p-2"
+                />
+              </label>
+              <p className="text-xs text-steel">
+                Confirma únicamente pagos que ya recibió la sucursal. Se crea un
+                ingreso y se descontará al facturar.
+              </p>
+            </section>
+          )}
+          <label className="block text-sm font-medium text-navy">
+            Motivo de la reserva *
+            <textarea
+              maxLength={500}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="mt-2 w-full rounded-xl border border-navy/15 p-3"
+            />
+          </label>
+          {error && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
 
           <button
             type="button"

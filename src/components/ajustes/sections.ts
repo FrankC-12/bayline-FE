@@ -1,5 +1,9 @@
 export const SETTINGS_GROUPS = [
   {
+    label: "Concesionario",
+    items: [{ id: "reglas-venta", label: "Reglas de venta" }],
+  },
+  {
     label: "Finanzas",
     items: [
       { id: "impuestos", label: "Impuestos y tasa" },

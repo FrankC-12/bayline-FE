@@ -5,8 +5,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        navy: "#12233F",
-        blue: { DEFAULT: "#2557B0", light: "#E8EEF9" },
+        navy: "rgb(var(--motrix-navy, 18 35 63) / <alpha-value>)",
+        blue: {
+          DEFAULT: "rgb(var(--motrix-blue, 37 87 176) / <alpha-value>)",
+          light: "rgb(var(--motrix-light, 232 238 249) / <alpha-value>)",
+        },
         // A flat string here (as this used to be) replaces Tailwind's whole
         // default `amber` color object instead of adding to it — every
         // `amber-50`..`amber-900` utility across the app (121 usages) was

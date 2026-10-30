@@ -202,6 +202,7 @@ export async function bulkCreateParts(
 }
 
 export interface CreatePartSaleInput {
+  client_id?: string | null;
   quote_hash?: string;
   filial_id: string;
   warehouse_id: string;

@@ -5,3 +5,7 @@
 html {
   scroll-behavior: smooth;
 }
+.motrix-workspace { --motrix-navy: 28 31 31; --motrix-blue: 16 105 125; --motrix-light: 229 241 244; }
+.motrix-content > .min-h-screen { min-height: auto; }
+.motrix-content > .min-h-screen > main { padding: 0; max-width: none; }
+.motrix-workspace :focus-visible { outline: 2px solid #10697d; outline-offset: 3px; }

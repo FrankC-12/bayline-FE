@@ -1,4 +1,5 @@
 "use client";
+import { useDashboardShell } from "@/components/dashboard/DashboardShell";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -8,6 +9,9 @@ import { NAV_ITEMS } from "./nav-items";
 
 export default function ConcesionarioLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+
+  const shell = useDashboardShell();
+  if (shell) return <>{children}</>;
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 lg:flex-row lg:gap-8 lg:px-6 lg:py-12">

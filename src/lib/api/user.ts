@@ -37,10 +37,12 @@ export async function getUser(id: string): Promise<AppUser> {
 }
 
 export async function getUsersDirectory(params?: {
+  active_only?: boolean;
   holding_id?: string;
   filial_id?: string;
 }): Promise<UserDirectoryEntry[]> {
   const query = new URLSearchParams();
+  if (params?.active_only) query.set("active_only", "true");
   if (params?.holding_id) query.set("holding_id", params.holding_id);
   if (params?.filial_id) query.set("filial_id", params.filial_id);
   const qs = query.toString();

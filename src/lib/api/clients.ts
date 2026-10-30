@@ -37,7 +37,10 @@ export interface CreateClientInput {
 
 export type UpdateClientInput = Partial<Omit<CreateClientInput, "filial_id">>;
 
-export async function listClients(filialId: string, search?: string): Promise<Client[]> {
+export async function listClients(
+  filialId: string,
+  search?: string,
+): Promise<Client[]> {
   const query = new URLSearchParams({ filial_id: filialId });
   if (search) query.set("search", search);
   return apiFetch<Client[]>(`/clients?${query.toString()}`);
@@ -48,36 +51,102 @@ export async function getClient(id: string): Promise<Client> {
 }
 
 export async function createClient(input: CreateClientInput): Promise<Client> {
-  return apiFetch<Client>("/clients", { method: "POST", body: JSON.stringify(input) });
+  return apiFetch<Client>("/clients", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
-export async function updateClient(id: string, input: UpdateClientInput): Promise<Client> {
-  return apiFetch<Client>(`/clients/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+export async function updateClient(
+  id: string,
+  input: UpdateClientInput,
+): Promise<Client> {
+  return apiFetch<Client>(`/clients/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function deleteClient(id: string): Promise<void> {
   return apiFetch<void>(`/clients/${id}`, { method: "DELETE" });
 }
 
-export async function getVehiclePlanStatus(vehicleId: string): Promise<VehiclePlanStatus> {
-  return apiFetch<VehiclePlanStatus>(`/clients/vehicles/${vehicleId}/maintenance-plan-status`);
+export async function getVehiclePlanStatus(
+  vehicleId: string,
+): Promise<VehiclePlanStatus> {
+  return apiFetch<VehiclePlanStatus>(
+    `/clients/vehicles/${vehicleId}/maintenance-plan-status`,
+  );
 }
 
 export async function assignVehicleMaintenancePlan(
   vehicleId: string,
-  planId: string | null
+  planId: string | null,
 ): Promise<VehiclePlanStatus> {
-  return apiFetch<VehiclePlanStatus>(`/clients/vehicles/${vehicleId}/maintenance-plan`, {
-    method: "PATCH",
-    body: JSON.stringify({ plan_id: planId }),
-  });
+  return apiFetch<VehiclePlanStatus>(
+    `/clients/vehicles/${vehicleId}/maintenance-plan`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ plan_id: planId }),
+    },
+  );
 }
 
-export async function getVehicleMileageHistory(vehicleId: string): Promise<VehicleMileageHistoryEntry[]> {
-  return apiFetch<VehicleMileageHistoryEntry[]>(`/clients/vehicles/${vehicleId}/mileage-history`);
+export async function getVehicleMileageHistory(
+  vehicleId: string,
+): Promise<VehicleMileageHistoryEntry[]> {
+  return apiFetch<VehicleMileageHistoryEntry[]>(
+    `/clients/vehicles/${vehicleId}/mileage-history`,
+  );
 }
-export async function listClientPage(filialId: string, page: number, pageSize: number, search: string) {
-  const query = new URLSearchParams({filial_id: filialId, page: String(page), page_size: String(pageSize)});
+export async function listClientPage(
+  filialId: string,
+  page: number,
+  pageSize: number,
+  search: string,
+  lifecycle?: "lead" | "cliente",
+) {
+  const query = new URLSearchParams({
+    filial_id: filialId,
+    page: String(page),
+    page_size: String(pageSize),
+  });
   if (search) query.set("search", search);
-  return apiFetch<import("@/types/pagination").Page<Client>>(`/clients/page?${query}`);
+  if (lifecycle) query.set("lifecycle", lifecycle);
+  return apiFetch<import("@/types/pagination").Page<Client>>(
+    `/clients/page?${query}`,
+  );
 }
+
+export interface LeadMetadataInput {
+  lead_origin: string;
+  lead_interest: string;
+  lead_vehicle_interest: string | null;
+  lead_notes: string | null;
+  lead_assigned_user_id: string | null;
+  lead_next_contact_at: string | null;
+}
+export interface CreateLeadInput extends LeadMetadataInput {
+  filial_id: string;
+  full_name: string;
+  document_type: string;
+  document_number: string;
+  client_type: string;
+  phone_primary: string;
+  email: string | null;
+}
+export const createLead = (input: CreateLeadInput) =>
+  apiFetch<Client>("/clients/leads", {
+    method: "POST",
+    body: JSON.stringify(input),
+    toastOnError: false,
+  });
+export const updateLead = (
+  id: string,
+  input: LeadMetadataInput & { lead_status: string },
+) =>
+  apiFetch<Client>(`/clients/${id}/lead`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+    toastOnError: false,
+  });

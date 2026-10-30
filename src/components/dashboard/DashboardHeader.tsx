@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useDashboardShell } from "./DashboardShell";
 import { switchHoldingContext } from "@/lib/api/auth";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -13,6 +14,11 @@ function getInitials(email: string) {
 }
 
 export default function DashboardHeader() {
+  const shell = useDashboardShell();
+  return shell ? null : <LegacyDashboardHeader />;
+}
+
+function LegacyDashboardHeader() {
   const router = useRouter();
   const { currentUser, logout } = useAuth();
 

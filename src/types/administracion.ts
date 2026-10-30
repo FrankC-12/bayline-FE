@@ -1,7 +1,9 @@
 export type SupplierType = "fabricante" | "nacional" | "importador";
 export type SupplierStatus = "activo" | "inactivo";
-export type PurchaseRequestStatus = "enviada" | "cotizada" | "pagada" | "recibida" | "conciliada" | "cancelada";
-export type ClaimStatus = "pendiente_envio" | "enviado" | "aprobado" | "rechazado" | "resuelto";
+export type PurchaseRequestStatus =
+  "enviada" | "cotizada" | "pagada" | "recibida" | "conciliada" | "cancelada";
+export type ClaimStatus =
+  "pendiente_envio" | "enviado" | "aprobado" | "rechazado" | "resuelto";
 export type ClaimResolution = "cargo_cliente" | "costo_taller";
 export type WarrantySubmissionStatus = "borrador" | "presentada" | "pagada";
 export type AccountCurrency = "usd" | "bs";
@@ -28,6 +30,7 @@ export type IncomeConcept =
   | "otro_ingreso";
 export type CounterpartyType = "cliente" | "proveedor" | "tercero" | "socio";
 export type MovementSourceType =
+  | "vehicle_reservation"
   | "purchase_request"
   | "vehicle_sale"
   | "part_sale"
@@ -51,7 +54,8 @@ export interface Supplier {
   created_at: string;
 }
 
-export type SupplierPaymentMethod = "transferencia" | "pago_movil" | "zelle" | "efectivo" | "otro";
+export type SupplierPaymentMethod =
+  "transferencia" | "pago_movil" | "zelle" | "efectivo" | "otro";
 
 export interface SupplierPaymentAccount {
   id?: string;
@@ -79,7 +83,12 @@ export interface PurchaseRequestLine {
   part_code: string;
   received_quantity: number;
   invoiced_unit_cost: number | null;
-  receipts: { lot_id: string; lot_code: string; quantity: number; location: string | null }[];
+  receipts: {
+    lot_id: string;
+    lot_code: string;
+    quantity: number;
+    location: string | null;
+  }[];
   id: string;
   part_id: string;
   quantity: number;
@@ -99,7 +108,17 @@ export interface PurchaseRequest {
   invoice_total: number | null;
   paid_amount_usd: number;
   balance_usd: number | null;
-  activity: { action: string; user_name?: string | null; occurred_at: string; lot_code?: string; quantity?: number; total?: number; amount_usd?: number; balance_usd?: number; invoice_number?: string }[];
+  activity: {
+    action: string;
+    user_name?: string | null;
+    occurred_at: string;
+    lot_code?: string;
+    quantity?: number;
+    total?: number;
+    amount_usd?: number;
+    balance_usd?: number;
+    invoice_number?: string;
+  }[];
   id: string;
   filial_id: string;
   code: string;

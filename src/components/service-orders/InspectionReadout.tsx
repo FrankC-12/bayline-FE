@@ -7,9 +7,16 @@ const LABELS: Record<string, string> = {
   seatbelts: "Cinturones de seguridad",
   dashboard: "Tablero",
   upholstery: "Tapicería",
-  air_conditioning: "Aire acondicionado",
+  display: "Pantalla",
+  wipers: "Limpiaparabrisas",
+  mirrors: "Retrovisores",
+  air_conditioning: "A/C",
+  air_conditioning_filter: "Filtro del A/C",
+  parking_brake: "Freno de mano",
+  pedal: "Pedal",
+  dashboard_warning_lights: "Testigos del tablero",
   lights: "Luces",
-  horn: "Bocina",
+  horn: "Claxon",
   windows: "Ventanas",
   engine: "Compartimiento del motor",
   underbody: "Debajo del vehículo",
@@ -19,6 +26,7 @@ const LABELS: Record<string, string> = {
   engine_oil: "Aceite del motor",
   coolant: "Refrigerante",
   brake_fluid: "Líquido de frenos",
+  clutch_fluid: "Líquido de embrague",
   transmission_fluid: "Fluido de transmisión",
   power_steering: "Dirección hidráulica",
   washer_fluid: "Limpiaparabrisas",
@@ -62,20 +70,34 @@ const VALUES: Record<string, string> = {
   alto: "Alto",
 };
 function label(key: string) {
-  return LABELS[key] ?? key.replaceAll("_", " ");
+  const normalized = key.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return LABELS[normalized] ?? key.replaceAll("_", " ");
 }
-export function InspectionFields({ data }: { data: Record<string, unknown> }) {
+export function InspectionFields({
+  data,
+  omitDepth = false,
+}: {
+  data: Record<string, unknown>;
+  omitDepth?: boolean;
+}) {
   return (
     <dl className="space-y-2">
       {Object.entries(data)
-        .filter(([key]) => !["photo_urls", "photo_url", "photos"].includes(key))
+        .filter(
+          ([key]) =>
+            !["photo_urls", "photo_url", "photos"].includes(key) &&
+            (!omitDepth || key !== "tread_depth"),
+        )
         .map(([key, value]) => (
           <div key={key}>
             {value && typeof value === "object" ? (
               <>
                 <dt className="mt-3 font-semibold text-navy">{label(key)}</dt>
                 <dd className="mt-2 border-l-2 border-blue/10 pl-3">
-                  <InspectionFields data={value as Record<string, unknown>} />
+                  <InspectionFields
+                    data={value as Record<string, unknown>}
+                    omitDepth={omitDepth}
+                  />
                 </dd>
               </>
             ) : (
@@ -133,7 +155,10 @@ export default function InspectionReadout({
         .map(([key, value]) => (
           <section key={key} className="rounded-xl border border-navy/10 p-4">
             <h3 className="mb-3 font-semibold text-navy">{label(key)}</h3>
-            <InspectionFields data={value as Record<string, unknown>} />
+            <InspectionFields
+              data={value as Record<string, unknown>}
+              omitDepth
+            />
           </section>
         ))}
       <EvidenceGallery

@@ -1,5 +1,6 @@
 "use client";
 
+import { salesAccounts, type SalesAccount } from "@/lib/api/opportunities";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   vehicleSaleDraftStorage,
@@ -41,6 +42,15 @@ interface SellVehicleModalProps {
   open: boolean;
   onClose: () => void;
   filialId: string;
+  initialClient?: Client | null;
+  quote?: {
+    id: string;
+    version: number;
+    amount: number | null;
+    sale_type: string;
+    depositAmount?: number;
+    workflowEnabled?: boolean;
+  };
   vehicle: DealershipVehicle | null;
   onConfirm: (sale: VehicleSaleInput) => Promise<void>;
 }
@@ -50,9 +60,30 @@ export default function SellVehicleModal({
   onClose,
   filialId,
   vehicle,
+  initialClient,
+  quote,
   onConfirm,
 }: SellVehicleModalProps) {
   const { currentUser } = useAuth();
+  const [accounts, setAccounts] = useState<SalesAccount[]>([]);
+  const [usdAccount, setUsdAccount] = useState("");
+  const [bsAccount, setBsAccount] = useState("");
+  useEffect(() => {
+    let active = true;
+    if (open && quote?.workflowEnabled)
+      salesAccounts(filialId)
+        .then((v) => {
+          if (active) setAccounts(v);
+        })
+        .catch(() => {
+          if (active)
+            setError("No se pudieron consultar las cuentas del cobro.");
+        });
+    return () => {
+      active = false;
+    };
+  }, [open, filialId, quote?.workflowEnabled]);
+
   const draftKey =
     vehicle && currentUser
       ? vehicleSaleDraftKey(currentUser.userId, filialId, vehicle.id)
@@ -117,8 +148,8 @@ export default function SellVehicleModal({
     }
     setSaleCompleted(false);
     setBcvRate(null);
-    setSaleType("contado");
-    setSelectedClient(null);
+    setSaleType(quote?.sale_type || "contado");
+    setSelectedClient(initialClient ?? null);
     setAdvisorId(
       vehicle?.status === "reservado"
         ? (vehicle.reserved_by_user_id ?? "")
@@ -138,14 +169,18 @@ export default function SellVehicleModal({
         : null;
       if (draft) {
         setRestoredClientId(
-          vehicle?.status === "reservado" ? null : draft.clientId,
+          initialClient?.id ??
+            (vehicle?.status === "reservado" ? null : draft.clientId),
         );
         setAdvisorId(
           vehicle?.status === "reservado"
             ? (vehicle.reserved_by_user_id ?? "")
             : (draft.advisorId ?? ""),
         );
-        setSaleType(draft.saleType === "financiado" ? "financiado" : "contado");
+        setSaleType(
+          quote?.sale_type ||
+            (draft.saleType === "financiado" ? "financiado" : "contado"),
+        );
         setPaymentMethod(
           ["usd", "bs", "mixed"].includes(draft.paymentMethod)
             ? draft.paymentMethod
@@ -181,6 +216,8 @@ export default function SellVehicleModal({
     vehicle?.status,
     vehicle?.reserved_by_user_id,
     draftKey,
+    initialClient,
+    quote?.sale_type,
   ]);
 
   useEffect(() => {
@@ -249,7 +286,10 @@ export default function SellVehicleModal({
     setClientSearch("");
   }
 
-  const listPrice = vehicle?.cash_total ?? 0;
+  const listPrice =
+    quote?.sale_type === "contado"
+      ? (quote.amount ?? vehicle?.cash_total ?? 0)
+      : (vehicle?.cash_total ?? 0);
   const usdBase =
     paymentMethod === "usd"
       ? listPrice
@@ -264,7 +304,9 @@ export default function SellVehicleModal({
   // enough to gate the UI — the server is still the one that actually
   // decides and enforces it.
   const projectedFinalPrice =
-    saleType === "financiado" ? (vehicle?.price_financed ?? 0) : totalToCharge;
+    saleType === "financiado"
+      ? (quote?.amount ?? vehicle?.price_financed ?? 0)
+      : totalToCharge;
   const belowCost =
     vehicle?.cost_price != null && projectedFinalPrice < vehicle.cost_price;
 
@@ -319,6 +361,10 @@ export default function SellVehicleModal({
     setError(null);
     try {
       await onConfirm({
+        usd_account_id: usdAccount || undefined,
+        bs_account_id: bsAccount || undefined,
+        opportunity_id: quote?.id,
+        opportunity_version: quote?.version,
         client_id: selectedClient.id,
         client_name: selectedClient.full_name,
         client_document: `${selectedClient.document_type}-${selectedClient.document_number}`,
@@ -569,6 +615,62 @@ export default function SellVehicleModal({
             )}
           </div>
 
+          {quote?.workflowEnabled && saleType === "contado" && (
+            <section className="space-y-3 rounded-xl bg-blue-light/40 p-4">
+              <h3 className="text-sm font-semibold">Cuentas del cobro</h3>
+              {paymentMethod !== "bs" && (
+                <label className="block text-xs">
+                  Cuenta USD
+                  <select
+                    value={usdAccount}
+                    onChange={(e) => setUsdAccount(e.target.value)}
+                    className="mt-1 w-full rounded-lg border p-2"
+                  >
+                    <option value="">Selecciona…</option>
+                    {accounts
+                      .filter((a) => a.currency === "usd")
+                      .map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
+              {paymentMethod !== "usd" && (
+                <label className="block text-xs">
+                  Cuenta Bs
+                  <select
+                    value={bsAccount}
+                    onChange={(e) => setBsAccount(e.target.value)}
+                    className="mt-1 w-full rounded-lg border p-2"
+                  >
+                    <option value="">Selecciona…</option>
+                    {accounts
+                      .filter((a) => a.currency === "bs")
+                      .map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
+              <p className="text-sm">
+                Abono recibido: $ {formatMoney(quote.depositAmount || 0)}
+              </p>
+              <p className="text-sm font-semibold">
+                Saldo equivalente por cobrar: ${" "}
+                {formatMoney(
+                  Math.max(0, totalToCharge - (quote.depositAmount || 0)),
+                )}
+              </p>
+              <p className="text-xs text-steel">
+                En pago mixto, el aporte USD total incluye el abono ya recibido.
+                Solo el saldo se registra como nuevo ingreso.
+              </p>
+            </section>
+          )}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy">
               Tipo de venta
@@ -576,6 +678,7 @@ export default function SellVehicleModal({
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
+                disabled={!!quote && quote.sale_type !== "contado"}
                 onClick={() => setSaleType("contado")}
                 className={`rounded-xl border p-3 text-left text-sm transition ${
                   saleType === "contado"
@@ -591,6 +694,7 @@ export default function SellVehicleModal({
               </button>
               <button
                 type="button"
+                disabled={!!quote && quote.sale_type !== "financiado"}
                 onClick={() => setSaleType("financiado")}
                 className={`rounded-xl border p-3 text-left text-sm transition ${
                   saleType === "financiado"
@@ -614,18 +718,25 @@ export default function SellVehicleModal({
                 </p>
                 <dl className="space-y-1.5 text-sm">
                   <div className="flex justify-between text-steel">
-                    <dt>PVP contado</dt>
+                    <dt>
+                      {quote
+                        ? "Cotización vigente (antes de IGTF)"
+                        : "PVP contado"}
+                    </dt>
                     <dd className="font-medium text-navy">
-                      {symbol} {formatMoney(vehicle.price_cash)}
+                      {symbol}{" "}
+                      {formatMoney(quote?.amount ?? vehicle.price_cash)}
                     </dd>
                   </div>
-                  <div className="flex justify-between text-steel">
-                    <dt>IVA ({formatCount(vehicle.iva_percentage)}%)</dt>
-                    <dd className="font-medium text-navy">
-                      {symbol} {formatMoney(vehicle.iva_amount)}
-                    </dd>
-                  </div>
-                  {vehicle.luxury_tax_percentage > 0 && (
+                  {!quote && (
+                    <div className="flex justify-between text-steel">
+                      <dt>IVA ({formatCount(vehicle.iva_percentage)}%)</dt>
+                      <dd className="font-medium text-navy">
+                        {symbol} {formatMoney(vehicle.iva_amount)}
+                      </dd>
+                    </div>
+                  )}
+                  {!quote && vehicle.luxury_tax_percentage > 0 && (
                     <div className="flex justify-between text-steel">
                       <dt>
                         Impuesto al lujo (
@@ -758,7 +869,8 @@ export default function SellVehicleModal({
                 <div>
                   <p className="text-sm text-steel">Precio financiado</p>
                   <p className="font-display text-lg font-bold text-navy">
-                    {symbol} {formatMoney(vehicle.price_financed)}
+                    {symbol}{" "}
+                    {formatMoney(quote?.amount ?? vehicle.price_financed)}
                   </p>
                 </div>
               </div>

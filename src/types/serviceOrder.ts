@@ -2,11 +2,7 @@ import type { DiscountLabel } from "@/lib/partsPricing";
 import type { ServiceOrderTypeCatalog } from "./serviceOrderType";
 
 export type ServiceOrderStatus =
-  | "pendiente"
-  | "en_progreso"
-  | "completado"
-  | "orden_cerrada"
-  | "cancelado";
+  "pendiente" | "en_progreso" | "completado" | "orden_cerrada" | "cancelado";
 
 export interface ServiceOrder {
   vehicle_received_at?: string | null;
@@ -66,6 +62,7 @@ export type TaskStatus =
   | "cancelada";
 export type TransferStatus = "pendiente" | "pedido" | "completado";
 export type ServiceOrderPayer =
+  | "interno"
   | "cliente"
   | "garantia_taller"
   | "garantia_fabrica"
@@ -97,8 +94,8 @@ export interface TransferLine {
 }
 
 export interface ServiceOrderTransfer {
-  closed_at?:string|null;
-  closed_by_user_id?:string|null;
+  closed_at?: string | null;
+  closed_by_user_id?: string | null;
   id: string;
   code: string;
   status: TransferStatus;
@@ -113,7 +110,14 @@ export interface ServiceOrderTransfer {
 }
 
 export interface OrderSummary {
-  payer_breakdown?: { payer: ServiceOrderPayer; labor_subtotal: number; parts_subtotal: number; subtotal: number }[] | null;
+  payer_breakdown?:
+    | {
+        payer: ServiceOrderPayer;
+        labor_subtotal: number;
+        parts_subtotal: number;
+        subtotal: number;
+      }[]
+    | null;
   igtf_percentage: number;
   igtf_amount: number;
   pricing_frozen: boolean;

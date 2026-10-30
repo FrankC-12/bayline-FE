@@ -1,6 +1,7 @@
 import type { ServiceOrderPayer } from "@/types/serviceOrder";
 
 export const PAYER_LABELS: Record<ServiceOrderPayer, string> = {
+  interno: "Interno · concesionario",
   cliente: "Cliente",
   garantia_taller: "Garantía taller",
   garantia_fabrica: "Garantía fábrica",
@@ -13,6 +14,7 @@ export const PAYER_LABELS: Record<ServiceOrderPayer, string> = {
 // longer a manually selectable option here — a human can't assign it by
 // hand anymore, only the automatic conversion flow sets it.
 export const PAYER_OPTIONS: ServiceOrderPayer[] = [
+  "interno",
   "cliente",
   "garantia_taller",
   "garantia_fabrica",

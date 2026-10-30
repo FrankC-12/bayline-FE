@@ -1,4 +1,5 @@
 "use client";
+import { useDashboardShell } from "@/components/dashboard/DashboardShell";
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -47,6 +48,8 @@ function ServiceOrdersLayoutContent({
   }, [updateClaims, pathname]);
   const { upsells } = useUpsellsContext();
   const pendingCount = upsells.filter((u) => u.status === "pendiente").length;
+  const shell = useDashboardShell();
+  if (shell) return <>{children}</>;
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col items-stretch gap-4 px-4 lg:flex-row lg:items-start lg:gap-8 lg:px-6">

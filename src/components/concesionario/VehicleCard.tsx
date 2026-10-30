@@ -59,7 +59,7 @@ export default function VehicleCard({
           <img
             src={vehicle.images[photoIndex % photoCount]}
             alt={`${vehicle.brand} ${vehicle.model}`}
-            className="h-full w-full object-cover"
+            className="h-full w-full bg-[#eeece9] object-contain"
           />
           {photoCount > 1 && (
             <>
@@ -94,13 +94,13 @@ export default function VehicleCard({
       ) : (
         <div className="flex h-40 flex-col items-center justify-center gap-1.5 border-b border-dashed border-navy/15 bg-ash/60 text-steel">
           <ImageIcon className="h-6 w-6" />
-          <span className="text-sm">Foto del vehículo</span>
+          <span className="text-sm">Foto pendiente</span>
         </div>
       )}
 
-      <div className="p-5">
+      <div className="p-4">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-display text-lg font-bold text-navy">
+          <h3 className="font-display text-base font-bold text-navy">
             {vehicle.brand} {vehicle.model}{" "}
             <span className="font-normal text-steel">{vehicle.year}</span>
           </h3>
@@ -163,62 +163,17 @@ export default function VehicleCard({
           </div>
         )}
 
-        <p className="mt-3 text-sm text-steel">
-          Kilometraje:{" "}
-          {vehicle.mileage == null
-            ? "No registrado"
-            : `${formatCount(vehicle.mileage)} km`}
+        <p className="mt-3 truncate text-xs text-steel">
+          {vehicle.plate || "Sin placa"} · {vehicle.color || "Sin color"} ·{" "}
+          {vehicle.transmission || "Sin transmisión"}
         </p>
-        <div className="mt-4 grid grid-cols-2 gap-y-2 text-sm">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
-              VIN
-            </p>
-            <p className="break-all font-medium text-navy">{vehicle.vin}</p>
-          </div>
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
-              Placa
-            </p>
-            <p className="font-medium text-navy">{vehicle.plate ?? "—"}</p>
-          </div>
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
-              Color
-            </p>
-            <p className="font-medium text-navy">{vehicle.color ?? "—"}</p>
-          </div>
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
-              Combustible
-            </p>
-            <p className="font-medium text-navy capitalize">
-              {vehicle.fuel_type ?? "—"}
-            </p>
-          </div>
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
-              Transmisión
-            </p>
-            <p className="font-medium capitalize text-navy">
-              {vehicle.transmission ?? "—"}
-            </p>
-          </div>
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
-              SKU
-            </p>
-            <p className="font-medium text-navy">{vehicle.sku}</p>
-          </div>
-        </div>
-
         <div className="mt-4 flex items-center justify-between border-t border-navy/10 pt-3">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
               Contado
             </p>
             <p className="font-display font-bold text-navy">
-              ${formatMoney(vehicle.price_cash)}
+              ${formatMoney(vehicle.cash_total)}
             </p>
           </div>
           <div className="text-right">
@@ -238,7 +193,7 @@ export default function VehicleCard({
                 event.stopPropagation();
                 onSell();
               }}
-              className="mt-3 w-full rounded-full bg-blue px-4 py-2 text-xs font-semibold text-white transition hover:bg-navy"
+              className="mt-3 w-full rounded-lg bg-blue px-4 py-2 text-xs font-semibold text-white transition hover:bg-navy"
             >
               Vender vehículo
             </button>

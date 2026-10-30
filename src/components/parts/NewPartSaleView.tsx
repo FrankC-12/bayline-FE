@@ -302,6 +302,7 @@ export default function NewPartSaleView() {
         quote_hash: currentQuote.quote_hash,
         filial_id: filialId,
         warehouse_id: warehouseId,
+        client_id: wantsInvoiceToClient ? selectedClient!.id : null,
         client_name: wantsInvoiceToClient
           ? selectedClient!.full_name
           : genericClientName.trim(),

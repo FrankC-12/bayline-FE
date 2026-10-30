@@ -1,4 +1,5 @@
 "use client";
+import { useDashboardShell } from "@/components/dashboard/DashboardShell";
 
 import { formatCount } from "@/lib/format";
 import Link from "next/link";
@@ -44,6 +45,9 @@ function WarehouseLayoutContent({ children }: { children: React.ReactNode }) {
       setSubmitting(false);
     }
   }
+
+  const shell = useDashboardShell();
+  if (shell) return <>{children}</>;
 
   return (
     <div className="mx-auto flex max-w-7xl gap-8 px-6 py-12">

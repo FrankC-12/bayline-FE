@@ -5,6 +5,7 @@ import type { UserDirectoryEntry } from "@/types/user";
 import { useListLoader } from "./useListLoader";
 
 interface UseUserDirectoryParams {
+  activeOnly?: boolean;
   holdingId?: string | null;
   filialId?: string | null;
 }
@@ -13,7 +14,7 @@ interface UseUserDirectoryParams {
  * id/name/role, not the admin-only fields `useUsers` returns. Backed by
  * GET /users/directory, which stays open to any authenticated user. */
 export function useUserDirectory(params: UseUserDirectoryParams = {}) {
-  const { holdingId, filialId } = params;
+  const { holdingId, filialId, activeOnly } = params;
 
   const {
     data: users,
@@ -23,10 +24,11 @@ export function useUserDirectory(params: UseUserDirectoryParams = {}) {
   } = useListLoader<UserDirectoryEntry>(
     () =>
       getUsersDirectory({
+        active_only: activeOnly,
         holding_id: holdingId ?? undefined,
         filial_id: filialId ?? undefined,
       }),
-    [holdingId, filialId]
+    [holdingId, filialId, activeOnly],
   );
 
   return { users, loading, error, refresh };

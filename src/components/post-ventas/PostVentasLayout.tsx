@@ -1,4 +1,5 @@
 "use client";
+import { useDashboardShell } from "@/components/dashboard/DashboardShell";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -7,6 +8,9 @@ import { NAV_ITEMS } from "./nav-items";
 
 export default function PostVentasLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+
+  const shell = useDashboardShell();
+  if (shell) return <>{children}</>;
 
   return (
     <div className="mx-auto flex max-w-7xl gap-8 px-6 py-12">

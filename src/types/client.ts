@@ -41,6 +41,16 @@ export interface VehicleMileageHistoryEntry {
 }
 
 export interface Client {
+  is_lead?: boolean;
+  lead_origin?: string;
+  lead_interest?: string;
+  lead_vehicle_interest?: string | null;
+  lead_notes?: string | null;
+  lead_status?: string;
+  lead_next_contact_at?: string | null;
+  lead_assigned_user_name?: string | null;
+  lead_assigned_user_id?: string | null;
+  created_by_user_id?: string | null;
   id: string;
   filial_id: string;
   full_name: string;

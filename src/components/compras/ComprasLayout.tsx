@@ -1,4 +1,5 @@
 "use client";
+import { useDashboardShell } from "@/components/dashboard/DashboardShell";
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -9,6 +10,9 @@ export default function ComprasLayout({ children }: { children: React.ReactNode 
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
+
+  const shell = useDashboardShell();
+  if (shell) return <>{children}</>;
 
   return (
     <div className="mx-auto flex max-w-7xl gap-8 px-6 py-12">

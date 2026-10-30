@@ -1,4 +1,5 @@
 "use client";
+import VehicleSalesRulesView from "./VehicleSalesRulesView";
 import OrderTypeRulesView from "./OrderTypeRulesView";
 import BaysSettingsView from "./BaysSettingsView";
 import BulkCatalogView from "./BulkCatalogView";
@@ -97,6 +98,7 @@ export default function AjustesView({
             onDirtyChange={setDirty}
           />
         )}
+        {section === "reglas-venta" && <VehicleSalesRulesView />}
         {section === "tipos-ods" && <OrderTypeRulesView />}
         {section === "bahias" && <BaysSettingsView />}
         {section === "cargas-masivas" && <BulkCatalogView />}

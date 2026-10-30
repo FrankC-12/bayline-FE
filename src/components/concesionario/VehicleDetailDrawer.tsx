@@ -1,4 +1,5 @@
 "use client";
+import Modal from "@/components/common/Modal";
 import VehicleRegistrationDetails from "./VehicleRegistrationDetails";
 
 import { useEffect, useState } from "react";
@@ -8,7 +9,6 @@ import {
   ImageIcon,
   Loader2,
   Trash2,
-  X,
 } from "lucide-react";
 import EditInventoryVehicleModal from "./EditInventoryVehicleModal";
 import {
@@ -52,9 +52,11 @@ export default function VehicleDetailDrawer({
   reservedClientName,
   reservedByName,
 }: Props) {
+  const [tab, setTab] = useState("resumen");
   const [editingDetails, setEditingDetails] = useState(false);
   useEffect(() => {
     setEditingDetails(false);
+    setTab("resumen");
   }, [vehicle?.id]);
   const { currentUser } = useAuth();
   const [history, setHistory] = useState<VehicleStatusEvent[]>([]);
@@ -133,12 +135,15 @@ export default function VehicleDetailDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <button
-        onClick={onClose}
-        aria-label="Cerrar detalle"
-        className="absolute inset-0 bg-navy/40"
-      />
+    <Modal
+      open
+      onClose={onClose}
+      placement="right"
+      size="md"
+      title={`${vehicle.brand} ${vehicle.model} ${vehicle.year}`}
+      description="Detalle del vehículo"
+      interactionPaused={editingDetails}
+    >
       {editingDetails && (
         <EditInventoryVehicleModal
           key={vehicle.id}
@@ -147,49 +152,56 @@ export default function VehicleDetailDrawer({
           onSave={onDetailsChange}
         />
       )}
-      <aside className="relative h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl">
-        <header className="sticky top-0 z-10 flex items-start justify-between border-b border-navy/10 bg-white px-7 py-5">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-steel">
-              Detalle del vehículo
-            </p>
-            <h2 className="font-display text-2xl font-bold text-navy">
-              {vehicle.brand} {vehicle.model}
-            </h2>
-            <p className="text-sm text-steel">
-              {vehicle.year} · {vehicle.sku}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {canManage &&
-              ALLOWED_STATUS_TRANSITIONS[vehicle.status].includes(
-                "vendido",
-              ) && (
-                <button
-                  onClick={() => void onStatusChange("vendido")}
-                  className="rounded-full bg-blue px-4 py-2 text-sm font-semibold text-white transition hover:bg-navy"
-                >
-                  Vender vehículo
-                </button>
-              )}
-            {canManage && (
+      <div>
+        <div className="flex justify-end gap-2 border-b border-navy/5 px-7 py-3">
+          {canManage && (
+            <button
+              onClick={() => setEditingDetails(true)}
+              className="rounded-lg border border-navy/10 px-3 py-2 text-xs"
+            >
+              Editar datos
+            </button>
+          )}
+          {canManage &&
+            ALLOWED_STATUS_TRANSITIONS[vehicle.status].includes("vendido") && (
               <button
-                onClick={() => setEditingDetails(true)}
-                className="rounded-full border border-blue/30 px-3 py-2 text-sm font-semibold text-blue"
+                onClick={() => void onStatusChange("vendido")}
+                className="rounded-lg bg-blue px-4 py-2 text-xs font-semibold text-white"
               >
-                Editar datos
+                Vender vehículo
               </button>
             )}
+        </div>
+        <div
+          role="tablist"
+          aria-label="Detalle del vehículo"
+          className="sticky top-0 z-10 flex gap-5 border-b border-navy/10 bg-white px-7"
+        >
+          {[
+            ["resumen", "Resumen"],
+            ["ficha", "Ficha técnica"],
+            ["fotos", "Fotos"],
+          ].map(([id, label]) => (
             <button
-              onClick={onClose}
-              className="rounded-lg p-2 text-steel hover:bg-ash"
+              key={id}
+              id={`vehicle-tab-${id}`}
+              role="tab"
+              aria-selected={tab === id}
+              aria-controls="vehicle-detail-panel"
+              onClick={() => setTab(id)}
+              className={`border-b-2 py-3 text-xs ${tab === id ? "border-blue font-semibold text-blue" : "border-transparent text-steel"}`}
             >
-              <X className="h-5 w-5" />
+              {label}
             </button>
-          </div>
-        </header>
-        <div className="space-y-6 p-7">
-          <section>
+          ))}
+        </div>
+        <div
+          id="vehicle-detail-panel"
+          role="tabpanel"
+          aria-labelledby={`vehicle-tab-${tab}`}
+          className="space-y-6 p-7"
+        >
+          <section hidden={tab !== "resumen"}>
             <h3 className="mb-3 font-semibold text-navy">
               Historial de estados
             </h3>
@@ -231,7 +243,7 @@ export default function VehicleDetailDrawer({
               ))}
             </ol>
           </section>
-          <section>
+          <section hidden={tab === "ficha"}>
             <div className="mb-2 flex items-center justify-between">
               <h3 className="font-semibold text-navy">Fotos</h3>
               <label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-blue/25 px-2.5 py-1 text-xs font-semibold text-blue transition hover:bg-blue-light">
@@ -327,7 +339,10 @@ export default function VehicleDetailDrawer({
             )}
           </section>
 
-          <section className="rounded-2xl border border-navy/10 p-5">
+          <section
+            hidden={tab !== "resumen"}
+            className="rounded-2xl border border-navy/10 p-5"
+          >
             <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-steel">
               Estado operativo
             </label>
@@ -371,7 +386,7 @@ export default function VehicleDetailDrawer({
             )}
           </section>
 
-          <section>
+          <section hidden={tab !== "ficha"}>
             <h3 className="mb-3 font-semibold text-navy">
               Identificación y características
             </h3>
@@ -425,6 +440,7 @@ export default function VehicleDetailDrawer({
                 <dd>
                   <select
                     value={vehicle.location ?? ""}
+                    disabled={!canManage}
                     onChange={(event) =>
                       void onLocationChange(event.target.value)
                     }
@@ -445,9 +461,11 @@ export default function VehicleDetailDrawer({
               </div>
             </dl>
           </section>
-          <VehicleRegistrationDetails vehicle={vehicle} />
+          <div hidden={tab !== "ficha"}>
+            <VehicleRegistrationDetails vehicle={vehicle} />
+          </div>
 
-          <section>
+          <section hidden={tab !== "resumen"}>
             <h3 className="mb-3 font-semibold text-navy">Precio de lista</h3>
             <dl className="space-y-2 rounded-2xl border border-navy/10 p-5 text-sm">
               <div className="flex justify-between">
@@ -502,7 +520,7 @@ export default function VehicleDetailDrawer({
             </dl>
           </section>
         </div>
-      </aside>
-    </div>
+      </div>
+    </Modal>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { formatCount } from "@/lib/format";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVehicles } from "@/hooks/useVehicles";
@@ -33,7 +33,13 @@ export default function VehicleCatalogView() {
   const { canEdit: canManageCatalog } = useModuleAccess("administracion");
   const filialId = currentUser?.filialId ?? null;
 
-  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("todos");
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const externalSearch = searchParams.get("search");
+  useEffect(() => {
+    if (externalSearch !== null) setSearch(externalSearch);
+  }, [externalSearch]);
   const [locationFilter, setLocationFilter] = useState<VehicleLocation | "">(
     "",
   );
@@ -70,6 +76,52 @@ export default function VehicleCatalogView() {
       ),
     [vehicles, locationFilter],
   );
+  const catalogVehicles = visibleVehicles.filter(
+    (v) =>
+      category === "todos" ||
+      (category === "en_transito"
+        ? v.status === category
+        : v.condition === category),
+  );
+  function exportCatalog() {
+    const cell = (v: unknown) =>
+      `"${String(v ?? "")
+        .replace(/^[=+@-]/, "'$&")
+        .replaceAll('"', '""')}"`;
+    const rows = [
+      [
+        "Marca",
+        "Modelo",
+        "Año",
+        "VIN",
+        "Placa",
+        "Estado",
+        "Contado",
+        "Financiado",
+      ],
+      ...catalogVehicles.map((v) => [
+        v.brand,
+        v.model,
+        v.year,
+        v.vin,
+        v.plate,
+        v.status,
+        v.cash_total,
+        v.price_financed,
+      ]),
+    ];
+    const url = URL.createObjectURL(
+      new Blob(
+        ["\uFEFF" + rows.map((row) => row.map(cell).join(";")).join("\n")],
+        { type: "text/csv;charset=utf-8" },
+      ),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "catalogo-vehiculos.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
   const summary = useMemo(
     () => ({
       nuevos: visibleVehicles.filter((vehicle) => vehicle.condition === "nuevo")
@@ -144,7 +196,7 @@ export default function VehicleCatalogView() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-navy">
-            Catálogo de Vehículos
+            Catálogo de vehículos
           </h1>
           <p className="mt-1 text-sm text-steel">
             Consulta de inventario del concesionario
@@ -165,28 +217,32 @@ export default function VehicleCatalogView() {
         </button>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[
-          { label: "Nuevos", value: summary.nuevos },
-          { label: "Usados", value: summary.usados },
-          { label: "En tránsito", value: summary.enTransito },
-          { label: "Disponibles", value: summary.disponibles },
-        ].map((item) => (
-          <div
-            key={item.label}
-            className="rounded-2xl border border-navy/10 bg-white p-5"
-          >
-            <p className="font-mono text-[11px] uppercase tracking-widest text-steel">
-              {item.label}
-            </p>
-            <p className="mt-1 font-display text-3xl font-bold text-navy">
-              {formatCount(item.value)}
-            </p>
-          </div>
-        ))}
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-1 rounded-lg border border-navy/10 bg-white p-1">
+          {[
+            ["todos", "Todos", visibleVehicles.length],
+            ["nuevo", "Nuevos", summary.nuevos],
+            ["usado", "Usados", summary.usados],
+            ["en_transito", "En tránsito", summary.enTransito],
+          ].map(([id, label, count]) => (
+            <button
+              key={id}
+              onClick={() => setCategory(String(id))}
+              aria-pressed={category === id}
+              className={`rounded-md px-3 py-2 text-xs ${category === id ? "bg-[#191919] text-white" : "text-steel hover:bg-ash"}`}
+            >
+              {label} <span className="ml-1 opacity-60">{count}</span>
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={exportCatalog}
+          className="ml-auto rounded-lg border border-navy/10 bg-white px-4 py-2.5 text-xs font-semibold"
+        >
+          Exportar CSV
+        </button>
       </div>
-
-      <div className="mb-6 flex items-center gap-3">
+      <div className="mb-6 flex flex-wrap items-center gap-3">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-steel" />
           <input
@@ -211,7 +267,7 @@ export default function VehicleCatalogView() {
           ))}
         </select>
         <span className="whitespace-nowrap text-sm text-steel">
-          {visibleVehicles.length} vehículos
+          {catalogVehicles.length} vehículos
         </span>
       </div>
 
@@ -221,7 +277,7 @@ export default function VehicleCatalogView() {
         </div>
       ) : error ? (
         <ErrorState error={error} onRetry={refresh} compact />
-      ) : visibleVehicles.length === 0 ? (
+      ) : catalogVehicles.length === 0 ? (
         <EmptyState
           compact
           title={
@@ -231,8 +287,8 @@ export default function VehicleCatalogView() {
           }
         />
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleVehicles.map((v) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {catalogVehicles.map((v) => (
             <VehicleCard
               key={v.id}
               vehicle={v}

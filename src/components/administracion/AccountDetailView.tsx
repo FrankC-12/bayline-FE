@@ -90,6 +90,8 @@ const COUNTERPARTY_LABELS: Record<CounterpartyType, string> = {
 function sourceHref(m: AccountMovement): string | null {
   if (!m.source_type || !m.source_id) return null;
   switch (m.source_type) {
+    case "vehicle_reservation":
+      return `/dashboard/concesionario/oportunidades/${m.source_id}`;
     case "vehicle_sale":
       return `/dashboard/concesionario/ventas?sale=${m.source_id}`;
     case "part_sale":

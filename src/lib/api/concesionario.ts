@@ -48,6 +48,10 @@ export async function getLatestExchangeRates(): Promise<ExchangeRate[]> {
 }
 
 export interface VehicleSaleInput {
+  usd_account_id?: string;
+  bs_account_id?: string;
+  opportunity_id?: string;
+  opportunity_version?: number;
   client_id?: string | null;
   client_name: string;
   client_document?: string | null;
@@ -67,6 +71,10 @@ export interface VehicleSaleInput {
 }
 
 export interface VehicleReservationInput {
+  opportunity_version?: number;
+  account_id?: string;
+  payment_reference?: string;
+  payment_channel?: "cash" | "binance" | "paypal" | "zelle";
   reason?: string;
   client_id: string;
   advisor_user_id: string;
